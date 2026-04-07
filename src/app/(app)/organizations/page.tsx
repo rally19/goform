@@ -61,7 +61,7 @@ export default function OrganizationsPage() {
                </div>
             </div>
             <CardTitle>Acme Corp</CardTitle>
-            <CardDescription>Company shared forms and billing.</CardDescription>
+            <CardDescription>Company shared forms.</CardDescription>
           </CardHeader>
           <CardContent>
              <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2">
