@@ -30,10 +30,16 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import {
-  Save, Loader2, PlusCircle, Globe,
+  Save, Loader2, PlusCircle, Globe, LayoutGrid, Settings2,
 } from "lucide-react";
 import Link from "next/link";
 import { ACCENT_COLORS } from "@/lib/form-types";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 interface BuilderCanvasProps {
   formId: string;
@@ -65,6 +71,20 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeData, setActiveData] = useState<any>(null);
+  const [isComponentsOpen, setIsComponentsOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Close settings sheet when a field is selected or deselected if on mobile
+  useEffect(() => {
+    if (selectedFieldId) {
+      // Small delay to ensure smooth transition
+      const timer = setTimeout(() => {
+        // Only auto-open on smaller screens if we want to, 
+        // but usually we want to let the user click "Properties"
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedFieldId]);
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 3 } }),
@@ -202,10 +222,22 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
       }}
     >
       <div className="flex h-full overflow-hidden">
-        {/* Left: Component Panel */}
+        {/* Left: Component Panel (Desktop) */}
         <div className="w-56 shrink-0 hidden md:flex flex-col border-r border-border h-full min-h-0">
           <ComponentPanel />
         </div>
+
+        {/* Left: Component Panel (Mobile Sheet) */}
+        <Sheet open={isComponentsOpen} onOpenChange={setIsComponentsOpen}>
+          <SheetContent side="left" className="p-0 w-72">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Components</SheetTitle>
+            </SheetHeader>
+            <div className="h-full">
+              <ComponentPanel />
+            </div>
+          </SheetContent>
+        </Sheet>
 
         {/* Center: Canvas */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -270,7 +302,7 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
           {/* Canvas area */}
           <ScrollArea className="flex-1 min-h-0">
             <div
-              className="min-h-full bg-muted/20 py-8 px-4"
+              className="min-h-full bg-muted/20 pb-24 md:pb-8 pt-8 px-4"
               onClick={() => selectField(null)}
             >
               <div className="max-w-2xl mx-auto space-y-4">
@@ -306,9 +338,52 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
           </ScrollArea>
         </div>
 
-        {/* Right: Field Settings */}
+        {/* Right: Field Settings (Desktop) */}
         <div className="w-64 shrink-0 hidden lg:flex flex-col border-l border-border h-full min-h-0">
           <FieldSettings />
+        </div>
+
+        {/* Right: Field Settings (Mobile Sheet) */}
+        <Sheet open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+          <SheetContent side="right" className="p-0 w-80">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Field Properties</SheetTitle>
+            </SheetHeader>
+            <div className="h-full">
+              <FieldSettings />
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        {/* Mobile Floating Action Buttons */}
+        <div className="lg:hidden">
+          {/* Bottom Left: Add Components */}
+          <div className="fixed bottom-6 left-6 z-40">
+            <Button
+              size="icon"
+              className="h-14 w-14 rounded-full shadow-2xl transition-transform active:scale-95"
+              style={{ backgroundColor: accentColor, color: "white" }}
+              onClick={() => setIsComponentsOpen(true)}
+            >
+              <PlusCircle className="h-6 w-6" />
+            </Button>
+          </div>
+
+          {/* Bottom Right: Field Properties */}
+          <div className="fixed bottom-6 right-6 z-40">
+            <Button
+              size="icon"
+              className={cn(
+                "h-14 w-14 rounded-full shadow-2xl transition-all active:scale-95",
+                !selectedFieldId && "opacity-0 pointer-events-none translate-y-20"
+              )}
+              style={selectedFieldId ? { backgroundColor: accentColor, color: "white" } : {}}
+              onClick={() => setIsSettingsOpen(true)}
+              disabled={!selectedFieldId}
+            >
+              <Settings2 className="h-6 w-6" />
+            </Button>
+          </div>
         </div>
       </div>
 
