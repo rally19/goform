@@ -30,7 +30,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import {
-  Save, Loader2, PlusCircle, Globe, LayoutGrid, Settings2,
+  Save, Loader2, PlusCircle, Globe, LayoutGrid, Settings2, Palette, Check,
 } from "lucide-react";
 import Link from "next/link";
 import { ACCENT_COLORS } from "@/lib/form-types";
@@ -40,6 +40,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface BuilderCanvasProps {
   formId: string;
@@ -255,22 +261,7 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
               )}
             </div>
 
-            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth max-w-[100px] sm:max-w-none">
-              {ACCENT_COLORS.map((c) => (
-                <button
-                  key={c.value}
-                  title={c.label}
-                  className={cn(
-                    "h-4 w-4 rounded-full border-2 transition-transform hover:scale-110 shrink-0",
-                    accentColor === c.value
-                      ? "border-foreground scale-125"
-                      : "border-transparent"
-                  )}
-                  style={{ backgroundColor: c.value }}
-                  onClick={() => updateFormMeta({ accentColor: c.value })}
-                />
-              ))}
-            </div>
+            <div className="flex-1" />
 
             <div className="flex items-center gap-2">
               <Button
@@ -296,6 +287,38 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
                 <Globe className="h-3.5 w-3.5 mr-1.5" />
                 {form?.status === "active" ? "Unpublish" : "Publish"}
               </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted">
+                    <Palette className="h-4 w-4" />
+                    <span className="sr-only">Change accent color</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" sideOffset={8} className="w-48 p-2">
+                  <div className="grid grid-cols-4 gap-2">
+                    {ACCENT_COLORS.map((c) => (
+                      <DropdownMenuItem
+                        key={c.value}
+                        className={cn(
+                          "relative h-8 w-8 rounded-full cursor-pointer p-0 flex items-center justify-center transition-transform hover:scale-110 focus:ring-2 focus:ring-ring",
+                          accentColor === c.value && "ring-2 ring-ring ring-offset-2"
+                        )}
+                        style={{ backgroundColor: c.value }}
+                        onSelect={(e) => {
+                          e.preventDefault();
+                          updateFormMeta({ accentColor: c.value });
+                        }}
+                        title={c.label}
+                      >
+                        {accentColor === c.value && (
+                          <Check className="h-4 w-4 text-white drop-shadow-sm" />
+                        )}
+                      </DropdownMenuItem>
+                    ))}
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 
