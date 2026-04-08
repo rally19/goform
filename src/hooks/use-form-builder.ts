@@ -29,7 +29,7 @@ interface FormBuilderState {
   // Init from DB data
   initialize: (form: BuilderForm, fields: BuilderField[]) => void;
   // Add a field from component panel
-  addField: (type: FieldType) => void;
+  addField: (type: FieldType, index?: number) => void;
   // Remove a field
   removeField: (id: string) => void;
   // Duplicate a field
@@ -73,7 +73,7 @@ export const useFormBuilder = create<FormBuilderState>()(
       });
     },
 
-    addField: (type) => {
+    addField: (type, index) => {
       const meta = FIELD_TYPE_META.find((m) => m.type === type);
       if (!meta) return;
 
@@ -91,7 +91,11 @@ export const useFormBuilder = create<FormBuilderState>()(
       };
 
       set((state) => {
-        state.fields.push(newField);
+        if (typeof index === "number") {
+          state.fields.splice(index, 0, newField);
+        } else {
+          state.fields.push(newField);
+        }
         state.selectedFieldId = newField.id;
         state.isDirty = true;
       });

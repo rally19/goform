@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import type { BuilderField, BuilderForm } from "@/lib/form-types";
+import type { BuilderField, BuilderForm, FieldType } from "@/lib/form-types";
 import { saveFormFields, updateForm, setFormStatus } from "@/lib/actions/forms";
 import { toast } from "sonner";
 import {
@@ -50,6 +50,8 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
     isSaving,
     initialize,
     reorderFields,
+    addField,
+    removeField,
     selectField,
     setSaving,
     markSaved,
@@ -62,6 +64,7 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
   }, []);
 
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeData, setActiveData] = useState<any>(null);
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 3 } }),
@@ -69,21 +72,51 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
   );
 
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
+    const { active } = event;
+    setActiveId(active.id as string);
+    setActiveData(active.data.current);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
-    if (over && active.id !== over.id) {
+    setActiveData(null);
+
+    if (!over) return;
+
+    // Case 1: Dragging from sidebar to canvas
+    if (active.id.toString().startsWith("new:")) {
+      const type = active.data.current?.type as FieldType;
+      // Determine if dropping over a specific field or the canvas itself
+      const overId = over.id.toString();
+      const overIdx = fields.findIndex((f) => f.id === overId);
+      
+      // If dropped over a field, insert at that index
+      // If dropped over the canvas (not a field), add to end
+      addField(type, overIdx >= 0 ? overIdx : undefined);
+      return;
+    }
+
+    // Case 2: Dragging from canvas to sidebar (remove)
+    if (over.id === "component-panel") {
+      removeField(active.id as string);
+      toast.success("Field removed");
+      return;
+    }
+
+    // Case 3: Reordering within canvas
+    if (active.id !== over.id) {
       const fromIdx = fields.findIndex((f) => f.id === active.id);
       const toIdx = fields.findIndex((f) => f.id === over.id);
-      reorderFields(fromIdx, toIdx);
+      if (fromIdx >= 0 && toIdx >= 0) {
+        reorderFields(fromIdx, toIdx);
+      }
     }
   };
 
   // Save handler
   const handleSave = useCallback(async () => {
+    // ... same as before
     if (!form || isSaving) return;
     setSaving(true);
     try {
@@ -102,6 +135,7 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
   }, [form, fields, formId, isSaving]);
 
   const handlePublish = useCallback(async () => {
+    // ... same as before
     if (!form) return;
     const newStatus = form.status === "active" ? "draft" : "active";
     const result = await setFormStatus(formId, newStatus);
@@ -126,96 +160,127 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
 
   const accentColor = form?.accentColor ?? "#6366f1";
 
+  // Overlay component helper
+  const renderOverlay = () => {
+    if (!activeId) return null;
+
+    if (activeId.toString().startsWith("new:")) {
+      const type = activeId.toString().split(":")[1];
+      const label = activeData?.label || "New Field";
+      return (
+        <div className="bg-card border-2 border-primary rounded-xl p-4 shadow-2xl opacity-90 w-72 flex items-center gap-3">
+          <PlusCircle className="h-5 w-5 text-primary" />
+          <span className="font-medium text-sm">Adding {label}...</span>
+        </div>
+      );
+    }
+
+    const field = fields.find((f) => f.id === activeId);
+    if (field) {
+      return (
+        <FieldCard
+          field={field}
+          isSelected={selectedFieldId === activeId}
+          accentColor={accentColor}
+          isOverlay
+        />
+      );
+    }
+
+    return null;
+  };
+
   return (
-    <div className="flex h-full overflow-hidden">
-      {/* Left: Component Panel */}
-      <div className="w-56 shrink-0 hidden md:flex flex-col border-r border-border h-full min-h-0">
-        <ComponentPanel />
-      </div>
-
-      {/* Center: Canvas */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Toolbar */}
-        <div className="h-12 border-b border-border bg-card flex items-center justify-between px-4 shrink-0">
-          <div className="flex items-center gap-2">
-            {/* Status badge */}
-            <Badge
-              variant={form?.status === "active" ? "default" : "secondary"}
-              className="capitalize"
-            >
-              {form?.status ?? "draft"}
-            </Badge>
-            {isDirty && (
-              <span className="text-xs text-muted-foreground">• Unsaved changes</span>
-            )}
-          </div>
-
-          {/* Color picker */}
-          <div className="flex items-center gap-1">
-            {ACCENT_COLORS.map((c) => (
-              <button
-                key={c.value}
-                title={c.label}
-                className={cn(
-                  "h-4 w-4 rounded-full border-2 transition-transform hover:scale-110",
-                  accentColor === c.value
-                    ? "border-foreground scale-125"
-                    : "border-transparent"
-                )}
-                style={{ backgroundColor: c.value }}
-                onClick={() => updateFormMeta({ accentColor: c.value })}
-              />
-            ))}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSave}
-              disabled={isSaving || !isDirty}
-              className="h-8"
-            >
-              {isSaving ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Save className="h-3.5 w-3.5" />
-              )}
-              <span className="ml-1.5 hidden sm:inline">Save</span>
-            </Button>
-            <Button
-              size="sm"
-              onClick={handlePublish}
-              className="h-8"
-              style={{ backgroundColor: accentColor, color: "white" }}
-            >
-              <Globe className="h-3.5 w-3.5 mr-1.5" />
-              {form?.status === "active" ? "Unpublish" : "Publish"}
-            </Button>
-          </div>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragCancel={() => {
+        setActiveId(null);
+        setActiveData(null);
+      }}
+    >
+      <div className="flex h-full overflow-hidden">
+        {/* Left: Component Panel */}
+        <div className="w-56 shrink-0 hidden md:flex flex-col border-r border-border h-full min-h-0">
+          <ComponentPanel />
         </div>
 
-        {/* Canvas area */}
-        <ScrollArea className="flex-1 min-h-0">
-          <div
-            className="min-h-full bg-muted/20 py-8 px-4"
-            onClick={() => selectField(null)}
-          >
-            <div className="max-w-2xl mx-auto space-y-4">
-              <FormHeaderEditor accentColor={accentColor} />
-
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-                onDragCancel={() => setActiveId(null)}
+        {/* Center: Canvas */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          {/* Toolbar */}
+          <div className="h-12 border-b border-border bg-card flex items-center justify-between px-4 shrink-0">
+            <div className="flex items-center gap-2">
+              <Badge
+                variant={form?.status === "active" ? "default" : "secondary"}
+                className="capitalize"
               >
+                {form?.status ?? "draft"}
+              </Badge>
+              {isDirty && (
+                <span className="text-xs text-muted-foreground">• Unsaved changes</span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1">
+              {ACCENT_COLORS.map((c) => (
+                <button
+                  key={c.value}
+                  title={c.label}
+                  className={cn(
+                    "h-4 w-4 rounded-full border-2 transition-transform hover:scale-110",
+                    accentColor === c.value
+                      ? "border-foreground scale-125"
+                      : "border-transparent"
+                  )}
+                  style={{ backgroundColor: c.value }}
+                  onClick={() => updateFormMeta({ accentColor: c.value })}
+                />
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSave}
+                disabled={isSaving || !isDirty}
+                className="h-8"
+              >
+                {isSaving ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Save className="h-3.5 w-3.5" />
+                )}
+                <span className="ml-1.5 hidden sm:inline">Save</span>
+              </Button>
+              <Button
+                size="sm"
+                onClick={handlePublish}
+                className="h-8"
+                style={{ backgroundColor: accentColor, color: "white" }}
+              >
+                <Globe className="h-3.5 w-3.5 mr-1.5" />
+                {form?.status === "active" ? "Unpublish" : "Publish"}
+              </Button>
+            </div>
+          </div>
+
+          {/* Canvas area */}
+          <ScrollArea className="flex-1 min-h-0">
+            <div
+              className="min-h-full bg-muted/20 py-8 px-4"
+              onClick={() => selectField(null)}
+            >
+              <div className="max-w-2xl mx-auto space-y-4">
+                <FormHeaderEditor accentColor={accentColor} />
+
                 <SortableContext
                   items={fields.map((f) => f.id)}
                   strategy={verticalListSortingStrategy}
                 >
-                  <div className="space-y-3">
+                  <div className="space-y-3 min-h-[100px]">
                     {fields.map((field) => (
                       <FieldCard
                         key={field.id}
@@ -227,44 +292,37 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
                   </div>
                 </SortableContext>
 
-                <DragOverlay dropAnimation={{
-                  sideEffects: defaultDropAnimationSideEffects({
-                    styles: {
-                      active: {
-                        opacity: "0.4",
-                      },
-                    },
-                  }),
-                }}>
-                  {activeId ? (
-                    <FieldCard
-                      field={fields.find((f) => f.id === activeId)!}
-                      isSelected={selectedFieldId === activeId}
-                      accentColor={accentColor}
-                      isOverlay
-                    />
-                  ) : null}
-                </DragOverlay>
-              </DndContext>
-
-              {fields.length === 0 && (
-                <div className="border-2 border-dashed border-muted-foreground/20 rounded-xl p-12 text-center">
-                  <PlusCircle className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
-                  <p className="text-sm font-medium text-foreground">Start building your form</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Click any component in the left panel to add it here
-                  </p>
-                </div>
-              )}
+                {fields.length === 0 && (
+                  <div className="border-2 border-dashed border-muted-foreground/20 rounded-xl p-12 text-center">
+                    <PlusCircle className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+                    <p className="text-sm font-medium text-foreground">Start building your form</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Drag components from the left panel or click to add
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </ScrollArea>
+          </ScrollArea>
+        </div>
+
+        {/* Right: Field Settings */}
+        <div className="w-64 shrink-0 hidden lg:flex flex-col border-l border-border h-full min-h-0">
+          <FieldSettings />
+        </div>
       </div>
 
-      {/* Right: Field Settings */}
-      <div className="w-64 shrink-0 hidden lg:flex flex-col border-l border-border h-full min-h-0">
-        <FieldSettings />
-      </div>
-    </div>
+      <DragOverlay dropAnimation={{
+        sideEffects: defaultDropAnimationSideEffects({
+          styles: {
+            active: {
+              opacity: "0.4",
+            },
+          },
+        }),
+      }}>
+        {renderOverlay()}
+      </DragOverlay>
+    </DndContext>
   );
 }

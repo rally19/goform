@@ -3,16 +3,17 @@
 import { useState, useMemo } from "react";
 import { useFormBuilder } from "@/hooks/use-form-builder";
 import { FIELD_TYPE_META, FIELD_CATEGORIES } from "@/lib/form-types";
-import type { FieldType, FieldCategory } from "@/lib/form-types";
+import type { FieldType, FieldCategory, FieldTypeMeta } from "@/lib/form-types";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
 import {
   Type, AlignLeft, Hash, Mail, Phone, Link, Calendar, Clock,
   CalendarClock, CircleDot, CheckSquare, ChevronDown, ListChecks,
   Star, SlidersHorizontal, Heading, Columns2, Upload, User, List,
-  BarChart2, Layout, Paperclip, Search, LayoutGrid,
+  BarChart2, Layout, Paperclip, Search, LayoutGrid, Trash2,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -32,10 +33,58 @@ const CATEGORY_COLORS: Record<FieldCategory, string> = {
   media: "bg-pink-500/15 text-pink-600 dark:text-pink-400",
 };
 
-export function ComponentPanel() {
+function DraggableSidebarItem({ item }: { item: FieldTypeMeta }) {
   const { addField } = useFormBuilder();
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `new:${item.type}`,
+    data: {
+      type: item.type,
+      isNew: true,
+      label: item.label,
+    },
+  });
+
+  const Icon = ICON_MAP[item.icon];
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      className={cn(
+        "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-left text-sm hover:bg-muted transition-colors group cursor-grab active:cursor-grabbing",
+        isDragging && "opacity-40"
+      )}
+      onClick={() => addField(item.type as FieldType)}
+      title={item.description}
+    >
+      <div
+        className={cn(
+          "flex items-center justify-center h-7 w-7 rounded-md shrink-0",
+          CATEGORY_COLORS[item.category]
+        )}
+      >
+        {Icon && <Icon className="h-3.5 w-3.5" />}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="font-medium text-foreground text-xs leading-tight">
+          {item.label}
+        </div>
+        <div className="text-[10px] text-muted-foreground truncate">
+          {item.description}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ComponentPanel() {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<FieldCategory | "all">("all");
+
+  const { setNodeRef, isOver } = useDroppable({
+    id: "component-panel",
+  });
 
   const filtered = useMemo(() => {
     return FIELD_TYPE_META.filter((m) => {
@@ -59,7 +108,24 @@ export function ComponentPanel() {
   }, [filtered]);
 
   return (
-    <div className="flex flex-col h-full bg-card min-h-0">
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "flex flex-col h-full bg-card min-h-0 relative transition-colors duration-200",
+        isOver && "bg-destructive/10 ring-2 ring-inset ring-destructive/20"
+      )}
+    >
+      {/* Drop area visual for deletion */}
+      {isOver && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-destructive/10 backdrop-blur-[1px] pointer-events-none">
+          <div className="bg-destructive text-destructive-foreground p-3 rounded-full shadow-lg mb-3">
+            <Trash2 className="h-6 w-6" />
+          </div>
+          <p className="text-sm font-semibold text-destructive">Drop to Delete</p>
+          <p className="text-[10px] text-destructive/70 mt-1">This will remove the field from your form</p>
+        </div>
+      )}
+
       {/* Header */}
       <div className="p-3 border-b border-border">
         <h3 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider mb-2 px-1">
@@ -128,34 +194,9 @@ export function ComponentPanel() {
                   </div>
                 )}
                 <div className="space-y-0.5">
-                  {items.map((item) => {
-                    const Icon = ICON_MAP[item.icon];
-                    return (
-                      <button
-                        key={item.type}
-                        onClick={() => addField(item.type as FieldType)}
-                        className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-left text-sm hover:bg-muted transition-colors group"
-                        title={item.description}
-                      >
-                        <div
-                          className={cn(
-                            "flex items-center justify-center h-7 w-7 rounded-md shrink-0",
-                            CATEGORY_COLORS[item.category]
-                          )}
-                        >
-                          {Icon && <Icon className="h-3.5 w-3.5" />}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="font-medium text-foreground text-xs leading-tight">
-                            {item.label}
-                          </div>
-                          <div className="text-[10px] text-muted-foreground truncate">
-                            {item.description}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
+                  {items.map((item) => (
+                    <DraggableSidebarItem key={item.type} item={item} />
+                  ))}
                 </div>
               </div>
             );
