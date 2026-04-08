@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useRef, useState } from "react";
 import { useFormBuilder } from "@/hooks/use-form-builder";
 import { FieldCard } from "./field-card";
 import { FormHeaderEditor } from "./form-header-editor";
@@ -19,8 +19,11 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
+  DragStartEvent,
   DragEndEvent,
   closestCenter,
+  DragOverlay,
+  defaultDropAnimationSideEffects,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -58,13 +61,20 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
     initialize(initialForm, initialFields);
   }, []);
 
+  const [activeId, setActiveId] = useState<string | null>(null);
+
   const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 3 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
   );
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+    setActiveId(null);
     if (over && active.id !== over.id) {
       const fromIdx = fields.findIndex((f) => f.id === active.id);
       const toIdx = fields.findIndex((f) => f.id === over.id);
@@ -197,7 +207,9 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
+                onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
+                onDragCancel={() => setActiveId(null)}
               >
                 <SortableContext
                   items={fields.map((f) => f.id)}
@@ -214,6 +226,25 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
                     ))}
                   </div>
                 </SortableContext>
+
+                <DragOverlay dropAnimation={{
+                  sideEffects: defaultDropAnimationSideEffects({
+                    styles: {
+                      active: {
+                        opacity: "0.4",
+                      },
+                    },
+                  }),
+                }}>
+                  {activeId ? (
+                    <FieldCard
+                      field={fields.find((f) => f.id === activeId)!}
+                      isSelected={selectedFieldId === activeId}
+                      accentColor={accentColor}
+                      isOverlay
+                    />
+                  ) : null}
+                </DragOverlay>
               </DndContext>
 
               {fields.length === 0 && (

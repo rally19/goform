@@ -27,9 +27,15 @@ interface FieldCardProps {
   field: BuilderField;
   isSelected: boolean;
   accentColor?: string;
+  isOverlay?: boolean;
 }
 
-export function FieldCard({ field, isSelected, accentColor = "#6366f1" }: FieldCardProps) {
+export function FieldCard({ 
+  field, 
+  isSelected, 
+  accentColor = "#6366f1",
+  isOverlay = false,
+}: FieldCardProps) {
   const { selectField, removeField, duplicateField } = useFormBuilder();
   const Icon = FIELD_ICONS[field.type] ?? Type;
 
@@ -40,11 +46,11 @@ export function FieldCard({ field, isSelected, accentColor = "#6366f1" }: FieldC
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: field.id });
+  } = useSortable({ id: field.id, disabled: isOverlay });
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: isOverlay ? "none" : transition,
   };
 
   // Field preview renderer
@@ -162,21 +168,26 @@ export function FieldCard({ field, isSelected, accentColor = "#6366f1" }: FieldC
     <div
       ref={setNodeRef}
       className={cn(
-        "group relative rounded-xl border bg-card transition-all duration-300 cursor-pointer",
-        isSelected
+        "group relative rounded-xl border bg-card cursor-pointer",
+        !isDragging && !isOverlay && "transition-all duration-300",
+        isSelected || isOverlay
           ? "shadow-md"
           : "border-border hover:border-muted-foreground/30 hover:shadow-sm",
-        isDragging ? "opacity-40" : "opacity-100"
+        isDragging ? "opacity-0" : "opacity-100",
+        isOverlay && "z-50 cursor-grabbing shadow-xl border-primary/50"
       )}
       style={{
         ...style,
-        ...(isSelected ? {
+        ...((isSelected || isOverlay) ? {
           borderColor: accentColor,
-          boxShadow: `0 0 0 4px ${accentColor}10, 0 4px 20px -4px ${accentColor}25`,
-          backgroundColor: `${accentColor}05`,
+          boxShadow: isOverlay 
+            ? `0 10px 30px -10px ${accentColor}40` 
+            : `0 0 0 4px ${accentColor}10, 0 4px 20px -4px ${accentColor}25`,
+          backgroundColor: isOverlay ? "var(--card)" : `${accentColor}05`,
         } : {})
       }}
       onClick={(e) => {
+        if (isOverlay) return;
         e.stopPropagation();
         selectField(field.id);
       }}
