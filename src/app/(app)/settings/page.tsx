@@ -26,5 +26,7 @@ export default async function SettingsPage() {
     avatarUrl: user.user_metadata?.avatar_url || null 
   };
 
-  return <SettingsClient user={initialUser} identities={identities} />;
+  const hasPassword = identities.some(identity => identity.provider === 'email');
+
+  return <SettingsClient user={initialUser} identities={identities} hasPassword={hasPassword} />;
 }

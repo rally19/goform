@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { UserAccountWidget } from "@/components/user-account-widget";
 
 const navigation = [
   {
@@ -86,13 +87,8 @@ export default function AppLayout({
               </SidebarGroupContent>
             </SidebarGroup>
           </SidebarContent>
-          <SidebarFooter className="border-t border-sidebar-border p-4 flex flex-row items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-medium">
-               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
-                <Users className="size-4" />
-               </div>
-               <span>User Account</span>
-            </div>
+           <SidebarFooter className="border-t border-sidebar-border p-4 flex flex-row items-center justify-between">
+            <UserAccountWidget />
           </SidebarFooter>
         </Sidebar>
 

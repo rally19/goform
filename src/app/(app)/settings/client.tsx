@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Camera, Monitor, ShieldCheck, LogOut, Link2 } from "lucide-react";
+import { toast } from "sonner";
 import { 
   updateProfileAction, 
   updatePasswordAction, 
@@ -28,85 +29,84 @@ import type { UserIdentity } from "@supabase/supabase-js";
 
 export function SettingsClient({ 
   user, 
-  identities 
+  identities,
+  hasPassword
 }: { 
   user: { id: string, name: string | null, email: string, avatarUrl: string | null },
-  identities: UserIdentity[]
+  identities: UserIdentity[],
+  hasPassword: boolean
 }) {
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   const handleProfileSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setMessage(null);
     const formData = new FormData(e.currentTarget);
     startTransition(async () => {
       const res = await updateProfileAction(formData);
-      if (res?.error) setMessage({ type: 'error', text: res.error });
-      else setMessage({ type: 'success', text: 'Profile updated successfully.' });
+      if (res?.error) toast.error(res.error);
+      else toast.success('Profile updated successfully.');
     });
   };
 
   const handlePasswordSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setMessage(null);
     const formData = new FormData(e.currentTarget);
     startTransition(async () => {
       const res = await updatePasswordAction(formData);
-      if (res?.error) setMessage({ type: 'error', text: res.error });
-      else setMessage({ type: 'success', text: 'Password updated. You may be logged out.' });
+      if (res?.error) toast.error(res.error);
+      else toast.success('Password updated. You may be logged out.');
     });
   };
 
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setMessage(null);
     const file = e.target.files?.[0];
     if (file) {
       const formData = new FormData();
       formData.append('file', file);
       startTransition(async () => {
         const res = await uploadAvatarAction(formData);
-        if (res?.error) setMessage({ type: 'error', text: res.error });
-        else setMessage({ type: 'success', text: 'Avatar uploaded successfully.' });
+        if (res?.error) toast.error(res.error);
+        else toast.success('Avatar uploaded successfully.');
       });
     }
   };
 
   const handleRemoveAvatar = () => {
-    setMessage(null);
     startTransition(async () => {
       const res = await removeAvatarAction();
-      if (res?.error) setMessage({ type: 'error', text: res.error });
-      else setMessage({ type: 'success', text: 'Avatar removed.' });
+      if (res?.error) toast.error(res.error);
+      else toast.success('Avatar removed.');
     });
   };
 
   const handleSignoutOthers = () => {
-    setMessage(null);
     startTransition(async () => {
       const res = await signOutOthersAction();
-      if (res?.error) setMessage({ type: 'error', text: res.error });
-      else setMessage({ type: 'success', text: 'Successfully signed out from other sessions.' });
+      if (res?.error) toast.error(res.error);
+      else toast.success('Successfully signed out from other sessions.');
     });
   };
 
   const handleDisconnect = (identity: UserIdentity) => {
-    setMessage(null);
+    if (!hasPassword) {
+      toast.error("You must set a password before you can unlink your accounts to avoid being locked out.");
+      return;
+    }
+
     startTransition(async () => {
       const res = await disconnectProviderAction(identity);
-      if (res?.error) setMessage({ type: 'error', text: res.error });
-      else setMessage({ type: 'success', text: 'Identity disconnected.' });
+      if (res?.error) toast.error(res.error);
+      else toast.success('Identity disconnected.');
     });
   };
 
   const handleDeleteAccount = () => {
     if (window.confirm("Are you absolutely sure you want to delete your account? This action cannot be undone.")) {
-      setMessage(null);
       startTransition(async () => {
         const res = await deleteAccountAction();
-        if (res?.error) setMessage({ type: 'error', text: res.error });
+        if (res?.error) toast.error(res.error);
       });
     }
   };
@@ -117,11 +117,6 @@ export function SettingsClient({
         <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
       </div>
       
-      {message && (
-        <div className={`p-4 mb-4 rounded-md text-sm font-medium ${message.type === 'error' ? 'bg-destructive/15 text-destructive' : 'bg-green-100/50 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
-          {message.text}
-        </div>
-      )}
 
       <div className="w-full max-w-4xl">
         <Tabs defaultValue="account" className="w-full">
