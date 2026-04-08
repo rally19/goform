@@ -356,9 +356,9 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
         </Sheet>
 
         {/* Mobile Floating Action Buttons */}
-        <div className="lg:hidden">
-          {/* Bottom Left: Add Components */}
-          <div className="fixed bottom-6 left-6 z-40">
+        <div className="contents">
+          {/* Bottom Left: Add Components - Hidden when left panel is visible (md) */}
+          <div className="fixed bottom-6 left-6 z-40 md:hidden">
             <Button
               size="icon"
               className="h-14 w-14 rounded-full shadow-2xl transition-transform active:scale-95"
@@ -369,8 +369,8 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
             </Button>
           </div>
 
-          {/* Bottom Right: Field Properties */}
-          <div className="fixed bottom-6 right-6 z-40">
+          {/* Bottom Right: Field Properties - Hidden when right panel is visible (lg) */}
+          <div className="fixed bottom-6 right-6 z-40 lg:hidden">
             <Button
               size="icon"
               className={cn(
