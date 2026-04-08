@@ -59,7 +59,7 @@ export function ComponentPanel() {
   }, [filtered]);
 
   return (
-    <div className="flex flex-col h-full bg-card border-r border-border">
+    <div className="flex flex-col h-full bg-card min-h-0">
       {/* Header */}
       <div className="p-3 border-b border-border">
         <h3 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider mb-2 px-1">
@@ -112,7 +112,7 @@ export function ComponentPanel() {
       </div>
 
       {/* Field list */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="p-2 space-y-3">
           {[...grouped.entries()].map(([category, items]) => {
             const catMeta = FIELD_CATEGORIES.find((c) => c.id === category);

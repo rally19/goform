@@ -117,9 +117,9 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
   const accentColor = form?.accentColor ?? "#6366f1";
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className="flex h-[calc(100svh-56px)] overflow-hidden">
       {/* Left: Component Panel */}
-      <div className="w-56 shrink-0 hidden md:flex flex-col">
+      <div className="w-56 shrink-0 hidden md:flex flex-col border-r border-border h-full min-h-0">
         <ComponentPanel />
       </div>
 
@@ -186,7 +186,7 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
         </div>
 
         {/* Canvas area */}
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 min-h-0">
           <div
             className="min-h-full bg-muted/20 py-8 px-4"
             onClick={() => selectField(null)}
@@ -231,7 +231,7 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
       </div>
 
       {/* Right: Field Settings */}
-      <div className="w-64 shrink-0 hidden lg:flex flex-col">
+      <div className="w-64 shrink-0 hidden lg:flex flex-col border-l border-border h-full min-h-0">
         <FieldSettings />
       </div>
     </div>

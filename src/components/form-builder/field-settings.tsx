@@ -31,7 +31,7 @@ export function FieldSettings() {
 
   if (!field) {
     return (
-      <div className="flex flex-col h-full bg-card border-l border-border">
+      <div className="flex flex-col h-full bg-card min-h-0">
         <div className="p-3 border-b border-border">
           <h3 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
             Properties
@@ -58,7 +58,7 @@ export function FieldSettings() {
   const isLayout = ["section", "page_break"].includes(field.type);
 
   return (
-    <div className="flex flex-col h-full bg-card border-l border-border">
+    <div className="flex flex-col h-full bg-card min-h-0">
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-border">
         <div className="flex items-center gap-2">
@@ -74,7 +74,7 @@ export function FieldSettings() {
         </Button>
       </div>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="p-4 space-y-5">
           {/* Basic info */}
           <div className="space-y-3">
