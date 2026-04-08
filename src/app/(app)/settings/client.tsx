@@ -3,6 +3,7 @@
 import { useTransition, useState, useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -14,7 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Camera, Monitor, ShieldCheck, LogOut, Link2 } from "lucide-react";
+import { Camera, Monitor, ShieldCheck, LogOut, Link2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { 
   updateProfileAction, 
@@ -113,7 +114,12 @@ export function SettingsClient({
 
   return (
     <div className="flex-1 space-y-4 p-4 pt-6 md:p-8 overflow-y-auto h-full">
-      <div className="flex items-center justify-between space-y-2">
+      <div className="flex items-center gap-4 space-y-2">
+        <Button variant="ghost" size="icon" asChild className="shrink-0 h-10 w-10">
+          <Link href="/dashboard">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+        </Button>
         <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
       </div>
       

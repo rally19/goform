@@ -56,53 +56,68 @@ export default function AppLayout({
 }) {
   const pathname = usePathname();
 
+  // Check if we should hide the sidebar and top bar
+  const isFormTool = pathname.includes('/forms/') && (
+    pathname.endsWith('/edit') || 
+    pathname.endsWith('/results') || 
+    pathname.endsWith('/analytics') || 
+    pathname.endsWith('/settings')
+  );
+  
+  const isUserSettings = pathname === '/settings';
+  const hideNav = isFormTool || isUserSettings;
+
   return (
     <SidebarProvider>
       <div className="flex h-svh w-full overflow-hidden bg-background">
-        <Sidebar>
-          <SidebarHeader className="border-b border-sidebar-border px-4 py-3 h-14 flex justify-center">
-            <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-              <div className="flex h-7 w-7 items-center justify-center rounded bg-primary text-primary-foreground">
-                <SquarePen className="size-4" />
-              </div>
-              <span className="text-lg tracking-tight">GoForm</span>
-            </Link>
-          </SidebarHeader>
-          <SidebarContent>
-            <SidebarGroup>
-              <SidebarGroupLabel>Menu</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {navigation.map((item) => (
-                    <SidebarMenuItem key={item.name}>
-                      <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)}>
-                        <Link href={item.href}>
-                          <item.icon />
-                          <span>{item.name}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </SidebarContent>
-           <SidebarFooter className="border-t border-sidebar-border p-4 flex flex-row items-center justify-between">
-            <UserAccountWidget />
-          </SidebarFooter>
-        </Sidebar>
+        {!hideNav && (
+          <Sidebar>
+            <SidebarHeader className="border-b border-sidebar-border px-4 py-3 h-14 flex justify-center">
+              <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+                <div className="flex h-7 w-7 items-center justify-center rounded bg-primary text-primary-foreground">
+                  <SquarePen className="size-4" />
+                </div>
+                <span className="text-lg tracking-tight">GoForm</span>
+              </Link>
+            </SidebarHeader>
+            <SidebarContent>
+              <SidebarGroup>
+                <SidebarGroupLabel>Menu</SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {navigation.map((item) => (
+                      <SidebarMenuItem key={item.name}>
+                        <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)}>
+                          <Link href={item.href}>
+                            <item.icon />
+                            <span>{item.name}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            </SidebarContent>
+             <SidebarFooter className="border-t border-sidebar-border p-4 flex flex-row items-center justify-between">
+              <UserAccountWidget />
+            </SidebarFooter>
+          </Sidebar>
+        )}
 
         {/* Main Content */}
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Header */}
-          <header className="flex h-14 items-center justify-between border-b border-border px-4 lg:px-6">
-            <div className="flex items-center gap-2">
-              <SidebarTrigger />
-            </div>
-            <div className="flex items-center gap-4">
-              <ThemeToggle />
-            </div>
-          </header>
+          {!hideNav && (
+            <header className="flex h-14 items-center justify-between border-b border-border px-4 lg:px-6">
+              <div className="flex items-center gap-2">
+                <SidebarTrigger />
+              </div>
+              <div className="flex items-center gap-4">
+                <ThemeToggle />
+              </div>
+            </header>
+          )}
           
           {/* Content Area */}
           <main className="flex-1 min-h-0 w-full">
