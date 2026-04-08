@@ -161,23 +161,30 @@ export function FieldCard({ field, isSelected, accentColor = "#6366f1" }: FieldC
   return (
     <div
       ref={setNodeRef}
-      style={style}
       className={cn(
-        "group relative rounded-xl border bg-card transition-all duration-150 cursor-pointer",
+        "group relative rounded-xl border bg-card transition-all duration-300 cursor-pointer",
         isSelected
-          ? "border-primary shadow-sm ring-1 ring-primary/20"
+          ? "shadow-md"
           : "border-border hover:border-muted-foreground/30 hover:shadow-sm",
         isDragging ? "opacity-40" : "opacity-100"
       )}
+      style={{
+        ...style,
+        ...(isSelected ? {
+          borderColor: accentColor,
+          boxShadow: `0 0 0 4px ${accentColor}10, 0 4px 20px -4px ${accentColor}25`,
+          backgroundColor: `${accentColor}05`,
+        } : {})
+      }}
       onClick={(e) => {
         e.stopPropagation();
         selectField(field.id);
       }}
     >
-      {/* Left accent bar */}
+      {/* Left accent bar - Premium floating style */}
       {isSelected && (
         <div
-          className="absolute left-0 top-0 bottom-0 w-0.5 rounded-l-xl"
+          className="absolute left-1.5 top-3 bottom-3 w-1.5 rounded-full"
           style={{ backgroundColor: accentColor }}
         />
       )}
