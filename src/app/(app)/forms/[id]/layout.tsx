@@ -3,8 +3,9 @@
 import { use, useRef, useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, BarChart2, Settings, SquarePen, ClipboardList, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, BarChart2, Settings, SquarePen, ClipboardList, ExternalLink, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getForm } from "@/lib/actions/forms";
 
 export default function FormLayout({
   children,
@@ -18,6 +19,8 @@ export default function FormLayout({
   const scrollRef = useRef<HTMLElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
+  const [formTitle, setFormTitle] = useState("");
+  const [isLoadingForm, setIsLoadingForm] = useState(true);
 
   const tabs = [
     { name: "Builder", href: `/forms/${formId}/edit`, icon: SquarePen },
@@ -39,6 +42,22 @@ export default function FormLayout({
     window.addEventListener("resize", updateScrollData);
     return () => window.removeEventListener("resize", updateScrollData);
   }, []);
+
+  useEffect(() => {
+    async function loadForm() {
+      try {
+        const result = await getForm(formId);
+        if (result.success && result.data) {
+          setFormTitle(result.data.form.title);
+        }
+      } catch (err) {
+        console.error("Failed to load form title:", err);
+      } finally {
+        setIsLoadingForm(false);
+      }
+    }
+    loadForm();
+  }, [formId]);
 
   const handleScroll = () => {
     updateScrollData();
@@ -126,6 +145,16 @@ export default function FormLayout({
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
+              )}
+            </div>
+
+            <div className="flex-1 hidden md:flex items-center justify-center px-4 overflow-hidden min-w-0">
+              {isLoadingForm ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground/50" />
+              ) : (
+                <span className="text-sm font-semibold text-foreground/80 truncate max-w-[300px] lg:max-w-[500px]">
+                  {formTitle}
+                </span>
               )}
             </div>
 
