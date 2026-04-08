@@ -33,7 +33,7 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Protect /(app) routes
+  // Protect /(app) routes — /f/ and /preview/ are public
   const isAppRoute = request.nextUrl.pathname.startsWith('/dashboard') ||
     request.nextUrl.pathname.startsWith('/forms') ||
     request.nextUrl.pathname.startsWith('/organizations') ||

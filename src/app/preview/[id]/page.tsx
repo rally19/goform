@@ -1,62 +1,65 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { getForm } from "@/lib/actions/forms";
+import { FormRenderer } from "@/components/form-renderer/form-renderer";
+import { redirect } from "next/navigation";
+import Link from "next/link";
 
-export default async function FormPreviewPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id: formId } = await params;
-  // Mock data representing the form loaded from DB by params.id
-  const form = {
-    title: "Customer Feedback 2024",
-    description: "Please fill out this form to help us improve our services.",
-    fields: [
-      { id: "f1", type: "text", label: "Full Name", required: true },
-      { id: "f2", type: "text", label: "Feedback", required: true },
-    ]
-  };
+export default async function FormPreviewPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const result = await getForm(id);
+
+  if (!result.success || !result.data) {
+    redirect("/forms");
+  }
+
+  const { form, fields } = result.data;
+  const accentColor = form.accentColor ?? "#6366f1";
 
   return (
-    <div className="min-h-screen bg-muted/20 py-12 px-4 selection:bg-primary selection:text-primary-foreground">
-      <div className="max-w-2xl mx-auto space-y-6">
-        <Card className="border-t-8 border-t-primary shadow-lg border-x-border border-b-border rounded-xl">
-          <CardHeader className="pt-8 pb-4 px-8">
-            <h1 className="text-4xl font-bold tracking-tight text-foreground">{form.title}</h1>
-            <p className="text-lg text-muted-foreground mt-3">{form.description}</p>
-          </CardHeader>
-          <div className="px-8 pb-4">
-             <div className="h-px bg-border/50 w-full" />
-             <div className="text-sm text-destructive font-medium mt-4">
-               * Indicates required question
-             </div>
-          </div>
-        </Card>
+    <div className="min-h-screen bg-muted/20 py-10 px-4">
+      {/* Preview banner */}
+      <div className="max-w-2xl mx-auto mb-4">
+        <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 px-4 py-2.5 flex items-center justify-between text-sm">
+          <span className="text-amber-800 dark:text-amber-300 font-medium">
+            👁 Preview Mode — responses won&apos;t be saved
+          </span>
+          <Link
+            href={`/forms/${id}/edit`}
+            className="text-amber-600 hover:text-amber-800 dark:text-amber-400 text-xs underline"
+          >
+            Back to editor
+          </Link>
+        </div>
+      </div>
 
-        <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
-          {form.fields.map((field) => (
-            <Card key={field.id} className="shadow-sm hover:shadow-md transition-shadow">
-              <CardContent className="p-6 md:p-8 space-y-4">
-                <Label htmlFor={field.id} className="text-base font-semibold">
-                  {field.label} {field.required && <span className="text-destructive">*</span>}
-                </Label>
-                {field.type === "text" && (
-                  <Input 
-                    id={field.id} 
-                    placeholder="Your answer" 
-                    className="h-12 border-0 border-b rounded-none shadow-none focus-visible:ring-0 focus-visible:border-primary px-0 text-base"
-                    required={field.required}
-                  />
-                )}
-              </CardContent>
-            </Card>
-          ))}
-          
-          <div className="flex items-center justify-between pt-4">
-             <Button size="lg" type="submit" className="px-8 text-base">Submit</Button>
-             <div className="text-xs text-muted-foreground flex items-center gap-1">
-               Powered by <span className="font-semibold text-foreground">GoForm</span>
-             </div>
+      <div className="max-w-2xl mx-auto space-y-4">
+        {/* Form header card */}
+        <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+          <div className="h-2.5" style={{ backgroundColor: accentColor }} />
+          <div className="p-8 pb-6">
+            <h1 className="text-3xl font-bold tracking-tight">{form.title}</h1>
+            {form.description && (
+              <p className="text-muted-foreground mt-3">{form.description}</p>
+            )}
           </div>
-        </form>
+          <div className="px-8 pb-4">
+            <div className="border-t border-border pt-3 text-xs text-destructive font-medium">
+              * Indicates required question
+            </div>
+          </div>
+        </div>
+
+        {/* Form */}
+        <div className="rounded-xl border border-border bg-card shadow-sm p-8">
+          <FormRenderer form={form} fields={fields} />
+        </div>
+
+        <p className="text-center text-xs text-muted-foreground pb-8">
+          Powered by <span className="font-semibold text-foreground">GoForm</span>
+        </p>
       </div>
     </div>
   );
