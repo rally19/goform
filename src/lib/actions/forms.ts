@@ -310,6 +310,7 @@ export async function duplicateForm(id: string): Promise<ActionResult<{ id: stri
         showProgress: form.showProgress,
         successMessage: form.successMessage,
         redirectUrl: form.redirectUrl,
+        autoSave: form.autoSave,
       } as NewForm)
       .returning({ id: forms.id });
 

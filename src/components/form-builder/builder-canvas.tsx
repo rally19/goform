@@ -106,13 +106,13 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
   // Auto-save debounce
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
-    if (!isDirty) return;
+    if (!isDirty || !form?.autoSave) return;
     clearTimeout(saveTimeout.current);
     saveTimeout.current = setTimeout(() => {
       handleSave();
     }, 3000);
     return () => clearTimeout(saveTimeout.current);
-  }, [isDirty, fields, form]);
+  }, [isDirty, fields, form, handleSave]);
 
   const accentColor = form?.accentColor ?? "#6366f1";
 

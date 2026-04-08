@@ -75,6 +75,7 @@ export const forms = pgTable(
       .notNull()
       .default("Thank you for your response!"),
     redirectUrl: text("redirect_url"),
+    autoSave: boolean("auto_save").notNull().default(true),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

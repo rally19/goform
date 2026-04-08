@@ -291,6 +291,7 @@ export interface BuilderForm {
   oneResponsePerUser: boolean;
   successMessage: string;
   redirectUrl?: string;
+  autoSave: boolean;
 }
 
 export type FormAnswer = string | string[] | number | boolean | null;

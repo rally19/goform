@@ -30,6 +30,7 @@ export default async function FormBuilderPage({
     oneResponsePerUser: form.oneResponsePerUser,
     successMessage: form.successMessage,
     redirectUrl: form.redirectUrl ?? undefined,
+    autoSave: form.autoSave,
   };
 
   const builderFields: BuilderField[] = fields.map((f) => ({

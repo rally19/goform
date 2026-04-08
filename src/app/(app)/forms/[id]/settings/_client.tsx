@@ -49,6 +49,7 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
     oneResponsePerUser: initialForm.oneResponsePerUser,
     successMessage: initialForm.successMessage,
     redirectUrl: initialForm.redirectUrl ?? "",
+    autoSave: initialForm.autoSave,
     status: initialForm.status,
   });
 
@@ -68,6 +69,7 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
       oneResponsePerUser: form.oneResponsePerUser,
       successMessage: form.successMessage,
       redirectUrl: form.redirectUrl || undefined,
+      autoSave: form.autoSave,
     });
     setSaving(false);
     if (result.success) {
@@ -231,6 +233,13 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
             description="Limit authenticated users to one submission"
             checked={form.oneResponsePerUser}
             onCheckedChange={(v) => update({ oneResponsePerUser: v })}
+          />
+          <ToggleSetting
+            id="autoSave"
+            label="Auto Save"
+            description="Automatically save changes while building the form"
+            checked={form.autoSave}
+            onCheckedChange={(v) => update({ autoSave: v })}
           />
         </CardContent>
       </Card>
