@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Form } from "@/db/schema";
 import { updateForm, deleteForm, setFormStatus } from "@/lib/actions/forms";
 import {
@@ -89,8 +89,13 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
     }
   };
 
-  const publicUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/f/${form.slug}`
+  const [origin, setOrigin] = useState("");
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+
+  const publicUrl = origin
+    ? `${origin}/f/${form.slug}`
     : `/f/${form.slug}`;
 
   const copyLink = () => {

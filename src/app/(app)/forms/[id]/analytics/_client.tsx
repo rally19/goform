@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useEffect } from "react";
+
 import type { Form } from "@/db/schema";
 import type { FormAnalytics, FieldStat } from "@/lib/form-types";
 import {
@@ -153,6 +155,11 @@ interface AnalyticsDashboardProps {
 export function AnalyticsDashboard({ formId, form, analytics }: AnalyticsDashboardProps) {
   const accentColor = form.accentColor ?? "#6366f1";
 
+  const [origin, setOrigin] = useState("");
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+
   if (!analytics || analytics.totalResponses === 0) {
     return (
       <div className="p-4 pt-6 md:p-8 space-y-6 overflow-y-auto h-full">
@@ -171,7 +178,7 @@ export function AnalyticsDashboard({ formId, form, analytics }: AnalyticsDashboa
           <div className="mt-4 flex flex-col items-center gap-1">
             <p className="text-xs text-muted-foreground">Your public form URL:</p>
             <code className="text-xs bg-muted px-3 py-1.5 rounded-md border">
-              {typeof window !== "undefined" ? window.location.origin : ""}/f/{form.slug}
+              {origin}/f/{form.slug}
             </code>
           </div>
         </div>
