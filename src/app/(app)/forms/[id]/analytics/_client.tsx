@@ -155,7 +155,7 @@ export function AnalyticsDashboard({ formId, form, analytics }: AnalyticsDashboa
 
   if (!analytics || analytics.totalResponses === 0) {
     return (
-      <div className="p-4 pt-6 md:p-8 space-y-6">
+      <div className="p-4 pt-6 md:p-8 space-y-6 overflow-y-auto h-full">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Analytics</h2>
           <p className="text-muted-foreground text-sm mt-0.5">
@@ -185,7 +185,7 @@ export function AnalyticsDashboard({ formId, form, analytics }: AnalyticsDashboa
   };
 
   return (
-    <div className="p-4 pt-6 md:p-8 space-y-6">
+    <div className="p-4 pt-6 md:p-8 space-y-6 overflow-y-auto h-full">
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Analytics</h2>
         <p className="text-muted-foreground text-sm mt-0.5">

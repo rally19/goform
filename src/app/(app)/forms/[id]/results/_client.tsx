@@ -120,7 +120,7 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
   };
 
   return (
-    <div className="p-4 pt-6 md:p-8 space-y-6">
+    <div className="p-4 pt-6 md:p-8 space-y-6 overflow-y-auto h-full">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>

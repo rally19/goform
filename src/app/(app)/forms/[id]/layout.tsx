@@ -66,7 +66,7 @@ export default function FormLayout({
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-hidden">
         {children}
       </div>
     </div>

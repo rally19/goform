@@ -97,7 +97,7 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
   };
 
   return (
-    <div className="p-4 pt-6 md:p-8 max-w-3xl mx-auto space-y-6 pb-16">
+    <div className="p-4 pt-6 md:p-8 max-w-3xl mx-auto space-y-6 pb-16 overflow-y-auto h-full">
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Settings</h2>
         <p className="text-muted-foreground text-sm mt-0.5">

@@ -117,7 +117,7 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
   const accentColor = form?.accentColor ?? "#6366f1";
 
   return (
-    <div className="flex h-[calc(100svh-56px)] overflow-hidden">
+    <div className="flex h-full overflow-hidden">
       {/* Left: Component Panel */}
       <div className="w-56 shrink-0 hidden md:flex flex-col border-r border-border h-full min-h-0">
         <ComponentPanel />

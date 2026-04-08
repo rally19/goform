@@ -233,7 +233,7 @@ export function FormsListClient({ initialForms }: { initialForms: FormRow[] }) {
 
   return (
     <>
-      <div className="flex-1 p-4 pt-6 md:p-8 space-y-6">
+      <div className="flex-1 p-4 pt-6 md:p-8 space-y-6 overflow-y-auto h-full">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>

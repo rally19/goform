@@ -105,7 +105,7 @@ export default function AppLayout({
           </header>
           
           {/* Content Area */}
-          <main className="flex-1 overflow-y-auto w-full">
+          <main className="flex-1 min-h-0 w-full">
             {children}
           </main>
         </div>
