@@ -22,12 +22,12 @@ export function FormHeaderEditor({ accentColor = "#6366f1" }: FormHeaderEditorPr
       {/* Color accent bar */}
       <div className="h-2" style={{ backgroundColor: accentColor }} />
 
-      <div className="p-6 md:p-8 space-y-3">
+      <div className="p-4 md:p-8 space-y-3">
         <input
           type="text"
           value={form.title}
           onChange={(e) => updateFormMeta({ title: e.target.value })}
-          className="w-full text-2xl md:text-3xl font-bold bg-transparent border-0 outline-none focus:bg-muted/30 transition-colors rounded px-1 -mx-1 text-foreground placeholder:text-muted-foreground/40"
+          className="w-full text-xl sm:text-2xl md:text-3xl font-bold bg-transparent border-0 outline-none focus:bg-muted/30 transition-colors rounded px-1 -mx-1 text-foreground placeholder:text-muted-foreground/40"
           placeholder="Untitled Form"
           onClick={(e) => e.stopPropagation()}
         />

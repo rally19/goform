@@ -242,7 +242,7 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
         {/* Center: Canvas */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* Toolbar */}
-          <div className="h-12 border-b border-border bg-card flex items-center justify-between px-4 shrink-0">
+          <div className="h-12 border-b border-border bg-card flex items-center justify-between px-2 md:px-4 shrink-0">
             <div className="flex items-center gap-2">
               <Badge
                 variant={form?.status === "active" ? "default" : "secondary"}
@@ -255,13 +255,13 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
               )}
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth max-w-[100px] sm:max-w-none">
               {ACCENT_COLORS.map((c) => (
                 <button
                   key={c.value}
                   title={c.label}
                   className={cn(
-                    "h-4 w-4 rounded-full border-2 transition-transform hover:scale-110",
+                    "h-4 w-4 rounded-full border-2 transition-transform hover:scale-110 shrink-0",
                     accentColor === c.value
                       ? "border-foreground scale-125"
                       : "border-transparent"
@@ -302,7 +302,7 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
           {/* Canvas area */}
           <ScrollArea className="flex-1 min-h-0">
             <div
-              className="min-h-full bg-muted/20 pb-24 md:pb-8 pt-8 px-4"
+              className="min-h-full bg-muted/20 pb-24 md:pb-8 pt-6 md:pt-8 px-2 md:px-4"
               onClick={() => selectField(null)}
             >
               <div className="max-w-2xl mx-auto space-y-4">

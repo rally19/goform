@@ -142,7 +142,7 @@ export function FieldCard({
     }
     if (field.type === "date" || field.type === "time" || field.type === "datetime") {
       return (
-        <div className="h-9 w-full max-w-xs rounded-md border border-input bg-muted/50 px-3 text-sm text-muted-foreground flex items-center justify-between pointer-events-none">
+        <div className="h-9 w-full rounded-md border border-input bg-muted/50 px-3 text-sm text-muted-foreground flex items-center justify-between pointer-events-none">
           <span>{field.type === "time" ? "hh:mm" : "mm/dd/yyyy"}</span>
           <Icon className="h-4 w-4" />
         </div>
@@ -200,12 +200,12 @@ export function FieldCard({
         />
       )}
 
-      <div className="flex items-start gap-3 p-4">
+      <div className="flex items-start gap-2 md:gap-3 p-3 md:p-4">
         {/* Drag handle */}
         <div
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground pt-0.5 outline-none touch-none"
+          className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground pt-0.5 outline-none touch-none shrink-0"
           onClick={(e) => e.stopPropagation()}
         >
           <GripVertical className="h-4 w-4" />
@@ -214,7 +214,7 @@ export function FieldCard({
         {/* Content */}
         <div className="flex-1 min-w-0 space-y-3">
           {/* Question label row */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <div className="flex items-center gap-1.5 min-w-0 flex-1">
               <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <span className="font-medium text-sm text-foreground truncate">
@@ -224,9 +224,11 @@ export function FieldCard({
                 <span className="text-destructive text-sm leading-none shrink-0">*</span>
               )}
             </div>
-            <Badge variant="secondary" className="text-[10px] shrink-0 capitalize">
-              {field.type.replace(/_/g, " ")}
-            </Badge>
+            <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
+              <Badge variant="secondary" className="text-[10px] capitalize">
+                {field.type.replace(/_/g, " ")}
+              </Badge>
+            </div>
           </div>
 
           {/* Field description */}
@@ -238,34 +240,62 @@ export function FieldCard({
           <FieldPreview />
         </div>
 
-        {/* Actions (show on hover/selected) */}
-        <div
-          className={cn(
-            "flex flex-col gap-0.5 transition-opacity",
-            isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-          )}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => duplicateField(field.id)}
-            title="Duplicate"
+          {/* Actions - Desktop sidebar / Mobile bottom bar */}
+          <div
+            className={cn(
+              "md:flex flex-col gap-0.5 transition-opacity shrink-0",
+              "hidden md:opacity-0 md:group-hover:opacity-100",
+              isSelected && "md:opacity-100"
+            )}
+            onClick={(e) => e.stopPropagation()}
           >
-            <Copy className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-            onClick={() => removeField(field.id)}
-            title="Delete"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => duplicateField(field.id)}
+              title="Duplicate"
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => removeField(field.id)}
+              title="Delete"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
+
+        {/* Mobile Actions Bottom Row */}
+        {isSelected && (
+          <div 
+            className="flex md:hidden items-center justify-end gap-2 px-3 pb-3 border-t border-border/50 pt-2 mx-1"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1.5 text-xs font-medium"
+              onClick={() => duplicateField(field.id)}
+            >
+              <Copy className="h-3.5 w-3.5" />
+              Duplicate
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1.5 text-xs font-medium text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => removeField(field.id)}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete
+            </Button>
+          </div>
+        )}
       </div>
-    </div>
   );
 }
