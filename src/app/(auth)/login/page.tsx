@@ -5,6 +5,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { motion } from "motion/react";
+import { useTransition, useState } from "react";
+import { signInAction, signInWithGoogleAction } from "../actions";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +29,9 @@ const loginSchema = z.object({
 });
 
 export default function LoginPage() {
+  const [isPending, startTransition] = useTransition();
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -36,9 +41,16 @@ export default function LoginPage() {
   });
 
   function onSubmit(values: z.infer<typeof loginSchema>) {
-    console.log(values);
-    // Would typically handle login here and redirect
-    window.location.href = "/dashboard";
+    setErrorMsg(null);
+    const formData = new FormData();
+    formData.append("email", values.email);
+    formData.append("password", values.password);
+
+    startTransition(() => {
+      signInAction(formData).then((res) => {
+        if (res?.error) setErrorMsg(res.error);
+      });
+    });
   }
 
   return (
@@ -61,6 +73,11 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {errorMsg && (
+              <div className="bg-destructive/15 text-destructive p-3 rounded-md text-sm font-medium">
+                {errorMsg}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -101,9 +118,9 @@ export default function LoginPage() {
             <Button
               type="submit"
               className="w-full transition-all active:scale-[0.98]"
-              disabled={form.formState.isSubmitting}
+              disabled={isPending || form.formState.isSubmitting}
             >
-              Sign In
+              {isPending ? "Signing in..." : "Sign In"}
             </Button>
           </form>
           <div className="relative mt-6">
@@ -117,17 +134,18 @@ export default function LoginPage() {
             </div>
           </div>
           
-          <Button
-            variant="outline"
-            type="button"
-            className="mt-4 w-full transition-all active:scale-[0.98]"
-            onClick={() => console.log("Google login")}
-          >
-            <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
-              <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
-            </svg>
-            Google
-          </Button>
+          <form action={signInWithGoogleAction}>
+            <Button
+              variant="outline"
+              type="submit"
+              className="mt-4 w-full transition-all active:scale-[0.98]"
+            >
+              <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
+                <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
+              </svg>
+              Google
+            </Button>
+          </form>
 
           <div className="mt-6 text-center text-sm">
             Don&apos;t have an account?{" "}
