@@ -57,15 +57,12 @@ export default function AppLayout({
   const pathname = usePathname();
 
   // Check if we should hide the sidebar and top bar
-  const isFormTool = pathname.includes('/forms/') && (
+  const hideNav = pathname.includes('/forms/') && (
     pathname.endsWith('/edit') || 
     pathname.endsWith('/results') || 
     pathname.endsWith('/analytics') || 
     pathname.endsWith('/settings')
   );
-  
-  const isUserSettings = pathname === '/settings';
-  const hideNav = isFormTool || isUserSettings;
 
   return (
     <SidebarProvider>
