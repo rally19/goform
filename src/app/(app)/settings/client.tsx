@@ -14,6 +14,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Camera, Monitor, ShieldCheck, LogOut, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { 
@@ -38,6 +48,10 @@ export function SettingsClient({
 }) {
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [signOutOthersOpen, setSignOutOthersOpen] = useState(false);
+  const [identityToDisconnect, setIdentityToDisconnect] = useState<UserIdentity | null>(null);
 
 
   const handleProfileSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -82,6 +96,7 @@ export function SettingsClient({
   };
 
   const handleSignoutOthers = () => {
+    setSignOutOthersOpen(false);
     startTransition(async () => {
       const res = await signOutOthersAction();
       if (res?.error) toast.error(res.error);
@@ -90,11 +105,7 @@ export function SettingsClient({
   };
 
   const handleDisconnect = (identity: UserIdentity) => {
-    if (!hasPassword) {
-      toast.error("You must set a password before you can unlink your accounts to avoid being locked out.");
-      return;
-    }
-
+    setIdentityToDisconnect(null);
     startTransition(async () => {
       const res = await disconnectProviderAction(identity);
       if (res?.error) toast.error(res.error);
@@ -103,12 +114,11 @@ export function SettingsClient({
   };
 
   const handleDeleteAccount = () => {
-    if (window.confirm("Are you absolutely sure you want to delete your account? This action cannot be undone.")) {
-      startTransition(async () => {
-        const res = await deleteAccountAction();
-        if (res?.error) toast.error(res.error);
-      });
-    }
+    setDeleteAccountOpen(false);
+    startTransition(async () => {
+      const res = await deleteAccountAction();
+      if (res?.error) toast.error(res.error);
+    });
   };
 
   return (
@@ -251,7 +261,7 @@ export function SettingsClient({
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    onClick={handleSignoutOthers}
+                    onClick={() => setSignOutOthersOpen(true)}
                     disabled={isPending}
                   >
                     Sign out of all other sessions
@@ -293,7 +303,13 @@ export function SettingsClient({
                           variant="outline" 
                           size="sm" 
                           className="h-8"
-                          onClick={() => handleDisconnect(identity)}
+                          onClick={() => {
+                            if (!hasPassword) {
+                              toast.error("You must set a password before you can unlink your accounts to avoid being locked out.");
+                              return;
+                            }
+                            setIdentityToDisconnect(identity);
+                          }}
                           disabled={isPending}
                         >
                           Disconnect
@@ -322,7 +338,7 @@ export function SettingsClient({
               <CardFooter className="border-t bg-destructive/5 px-6 py-4">
                 <Button 
                   variant="destructive"
-                  onClick={handleDeleteAccount}
+                  onClick={() => setDeleteAccountOpen(true)}
                   disabled={isPending}
                 >
                   {isPending ? "Deleting..." : "Delete Account"}
@@ -331,6 +347,62 @@ export function SettingsClient({
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Dialogs */}
+        <AlertDialog open={signOutOthersOpen} onOpenChange={setSignOutOthersOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Sign out of other sessions?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will end all your sessions except for the current one. You will need to log back in on other devices.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleSignoutOthers}>
+                Sign out others
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={!!identityToDisconnect} onOpenChange={(open) => !open && setIdentityToDisconnect(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Disconnect {identityToDisconnect?.provider} account?</AlertDialogTitle>
+              <AlertDialogDescription>
+                You will no longer be able to use your {identityToDisconnect?.provider} account to log in. 
+                Make sure you have another way to access your account.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => identityToDisconnect && handleDisconnect(identityToDisconnect)}>
+                Disconnect
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={deleteAccountOpen} onOpenChange={setDeleteAccountOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-destructive">Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete your account and all associated data, including your forms and responses.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleDeleteAccount}
+                variant="destructive"
+              >
+                Delete Account
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

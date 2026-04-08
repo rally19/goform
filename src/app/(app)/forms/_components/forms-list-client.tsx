@@ -347,7 +347,7 @@ export function FormsListClient({ initialForms }: { initialForms: FormRow[] }) {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteId && handleDelete(deleteId)}
-              className="bg-destructive hover:bg-destructive/90 text-white"
+              variant="destructive"
             >
               Delete
             </AlertDialogAction>
