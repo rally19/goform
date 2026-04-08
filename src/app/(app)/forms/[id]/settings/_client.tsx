@@ -99,238 +99,240 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
   };
 
   return (
-    <div className="p-4 pt-6 md:p-8 max-w-3xl mx-auto space-y-6 pb-16 overflow-y-auto h-full">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Settings</h2>
-        <p className="text-muted-foreground text-sm mt-0.5">
-          Configure your form&apos;s appearance and behavior.
-        </p>
-      </div>
+    <div className="h-full overflow-y-auto">
+      <div className="p-4 pt-6 md:p-8 max-w-3xl mx-auto space-y-6 pb-16">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Settings</h2>
+          <p className="text-muted-foreground text-sm mt-0.5">
+            Configure your form&apos;s appearance and behavior.
+          </p>
+        </div>
 
-      {/* General */}
-      <Card>
-        <CardHeader>
-          <CardTitle>General</CardTitle>
-          <CardDescription>Basic form information</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="title">Form Title</Label>
-            <Input
-              id="title"
-              value={form.title}
-              onChange={(e) => update({ title: e.target.value })}
-              placeholder="Untitled Form"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={form.description}
-              onChange={(e) => update({ description: e.target.value })}
-              placeholder="Describe what this form is about (optional)"
-              rows={2}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Accent Color</Label>
-            <div className="flex flex-wrap gap-2">
-              {ACCENT_COLORS.map((c) => (
-                <button
-                  key={c.value}
-                  title={c.label}
-                  className={cn(
-                    "h-8 w-8 rounded-full border-2 transition-all hover:scale-110",
-                    form.accentColor === c.value
-                      ? "border-foreground scale-110 shadow-md"
-                      : "border-transparent"
-                  )}
-                  style={{ backgroundColor: c.value }}
-                  onClick={() => update({ accentColor: c.value })}
-                />
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Sharing */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Sharing</CardTitle>
-          <CardDescription>Control how people access your form</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="slug">Custom URL Slug</Label>
-            <div className="flex items-center gap-2">
-              <div className="px-3 py-2 bg-muted text-muted-foreground rounded-md text-sm border font-mono whitespace-nowrap">
-                /f/
-              </div>
+        {/* General */}
+        <Card>
+          <CardHeader>
+            <CardTitle>General</CardTitle>
+            <CardDescription>Basic form information</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="title">Form Title</Label>
               <Input
-                id="slug"
-                value={form.slug}
-                onChange={(e) => update({ slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-") })}
-                className="font-mono flex-1"
+                id="title"
+                value={form.title}
+                onChange={(e) => update({ title: e.target.value })}
+                placeholder="Untitled Form"
               />
             </div>
-            <div className="flex items-center gap-2 mt-2">
-              <code className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded flex-1 truncate">
-                {publicUrl}
-              </code>
-              <Button variant="outline" size="sm" onClick={copyLink}>
-                <Copy className="h-3.5 w-3.5 mr-1" />
-                Copy
-              </Button>
-              <Button variant="outline" size="sm" asChild>
-                <a href={publicUrl} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              </Button>
+            <div className="space-y-1.5">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={form.description}
+                onChange={(e) => update({ description: e.target.value })}
+                placeholder="Describe what this form is about (optional)"
+                rows={2}
+              />
             </div>
-          </div>
+            <div className="space-y-1.5">
+              <Label>Accent Color</Label>
+              <div className="flex flex-wrap gap-2">
+                {ACCENT_COLORS.map((c) => (
+                  <button
+                    key={c.value}
+                    title={c.label}
+                    className={cn(
+                      "h-8 w-8 rounded-full border-2 transition-all hover:scale-110",
+                      form.accentColor === c.value
+                        ? "border-foreground scale-110 shadow-md"
+                        : "border-transparent"
+                    )}
+                    style={{ backgroundColor: c.value }}
+                    onClick={() => update({ accentColor: c.value })}
+                  />
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-          <Separator />
+        {/* Sharing */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Sharing</CardTitle>
+            <CardDescription>Control how people access your form</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="slug">Custom URL Slug</Label>
+              <div className="flex items-center gap-2">
+                <div className="px-3 py-2 bg-muted text-muted-foreground rounded-md text-sm border font-mono whitespace-nowrap">
+                  /f/
+                </div>
+                <Input
+                  id="slug"
+                  value={form.slug}
+                  onChange={(e) => update({ slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-") })}
+                  className="font-mono flex-1"
+                />
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <code className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded flex-1 truncate">
+                  {publicUrl}
+                </code>
+                <Button variant="outline" size="sm" onClick={copyLink}>
+                  <Copy className="h-3.5 w-3.5 mr-1" />
+                  Copy
+                </Button>
+                <Button variant="outline" size="sm" asChild>
+                  <a href={publicUrl} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                </Button>
+              </div>
+            </div>
 
-          <div className="space-y-3">
+            <Separator />
+
+            <div className="space-y-3">
+              <ToggleSetting
+                id="requireAuth"
+                label="Require Authentication"
+                description="Only logged-in users can view and submit"
+                checked={form.requireAuth}
+                onCheckedChange={(v) => update({ requireAuth: v })}
+                icon={Lock}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Behavior */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Behavior</CardTitle>
+            <CardDescription>Control how the form works</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
             <ToggleSetting
-              id="requireAuth"
-              label="Require Authentication"
-              description="Only logged-in users can view and submit"
-              checked={form.requireAuth}
-              onCheckedChange={(v) => update({ requireAuth: v })}
-              icon={Lock}
+              id="acceptResponses"
+              label="Accept Responses"
+              description="Turn off to close the form to new submissions"
+              checked={form.acceptResponses}
+              onCheckedChange={(v) => update({ acceptResponses: v })}
             />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Behavior */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Behavior</CardTitle>
-          <CardDescription>Control how the form works</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <ToggleSetting
-            id="acceptResponses"
-            label="Accept Responses"
-            description="Turn off to close the form to new submissions"
-            checked={form.acceptResponses}
-            onCheckedChange={(v) => update({ acceptResponses: v })}
-          />
-          <ToggleSetting
-            id="showProgress"
-            label="Show Progress Bar"
-            description="Display page progress for multi-page forms"
-            checked={form.showProgress}
-            onCheckedChange={(v) => update({ showProgress: v })}
-          />
-          <ToggleSetting
-            id="oneResponsePerUser"
-            label="One Response Per User"
-            description="Limit authenticated users to one submission"
-            checked={form.oneResponsePerUser}
-            onCheckedChange={(v) => update({ oneResponsePerUser: v })}
-          />
-          <ToggleSetting
-            id="autoSave"
-            label="Auto Save"
-            description="Automatically save changes while building the form"
-            checked={form.autoSave}
-            onCheckedChange={(v) => update({ autoSave: v })}
-          />
-        </CardContent>
-      </Card>
-
-      {/* Submission */}
-      <Card>
-        <CardHeader>
-          <CardTitle>After Submission</CardTitle>
-          <CardDescription>What respondents see after submitting</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="successMessage">Success Message</Label>
-            <Textarea
-              id="successMessage"
-              value={form.successMessage}
-              onChange={(e) => update({ successMessage: e.target.value })}
-              rows={2}
-              placeholder="Thank you for your response!"
+            <ToggleSetting
+              id="showProgress"
+              label="Show Progress Bar"
+              description="Display page progress for multi-page forms"
+              checked={form.showProgress}
+              onCheckedChange={(v) => update({ showProgress: v })}
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="redirectUrl">Redirect URL (optional)</Label>
-            <Input
-              id="redirectUrl"
-              type="url"
-              value={form.redirectUrl}
-              onChange={(e) => update({ redirectUrl: e.target.value })}
-              placeholder="https://example.com/thank-you"
+            <ToggleSetting
+              id="oneResponsePerUser"
+              label="One Response Per User"
+              description="Limit authenticated users to one submission"
+              checked={form.oneResponsePerUser}
+              onCheckedChange={(v) => update({ oneResponsePerUser: v })}
             />
-            <p className="text-xs text-muted-foreground">
-              If set, respondents will be redirected here instead of seeing the success message.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+            <ToggleSetting
+              id="autoSave"
+              label="Auto Save"
+              description="Automatically save changes while building the form"
+              checked={form.autoSave}
+              onCheckedChange={(v) => update({ autoSave: v })}
+            />
+          </CardContent>
+        </Card>
 
-      {/* Save buttons */}
-      <div className="flex justify-end gap-2">
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-          Save Settings
-        </Button>
-      </div>
-
-      {/* Danger Zone */}
-      <Card className="border-destructive/30">
-        <CardHeader>
-          <CardTitle className="text-destructive">Danger Zone</CardTitle>
-          <CardDescription>Irreversible actions — proceed with caution</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between p-3 border border-destructive/20 rounded-lg bg-destructive/5">
-            <div>
-              <p className="text-sm font-medium">Delete this form</p>
+        {/* Submission */}
+        <Card>
+          <CardHeader>
+            <CardTitle>After Submission</CardTitle>
+            <CardDescription>What respondents see after submitting</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="successMessage">Success Message</Label>
+              <Textarea
+                id="successMessage"
+                value={form.successMessage}
+                onChange={(e) => update({ successMessage: e.target.value })}
+                rows={2}
+                placeholder="Thank you for your response!"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="redirectUrl">Redirect URL (optional)</Label>
+              <Input
+                id="redirectUrl"
+                type="url"
+                value={form.redirectUrl}
+                onChange={(e) => update({ redirectUrl: e.target.value })}
+                placeholder="https://example.com/thank-you"
+              />
               <p className="text-xs text-muted-foreground">
-                Permanently delete this form and all its responses
+                If set, respondents will be redirected here instead of seeing the success message.
               </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-destructive border-destructive/30 hover:bg-destructive hover:text-white shrink-0"
-              onClick={() => setDeleteOpen(true)}
-            >
-              <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-              Delete Form
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete &ldquo;{form.title}&rdquo;?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete this form and all {initialForm.title} responses. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-white hover:bg-destructive/90"
-            >
-              Yes, delete it
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        {/* Save buttons */}
+        <div className="flex justify-end gap-2">
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            Save Settings
+          </Button>
+        </div>
+
+        {/* Danger Zone */}
+        <Card className="border-destructive/30">
+          <CardHeader>
+            <CardTitle className="text-destructive">Danger Zone</CardTitle>
+            <CardDescription>Irreversible actions — proceed with caution</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between p-3 border border-destructive/20 rounded-lg bg-destructive/5">
+              <div>
+                <p className="text-sm font-medium">Delete this form</p>
+                <p className="text-xs text-muted-foreground">
+                  Permanently delete this form and all its responses
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive border-destructive/30 hover:bg-destructive hover:text-white shrink-0"
+                onClick={() => setDeleteOpen(true)}
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                Delete Form
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete &ldquo;{form.title}&rdquo;?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete this form and all {initialForm.title} responses. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDelete}
+                className="bg-destructive text-white hover:bg-destructive/90"
+              >
+                Yes, delete it
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </div>
   );
 }
