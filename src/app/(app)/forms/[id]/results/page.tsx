@@ -15,14 +15,19 @@ export default async function ResultsPage({
     getFormResponses(id, 0, 50),
   ]);
 
-  if (!formResult.success || !formResult.data) redirect("/forms");
+  if (!formResult.success || !formResult.data?.form) redirect("/forms");
+
+  const fields = formResult.data.fields ?? [];
+  const initialResponses = responsesResult.success && responsesResult.data 
+    ? responsesResult.data 
+    : { responses: [], total: 0 };
 
   return (
     <ResultsClient
       formId={id}
       form={formResult.data.form}
-      fields={formResult.data.fields}
-      initialResponses={responsesResult.success ? responsesResult.data! : { responses: [], total: 0 }}
+      fields={fields}
+      initialResponses={initialResponses}
     />
   );
 }

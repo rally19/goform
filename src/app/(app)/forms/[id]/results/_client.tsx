@@ -78,13 +78,16 @@ function formatDateTime(date: Date) {
 }
 
 export function ResultsClient({ formId, form, fields, initialResponses }: ResultsClientProps) {
-  const [responses, setResponses] = useState(initialResponses.responses);
-  const [total, setTotal] = useState(initialResponses.total);
+  const [responses, setResponses] = useState(initialResponses?.responses ?? []);
+  const [total, setTotal] = useState(initialResponses?.total ?? 0);
   const [selectedResponse, setSelectedResponse] = useState<ResponseRow | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
 
-  const dataFields = fields.filter((f) => f.type !== "section" && f.type !== "page_break");
+  // Early return if crucial data is missing (extra safety)
+  if (!form || !fields) return null;
+
+  const dataFields = fields.filter((f) => f && f.type !== "section" && f.type !== "page_break");
   const accentColor = form.accentColor ?? "#6366f1";
 
   const handleDelete = async () => {
@@ -208,7 +211,7 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
           <SheetHeader>
             <SheetTitle>Response Details</SheetTitle>
             <SheetDescription>
-              Submitted {selectedResponse ? formatDateTime(selectedResponse.submittedAt) : ""}
+              {selectedResponse ? `Submitted ${formatDateTime(selectedResponse.submittedAt)}` : "No response selected"}
             </SheetDescription>
           </SheetHeader>
 
@@ -280,9 +283,12 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
                 variant="outline"
                 size="sm"
                 className="text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                disabled={!selectedResponse}
                 onClick={() => {
-                  setDeleteId(selectedResponse!.id);
-                  setSelectedResponse(null);
+                  if (selectedResponse) {
+                    setDeleteId(selectedResponse.id);
+                    setSelectedResponse(null);
+                  }
                 }}
               >
                 <Trash2 className="h-3.5 w-3.5 mr-1.5" />
