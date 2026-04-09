@@ -1,9 +1,12 @@
 "use client";
 
-import { use, useRef, useState, useEffect } from "react";
+import { use, useRef, useState, useEffect, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, BarChart2, Settings, SquarePen, ClipboardList, ExternalLink, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import {
+  ArrowLeft, BarChart2, Settings, SquarePen, ClipboardList,
+  ExternalLink, ChevronLeft, ChevronRight, Loader2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getForm } from "@/lib/actions/forms";
 
@@ -29,19 +32,18 @@ export default function FormLayout({
     { name: "Settings", href: `/forms/${formId}/settings`, icon: Settings },
   ];
 
-  const updateScrollData = () => {
+  const updateScrollData = useCallback(() => {
     if (!scrollRef.current) return;
     const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-    
     setShowLeftArrow(scrollLeft > 10);
     setShowRightArrow(scrollLeft + clientWidth < scrollWidth - 10);
-  };
+  }, []);
 
   useEffect(() => {
     updateScrollData();
     window.addEventListener("resize", updateScrollData);
     return () => window.removeEventListener("resize", updateScrollData);
-  }, []);
+  }, [updateScrollData]);
 
   useEffect(() => {
     async function loadForm() {
@@ -59,15 +61,10 @@ export default function FormLayout({
     loadForm();
   }, [formId]);
 
-  const handleScroll = () => {
-    updateScrollData();
-  };
-
   const scroll = (direction: "left" | "right") => {
     if (!scrollRef.current) return;
-    const scrollAmount = 150;
     scrollRef.current.scrollBy({
-      left: direction === "left" ? -scrollAmount : scrollAmount,
+      left: direction === "left" ? -150 : 150,
       behavior: "smooth",
     });
   };
@@ -98,20 +95,13 @@ export default function FormLayout({
                 </div>
               )}
 
-              <nav 
+              <nav
                 ref={scrollRef}
-                onScroll={handleScroll}
+                onScroll={updateScrollData}
                 className="flex items-center gap-0.5 flex-1 overflow-x-auto no-scrollbar scroll-smooth px-1"
-                style={{
-                  scrollbarWidth: "none",
-                  msOverflowStyle: "none",
-                }}
+                style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
               >
-                <style dangerouslySetInnerHTML={{ __html: `
-                  .no-scrollbar::-webkit-scrollbar {
-                    display: none;
-                  }
-                `}} />
+                <style dangerouslySetInnerHTML={{ __html: `.no-scrollbar::-webkit-scrollbar { display: none; }` }} />
                 {tabs.map((tab) => {
                   const isActive =
                     tab.href === `/forms/${formId}/edit`
@@ -148,11 +138,12 @@ export default function FormLayout({
               )}
             </div>
 
-            <div className="flex-1 hidden md:flex items-center justify-center px-4 overflow-hidden min-w-0">
+            {/* Form title */}
+            <div className="flex-1 hidden md:flex items-center justify-center gap-2 px-4 overflow-hidden min-w-0">
               {isLoadingForm ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground/50" />
               ) : (
-                <span className="text-sm font-semibold text-foreground/80 truncate max-w-[300px] lg:max-w-[500px]">
+                <span className="text-sm font-semibold text-foreground/80 truncate max-w-[200px] lg:max-w-[400px]">
                   {formTitle}
                 </span>
               )}

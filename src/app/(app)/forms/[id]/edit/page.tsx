@@ -15,7 +15,7 @@ export default async function FormBuilderPage({
     redirect("/forms");
   }
 
-  const { form, fields } = result.data;
+  const { form, fields, currentUserRole, currentUserId } = result.data;
 
   const builderForm: BuilderForm = {
     id: form.id,
@@ -47,11 +47,17 @@ export default async function FormBuilderPage({
     properties: f.properties ?? undefined,
   }));
 
+  // Admins & owners can toggle collaboration mode and are never blocked by it
+  const canManageCollab =
+    currentUserRole === "owner" || currentUserRole === "administrator";
+
   return (
     <BuilderCanvas
       formId={id}
       initialForm={builderForm}
       initialFields={builderFields}
+      currentUserId={currentUserId}
+      canManageCollab={canManageCollab}
     />
   );
 }

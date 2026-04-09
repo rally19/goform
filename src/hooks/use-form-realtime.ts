@@ -5,20 +5,13 @@ import { createClient } from "@/lib/client";
 import { useFormBuilder, type CollaboratorInfo } from "./use-form-builder";
 import type { BuilderField, BuilderForm } from "@/lib/form-types";
 
-// ─── Collaborator colors (assigned per user, consistent per session) ──────────
+// ─── Collaborator colors (stable per user) ─────────────────────────────────────
 const COLLAB_COLORS = [
-  "#6366f1", // indigo
-  "#f43f5e", // rose
-  "#10b981", // emerald
-  "#f97316", // orange
-  "#0ea5e9", // sky
-  "#8b5cf6", // violet
-  "#f59e0b", // amber
-  "#ec4899", // pink
+  "#6366f1", "#f43f5e", "#10b981", "#f97316",
+  "#0ea5e9", "#8b5cf6", "#f59e0b", "#ec4899",
 ];
 
-function pickColor(userId: string): string {
-  // Stable color based on user id hash
+export function pickColor(userId: string): string {
   let hash = 0;
   for (let i = 0; i < userId.length; i++) {
     hash = userId.charCodeAt(i) + ((hash << 5) - hash);
@@ -26,7 +19,7 @@ function pickColor(userId: string): string {
   return COLLAB_COLORS[Math.abs(hash) % COLLAB_COLORS.length];
 }
 
-function getInitials(name: string): string {
+export function getInitials(name: string): string {
   return name
     .split(" ")
     .map((w) => w[0])
@@ -35,51 +28,95 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
-export { getInitials, pickColor };
-
 // ─── Broadcast event types ─────────────────────────────────────────────────────
-type BroadcastPayload =
+export type BroadcastPayload =
   | { type: "FORM_UPDATE"; fields: BuilderField[]; form: Partial<BuilderForm>; senderId: string }
-  | { type: "FIELD_SELECT"; fieldId: string | null; senderId: string };
+  | { type: "COLLAB_DISABLED"; senderId: string };
 
-// ─── Hook ─────────────────────────────────────────────────────────────────────
+// ─── Presence payload type ─────────────────────────────────────────────────────
+interface PresenceState {
+  userId: string;
+  name: string;
+  email: string;
+  color: string;
+  /** fieldId they are currently selecting, or "__drag__" + fieldId while dragging */
+  selectedFieldId: string | null;
+}
 
-interface UseFormRealtimeOptions {
+// ─── Hook options ──────────────────────────────────────────────────────────────
+export interface UseFormRealtimeOptions {
   formId: string;
-  enabled: boolean;
+  /** Presence is always on. This flag controls state-sync broadcast only. */
+  broadcastEnabled: boolean;
   currentUser: { id: string; name: string; email: string };
-  /** Called when we should broadcast current state (after a local change) */
-  onBroadcastState: () => void;
+  /** Called when we receive a COLLAB_DISABLED event from an admin. */
+  onKicked: () => void;
 }
 
 export function useFormRealtime({
   formId,
-  enabled,
+  broadcastEnabled,
   currentUser,
-  onBroadcastState,
+  onKicked,
 }: UseFormRealtimeOptions) {
-  const { applyRemoteUpdate, setCollaborators, fields, form, selectedFieldId } = useFormBuilder();
+  const { applyRemoteUpdate, setCollaborators, selectedFieldId } = useFormBuilder();
 
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
   const myColor = useRef(pickColor(currentUser.id));
-  const myPresenceKey = useRef<string | null>(null);
 
-  // ─── Build presence payload ────────────────────────────────────────────────
-  const buildMyPresence = useCallback(
-    (overrideFieldId?: string | null) => ({
+  // ──────────────────────────────────────────────────────────────────────────────
+  // Use refs for callbacks to avoid stale closures inside channel event handlers.
+  // Channel event handlers are set up once and will use whatever value is in the ref.
+  // ──────────────────────────────────────────────────────────────────────────────
+  const applyRemoteUpdateRef = useRef(applyRemoteUpdate);
+  applyRemoteUpdateRef.current = applyRemoteUpdate;
+
+  const setCollaboratorsRef = useRef(setCollaborators);
+  setCollaboratorsRef.current = setCollaborators;
+
+  const onKickedRef = useRef(onKicked);
+  onKickedRef.current = onKicked;
+
+  const broadcastEnabledRef = useRef(broadcastEnabled);
+  broadcastEnabledRef.current = broadcastEnabled;
+
+  // ─── Track my presence in the channel ─────────────────────────────────────
+  const trackMyPresence = useCallback((state: Partial<PresenceState>) => {
+    if (!channelRef.current) return;
+    channelRef.current.track({
       userId: currentUser.id,
       name: currentUser.name,
       email: currentUser.email,
       color: myColor.current,
-      selectedFieldId: overrideFieldId !== undefined ? overrideFieldId : selectedFieldId,
-    }),
-    [currentUser, selectedFieldId]
-  );
+      selectedFieldId: null,
+      ...state,
+    } satisfies PresenceState);
+  }, [currentUser]);
 
-  // ─── Broadcast current form state to peers ─────────────────────────────────
+  // ─── Process raw Supabase presence state → CollaboratorInfo[] ─────────────
+  const processPresenceState = useCallback((rawState: Record<string, unknown[]>) => {
+    const result: CollaboratorInfo[] = [];
+    for (const [presenceKey, payloads] of Object.entries(rawState)) {
+      // Supabase stores latest payload first
+      const latest = (payloads as PresenceState[])[0];
+      if (!latest || latest.userId === currentUser.id) continue;
+      result.push({
+        userId: latest.userId,
+        name: latest.name,
+        email: latest.email,
+        color: latest.color,
+        selectedFieldId: latest.selectedFieldId ?? null,
+        presenceKey,
+      });
+    }
+    // Use ref to avoid stale closure
+    setCollaboratorsRef.current(result);
+  }, [currentUser.id]);
+
+  // ─── Broadcast form state update to peers ─────────────────────────────────
   const broadcastState = useCallback(
     (fieldsSnapshot: BuilderField[], formSnapshot: Partial<BuilderForm>) => {
-      if (!channelRef.current || !enabled) return;
+      if (!channelRef.current || !broadcastEnabledRef.current) return;
       channelRef.current.send({
         type: "broadcast",
         event: "FORM_UPDATE",
@@ -91,105 +128,90 @@ export function useFormRealtime({
         } satisfies BroadcastPayload,
       });
     },
-    [currentUser.id, enabled]
+    [currentUser.id]
   );
 
-  // ─── Update presence when selected field changes ────────────────────────────
-  const trackPresence = useCallback(
-    (fieldId: string | null) => {
-      if (!channelRef.current || !enabled) return;
-      channelRef.current.track(buildMyPresence(fieldId));
-    },
-    [buildMyPresence, enabled]
-  );
+  // ─── Broadcast COLLAB_DISABLED (kick everyone) ─────────────────────────────
+  const broadcastKick = useCallback(() => {
+    if (!channelRef.current) return;
+    channelRef.current.send({
+      type: "broadcast",
+      event: "COLLAB_DISABLED",
+      payload: {
+        type: "COLLAB_DISABLED",
+        senderId: currentUser.id,
+      } satisfies BroadcastPayload,
+    });
+  }, [currentUser.id]);
 
-  // ─── Process raw presence state into CollaboratorInfo[] ────────────────────
-  const processPresenceState = useCallback(
-    (state: Record<string, unknown[]>) => {
-      const result: CollaboratorInfo[] = [];
-      for (const [presenceKey, payloads] of Object.entries(state)) {
-        const latest = (payloads as Record<string, unknown>[])[0];
-        if (!latest || (latest.userId as string) === currentUser.id) continue;
-        result.push({
-          userId: latest.userId as string,
-          name: latest.name as string,
-          email: latest.email as string,
-          color: latest.color as string,
-          selectedFieldId: (latest.selectedFieldId as string | null) ?? null,
-          presenceKey,
-        });
-      }
-      setCollaborators(result);
-    },
-    [currentUser.id, setCollaborators]
-  );
-
-  // ─── Subscribe / Unsubscribe ───────────────────────────────────────────────
+  // ─── Channel subscription (always-on presence) ─────────────────────────────
   useEffect(() => {
-    if (!enabled) {
-      // Clean up if collab is turned off
-      if (channelRef.current) {
-        channelRef.current.unsubscribe();
-        channelRef.current = null;
-        setCollaborators([]);
-      }
-      return;
-    }
+    if (!currentUser.id || currentUser.id === "anon") return;
 
     const supabase = createClient();
+    // One channel per form, always active while on the edit page
     const channel = supabase.channel(`form_builder_${formId}`, {
       config: { presence: { key: currentUser.id } },
     });
     channelRef.current = channel;
 
-    // ─── Presence events ────────────────────────────────────────────────────
     channel
+      // Presence sync (fires on initial connect and every change)
       .on("presence", { event: "sync" }, () => {
         processPresenceState(channel.presenceState() as Record<string, unknown[]>);
       })
-      .on("presence", { event: "join" }, ({ newPresences }: { newPresences: unknown[] }) => {
-        // Re-sync on join; avoid stale state
+      .on("presence", { event: "join" }, (_: unknown) => {
         processPresenceState(channel.presenceState() as Record<string, unknown[]>);
-        console.debug("[Collab] User joined:", newPresences);
       })
-      .on("presence", { event: "leave" }, ({ leftPresences }: { leftPresences: unknown[] }) => {
+      .on("presence", { event: "leave" }, (_: unknown) => {
         processPresenceState(channel.presenceState() as Record<string, unknown[]>);
-        console.debug("[Collab] User left:", leftPresences);
+      })
+      // Broadcast: form updates (only applied when collab broadcast is enabled)
+      .on("broadcast", { event: "FORM_UPDATE" }, ({ payload }: { payload: BroadcastPayload }) => {
+        if (!broadcastEnabledRef.current) return;
+        if (payload.type !== "FORM_UPDATE") return;
+        if (payload.senderId === currentUser.id) return;
+        applyRemoteUpdateRef.current({ fields: payload.fields, form: payload.form });
+      })
+      // Broadcast: collab disabled → kick non-senders
+      .on("broadcast", { event: "COLLAB_DISABLED" }, ({ payload }: { payload: BroadcastPayload }) => {
+        if (payload.type !== "COLLAB_DISABLED") return;
+        if (payload.senderId === currentUser.id) return; // the one who turned it off stays
+        onKickedRef.current();
       });
 
-    // ─── Broadcast events ────────────────────────────────────────────────────
-    channel.on("broadcast", { event: "FORM_UPDATE" }, ({ payload }: { payload: BroadcastPayload }) => {
-      const p = payload as BroadcastPayload;
-      if (p.type !== "FORM_UPDATE") return;
-      if (p.senderId === currentUser.id) return; // ignore own echoes
-
-      applyRemoteUpdate({ fields: p.fields, form: p.form });
-    });
-
-    // ─── Subscribe ───────────────────────────────────────────────────────────
     channel.subscribe(async (status: string) => {
       if (status === "SUBSCRIBED") {
-        await channel.track(buildMyPresence());
+        await channel.track({
+          userId: currentUser.id,
+          name: currentUser.name,
+          email: currentUser.email,
+          color: myColor.current,
+          selectedFieldId: null,
+        } satisfies PresenceState);
       }
     });
 
     return () => {
       channel.unsubscribe();
       channelRef.current = null;
-      setCollaborators([]);
+      setCollaboratorsRef.current([]);
     };
+    // Only re-subscribe if formId or user changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, formId, currentUser.id]);
+  }, [formId, currentUser.id, currentUser.name, currentUser.email]);
 
-  // ─── Track presence when selectedFieldId changes ───────────────────────────
+  // ─── Re-track presence whenever selectedFieldId changes ─────────────────────
+  // (This is the key fix: runs on every selection change, uses latest channel ref)
   useEffect(() => {
-    if (!enabled || !channelRef.current) return;
-    trackPresence(selectedFieldId);
-  }, [selectedFieldId, enabled, trackPresence]);
+    if (!channelRef.current) return;
+    trackMyPresence({ selectedFieldId });
+  }, [selectedFieldId, trackMyPresence]);
 
   return {
     broadcastState,
-    trackPresence,
+    broadcastKick,
+    trackMyPresence,
     myColor: myColor.current,
   };
 }

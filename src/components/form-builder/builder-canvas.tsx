@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useCallback, useRef, useState, useId } from "react";
+import { useRouter } from "next/navigation";
 import { useFormBuilder } from "@/hooks/use-form-builder";
-import { useFormRealtime, getInitials, pickColor } from "@/hooks/use-form-realtime";
-import { createClient } from "@/lib/client";
+import { useFormRealtime, getInitials } from "@/hooks/use-form-realtime";
 import { FieldCard } from "./field-card";
 import { FormHeaderEditor } from "./form-header-editor";
 import { ComponentPanel } from "./component-panel";
@@ -34,7 +34,7 @@ import {
 } from "@dnd-kit/sortable";
 import {
   Save, Loader2, PlusCircle, Globe, Settings2, Palette, Check,
-  Users, Wifi, WifiOff, CheckCheck,
+  Wifi, WifiOff, CheckCheck, Lock, ShieldAlert,
 } from "lucide-react";
 import Link from "next/link";
 import { ACCENT_COLORS } from "@/lib/form-types";
@@ -61,6 +61,10 @@ interface BuilderCanvasProps {
   formId: string;
   initialForm: BuilderForm;
   initialFields: BuilderField[];
+  /** Server-resolved user id so we never need to fetch it client-side */
+  currentUserId: string;
+  /** True if this user is owner or administrator — can toggle collab + is never blocked */
+  canManageCollab: boolean;
 }
 
 // ─── Collaborator avatar stack ─────────────────────────────────────────────────
@@ -83,7 +87,9 @@ function CollaboratorAvatars() {
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">
               {c.name}
-              {c.selectedFieldId && <span className="text-muted-foreground ml-1">(editing)</span>}
+              {c.selectedFieldId && (
+                <span className="text-muted-foreground ml-1">(editing)</span>
+              )}
             </TooltipContent>
           </Tooltip>
         ))}
@@ -97,7 +103,14 @@ function CollaboratorAvatars() {
   );
 }
 
-export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCanvasProps) {
+export function BuilderCanvas({
+  formId,
+  initialForm,
+  initialFields,
+  currentUserId,
+  canManageCollab,
+}: BuilderCanvasProps) {
+  const router = useRouter();
   const {
     form,
     fields,
@@ -112,55 +125,91 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
     setSaving,
     markSaved,
     updateFormMeta,
-    fieldLocks,
+    collaborators,
   } = useFormBuilder();
 
-  const id = useId();
+  const dndId = useId();
   const [mounted, setMounted] = useState(false);
-  const [currentUser, setCurrentUser] = useState<{ id: string; name: string; email: string } | null>(null);
-
-  // ─── Saved indicator state ─────────────────────────────────────────────────
   const [justSaved, setJustSaved] = useState(false);
 
-  // Initialize once
+  // ─── User info (from props, no extra fetch needed) ─────────────────────────
+  // We still need name/email for presence — get them from Supabase auth client-side
+  const [currentUserMeta, setCurrentUserMeta] = useState<{
+    id: string;
+    name: string;
+    email: string;
+  }>({ id: currentUserId, name: "User", email: "" });
+
   useEffect(() => {
     initialize(initialForm, initialFields);
     setMounted(true);
-  }, []);
 
-  // Fetch current user for presence
-  useEffect(() => {
-    (async () => {
-      const { data: { user: authUser } } = await createClient().auth.getUser();
-      if (authUser) {
-        setCurrentUser({
-          id: authUser.id,
-          name:
-            authUser.user_metadata?.full_name ??
-            authUser.email?.split("@")[0] ??
-            "User",
-          email: authUser.email ?? "",
+    // Fetch display name once
+    import("@/lib/client").then(({ createClient }) => {
+      createClient()
+        .auth.getUser()
+        .then(({ data }: { data: { user: import("@supabase/supabase-js").User | null } }) => {
+          if (data.user) {
+            setCurrentUserMeta({
+              id: data.user.id,
+              name:
+                data.user.user_metadata?.full_name ??
+                data.user.email?.split("@")[0] ??
+                "User",
+              email: data.user.email ?? "",
+            });
+          }
         });
-      }
-    })();
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [activeData, setActiveData] = useState<any>(null);
+  const [activeData, setActiveData] = useState<Record<string, unknown> | null>(null);
   const [isComponentsOpen, setIsComponentsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const collaborationEnabled = form?.collaborationEnabled ?? false;
 
-  // ─── Realtime integration ───────────────────────────────────────────────────
-  const { broadcastState, myColor } = useFormRealtime({
+  // ─── "Blocked" state: collab OFF and someone else is already editing ──────
+  const [isBlocked, setIsBlocked] = useState(false);
+
+  // ─── Realtime hook — ALWAYS mounted (presence is always-on) ───────────────
+  const { broadcastState, broadcastKick, trackMyPresence, myColor } = useFormRealtime({
     formId,
-    enabled: collaborationEnabled && !!currentUser,
-    currentUser: currentUser ?? { id: "anon", name: "User", email: "" },
-    onBroadcastState: () => {
-      if (form) broadcastState(fields, form);
-    },
+    broadcastEnabled: collaborationEnabled,
+    currentUser: currentUserMeta,
+    onKicked: useCallback(() => {
+      toast.error("Collaboration mode was disabled. You have been redirected.", {
+        duration: 5000,
+      });
+      router.push("/forms");
+    }, [router]),
   });
+
+  // ─── Determine "blocked" status ────────────────────────────────────────────
+  // When collab is OFF, non-admins are blocked if anyone else is present.
+  useEffect(() => {
+    if (collaborationEnabled || canManageCollab) {
+      setIsBlocked(false);
+      return;
+    }
+    const othersPresent = collaborators.some((c) => c.userId !== currentUserId);
+    setIsBlocked(othersPresent);
+  }, [collaborators, collaborationEnabled, canManageCollab, currentUserId]);
+
+  // ─── Track drag in presence ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!activeId) {
+      // Drag ended — restore normal selected field
+      trackMyPresence({ selectedFieldId });
+    } else {
+      // Dragging a field or new component
+      const dragFieldId = activeId.startsWith("new:") ? null : activeId;
+      trackMyPresence({ selectedFieldId: dragFieldId });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId]);
 
   // ─── Save handler ──────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
@@ -174,9 +223,7 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
       if (!metaResult.success) throw new Error(metaResult.error);
       if (!fieldsResult.success) throw new Error(fieldsResult.error);
       markSaved();
-      if (!collaborationEnabled) {
-        toast.success("Form saved!");
-      }
+      if (!collaborationEnabled) toast.success("Form saved!");
       setJustSaved(true);
       setTimeout(() => setJustSaved(false), 2000);
     } catch (err) {
@@ -197,45 +244,45 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
     }
   }, [form, formId]);
 
-  // ─── Collaboration toggle ───────────────────────────────────────────────────
+  // ─── Collaboration toggle (admin-only) ─────────────────────────────────────
   const handleCollabToggle = useCallback(async (enabled: boolean) => {
+    if (!canManageCollab) return;
     updateFormMeta({ collaborationEnabled: enabled });
-    // Persist immediately
+
+    if (!enabled) {
+      // Kick all others before disabling
+      broadcastKick();
+    }
+
     const result = await updateForm(formId, { ...form!, collaborationEnabled: enabled });
     if (!result.success) {
       toast.error("Failed to update collaboration setting");
       updateFormMeta({ collaborationEnabled: !enabled }); // revert
     } else {
-      toast.success(enabled ? "Collaboration mode enabled" : "Collaboration mode disabled");
+      toast.success(
+        enabled ? "Collaboration mode enabled" : "Collaboration mode disabled — others have been redirected"
+      );
     }
-  }, [form, formId, updateFormMeta]);
+  }, [canManageCollab, form, formId, updateFormMeta, broadcastKick]);
 
-  // ─── Auto-save: manual / default autosave (non-collab mode) ───────────────
+  // ─── Auto-save: non-collab mode ────────────────────────────────────────────
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
-    if (!isDirty || collaborationEnabled) return;
-    if (!form?.autoSave) return;
+    if (!isDirty || collaborationEnabled || !form?.autoSave) return;
     clearTimeout(saveTimeout.current);
-    saveTimeout.current = setTimeout(() => {
-      handleSave();
-    }, 3000);
+    saveTimeout.current = setTimeout(handleSave, 3000);
     return () => clearTimeout(saveTimeout.current);
   }, [isDirty, fields, form, handleSave, collaborationEnabled]);
 
-  // ─── Auto-save: collaboration mode (instant broadcast + debounce save) ─────
+  // ─── Auto-save + broadcast: collab mode ───────────────────────────────────
   const collabSaveTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
     if (!isDirty || !collaborationEnabled || !form) return;
-
-    // Instantly broadcast to peers
     broadcastState(fields, form);
-
-    // Debounce persist to DB (1.5s)
     clearTimeout(collabSaveTimeout.current);
-    collabSaveTimeout.current = setTimeout(() => {
-      handleSave();
-    }, 1500);
+    collabSaveTimeout.current = setTimeout(handleSave, 1500);
     return () => clearTimeout(collabSaveTimeout.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDirty, fields, form, collaborationEnabled]);
 
   const sensors = useSensors(
@@ -246,7 +293,7 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
     setActiveId(active.id as string);
-    setActiveData(active.data.current);
+    setActiveData(active.data.current as Record<string, unknown>);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -258,8 +305,7 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
 
     if (active.id.toString().startsWith("new:")) {
       const type = active.data.current?.type as FieldType;
-      const overId = over.id.toString();
-      const overIdx = fields.findIndex((f) => f.id === overId);
+      const overIdx = fields.findIndex((f) => f.id === over.id.toString());
       addField(type, overIdx >= 0 ? overIdx : undefined);
       return;
     }
@@ -273,9 +319,7 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
     if (active.id !== over.id) {
       const fromIdx = fields.findIndex((f) => f.id === active.id);
       const toIdx = fields.findIndex((f) => f.id === over.id);
-      if (fromIdx >= 0 && toIdx >= 0) {
-        reorderFields(fromIdx, toIdx);
-      }
+      if (fromIdx >= 0 && toIdx >= 0) reorderFields(fromIdx, toIdx);
     }
   };
 
@@ -283,9 +327,8 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
 
   const renderOverlay = () => {
     if (!activeId) return null;
-
-    if (activeId.toString().startsWith("new:")) {
-      const label = activeData?.label || "New Field";
+    if (activeId.startsWith("new:")) {
+      const label = activeData?.label as string || "New Field";
       return (
         <div className="bg-card border-2 border-primary rounded-xl p-4 shadow-2xl opacity-90 w-72 flex items-center gap-3">
           <PlusCircle className="h-5 w-5 text-primary" />
@@ -293,7 +336,6 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
         </div>
       );
     }
-
     const field = fields.find((f) => f.id === activeId);
     if (field) {
       return (
@@ -305,15 +347,66 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
         />
       );
     }
-
     return null;
   };
 
   if (!mounted) return null;
 
+  // ─── Blocked overlay (collab OFF, someone else is editing) ────────────────
+  if (isBlocked) {
+    const editors = collaborators.filter((c) => c.userId !== currentUserId);
+    return (
+      <div className="flex flex-col h-full items-center justify-center bg-muted/30 p-6">
+        <div className="max-w-md w-full bg-card rounded-2xl border border-border shadow-xl p-8 text-center space-y-5">
+          <div className="h-16 w-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mx-auto">
+            <Lock className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-foreground mb-2">Form is being edited</h2>
+            <p className="text-sm text-muted-foreground">
+              Collaboration mode is <strong>off</strong>. Only one person can edit at a time.
+            </p>
+          </div>
+
+          {/* Active editors */}
+          <div className="flex flex-col gap-2">
+            {editors.map((c) => (
+              <div
+                key={c.userId}
+                className="flex items-center gap-3 rounded-lg px-3 py-2 bg-muted"
+              >
+                <div
+                  className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
+                  style={{ backgroundColor: c.color }}
+                >
+                  {getInitials(c.name)}
+                </div>
+                <div className="text-left min-w-0">
+                  <p className="text-sm font-medium truncate">{c.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{c.email}</p>
+                </div>
+                <div className="ml-auto flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                  <div className="h-2 w-2 rounded-full bg-current animate-pulse" />
+                  editing
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Wait for them to finish, or ask an admin to enable collaboration mode.
+          </p>
+          <Button variant="outline" onClick={() => router.push("/forms")} className="w-full">
+            Go back to Forms
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <DndContext
-      id={id}
+      id={dndId}
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
@@ -343,7 +436,7 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
 
         {/* Center: Canvas */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          {/* Toolbar */}
+          {/* ─── Toolbar ───────────────────────────────────────────── */}
           <div className="h-12 border-b border-border bg-card flex items-center justify-between px-2 md:px-4 shrink-0 gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <Badge
@@ -353,26 +446,24 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
                 {form?.status ?? "draft"}
               </Badge>
 
-              {/* Save status indicator */}
+              {/* Save status */}
               {collaborationEnabled ? (
-                <div className="flex items-center gap-1.5">
-                  {isSaving ? (
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      <span className="hidden sm:inline">Saving...</span>
-                    </span>
-                  ) : justSaved ? (
-                    <span className="flex items-center gap-1 text-xs text-emerald-600">
-                      <CheckCheck className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">Saved</span>
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground/60">
-                      <CheckCheck className="h-3 w-3" />
-                      <span className="hidden sm:inline">Auto-saving</span>
-                    </span>
-                  )}
-                </div>
+                isSaving ? (
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span className="hidden sm:inline">Saving…</span>
+                  </span>
+                ) : justSaved ? (
+                  <span className="flex items-center gap-1 text-xs text-emerald-600">
+                    <CheckCheck className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Saved</span>
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground/50">
+                    <CheckCheck className="h-3 w-3" />
+                    <span className="hidden sm:inline">Auto-saving</span>
+                  </span>
+                )
               ) : (
                 isDirty && (
                   <span className="text-xs text-muted-foreground">• Unsaved changes</span>
@@ -383,35 +474,39 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
             <div className="flex-1" />
 
             <div className="flex items-center gap-1.5 md:gap-2">
-              {/* Collaborator avatars */}
-              {collaborationEnabled && currentUser && (
-                <div className="flex items-center gap-2">
-                  {/* My own avatar */}
-                  <TooltipProvider delayDuration={200}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div
-                          className="h-7 w-7 rounded-full border-2 border-primary/30 flex items-center justify-center text-[10px] font-bold text-white shrink-0 cursor-default ring-2 ring-offset-1"
-                          style={{ backgroundColor: myColor }}
-                        >
-                          {getInitials(currentUser.name)}
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="text-xs">
-                        {currentUser.name} (you)
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  <CollaboratorAvatars />
-                </div>
-              )}
+              {/* ─── Collaborator avatars (always shown when someone else is present) */}
+              <div className="flex items-center gap-1.5">
+                {/* My avatar */}
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div
+                        className="h-7 w-7 rounded-full border-2 border-background flex items-center justify-center text-[10px] font-bold text-white shrink-0 cursor-default"
+                        style={{ backgroundColor: myColor }}
+                      >
+                        {getInitials(currentUserMeta.name)}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      {currentUserMeta.name} (you)
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <CollaboratorAvatars />
+              </div>
 
-              {/* Collab toggle */}
+              {/* ─── Collaboration toggle (admin/owner only) ── */}
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-muted transition-colors cursor-pointer"
-                      onClick={() => handleCollabToggle(!collaborationEnabled)}
+                    <div
+                      className={cn(
+                        "flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors",
+                        canManageCollab
+                          ? "hover:bg-muted cursor-pointer"
+                          : "opacity-50 cursor-not-allowed"
+                      )}
+                      onClick={() => canManageCollab && handleCollabToggle(!collaborationEnabled)}
                     >
                       {collaborationEnabled ? (
                         <Wifi className="h-3.5 w-3.5 text-emerald-500" />
@@ -423,21 +518,24 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
                       </span>
                       <Switch
                         checked={collaborationEnabled}
-                        onCheckedChange={handleCollabToggle}
+                        onCheckedChange={(v) => canManageCollab && handleCollabToggle(v)}
+                        disabled={!canManageCollab}
                         className="h-4 w-7 [&_span]:h-3 [&_span]:w-3"
                         onClick={(e) => e.stopPropagation()}
                       />
                     </div>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom" className="text-xs max-w-[200px] text-center">
-                    {collaborationEnabled
-                      ? "Collaboration is ON — changes auto-save and sync in real-time"
-                      : "Enable collaboration for real-time multi-user editing"}
+                  <TooltipContent side="bottom" className="text-xs max-w-[220px] text-center">
+                    {!canManageCollab
+                      ? "Only admins and owners can toggle collaboration mode"
+                      : collaborationEnabled
+                      ? "ON — changes sync in real-time. Click to disable."
+                      : "OFF — enable to allow multiple users to edit simultaneously."}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
 
-              {/* Manual save (only in non-collab mode) */}
+              {/* ─── Manual save (non-collab mode only) ────────── */}
               {!collaborationEnabled && (
                 <Button
                   variant="ghost"
@@ -501,7 +599,7 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
             </div>
           </div>
 
-          {/* Canvas area */}
+          {/* ─── Canvas area ───────────────────────────────────────── */}
           <ScrollArea className="flex-1 min-h-0">
             <div
               className="min-h-full bg-muted/20 pb-24 md:pb-8 pt-6 md:pt-8 px-2 md:px-4"
@@ -557,9 +655,8 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
           </SheetContent>
         </Sheet>
 
-        {/* Mobile Floating Action Buttons */}
+        {/* Mobile FABs */}
         <div className="contents">
-          {/* Bottom Left: Add Components */}
           <div className="fixed bottom-6 left-6 z-40 md:hidden">
             <Button
               size="icon"
@@ -571,7 +668,6 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
             </Button>
           </div>
 
-          {/* Bottom Right: Field Properties */}
           <div className="fixed bottom-6 right-6 z-40 lg:hidden">
             <Button
               size="icon"
@@ -589,15 +685,13 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
         </div>
       </div>
 
-      <DragOverlay dropAnimation={{
-        sideEffects: defaultDropAnimationSideEffects({
-          styles: {
-            active: {
-              opacity: "0.4",
-            },
-          },
-        }),
-      }}>
+      <DragOverlay
+        dropAnimation={{
+          sideEffects: defaultDropAnimationSideEffects({
+            styles: { active: { opacity: "0.4" } },
+          }),
+        }}
+      >
         {renderOverlay()}
       </DragOverlay>
     </DndContext>

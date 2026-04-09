@@ -90,6 +90,8 @@ export async function getForms({ search }: { search?: string } = {}): Promise<
 export async function getForm(id: string): Promise<ActionResult<{
   form: typeof forms.$inferSelect;
   fields: typeof formFields.$inferSelect[];
+  currentUserRole: "owner" | "administrator" | "editor" | "viewer";
+  currentUserId: string;
 }>> {
   try {
     const user = await getAuthUser();
@@ -104,16 +106,21 @@ export async function getForm(id: string): Promise<ActionResult<{
 
     if (!form) return { success: false, error: "Form not found" };
 
+    let currentUserRole: "owner" | "administrator" | "editor" | "viewer" = "viewer";
+
     // Check if personal owner, or member of the organization
     if (form.organizationId) {
       const access = await verifyWorkspaceAccess(form.organizationId, "viewer");
       if (!access.success) throw new Error(access.error);
+      currentUserRole = (access.role as typeof currentUserRole) ?? "viewer";
     } else if (form.userId !== user.id) {
        throw new Error("Unauthorized");
+    } else {
+      currentUserRole = "owner";
     }
 
     const { fields, ...formData } = form;
-    return { success: true, data: { form: formData, fields } };
+    return { success: true, data: { form: formData, fields, currentUserRole, currentUserId: user.id } };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
