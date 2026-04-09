@@ -24,11 +24,12 @@ export function UserAccountWidget() {
     email: string;
     avatarUrl: string | null;
   } | null>(null);
-  const supabase = createClient();
-
   useEffect(() => {
+    let isActive = true;
+    const supabase = createClient();
+    
     supabase.auth.getUser().then(({ data: { user: authUser } }) => {
-      if (authUser) {
+      if (authUser && isActive) {
         setUser({
           name: authUser.user_metadata?.name || null,
           email: authUser.email!,
@@ -36,6 +37,10 @@ export function UserAccountWidget() {
         });
       }
     });
+
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   return (
