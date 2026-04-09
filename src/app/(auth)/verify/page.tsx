@@ -38,9 +38,39 @@ function VerifyForm() {
 
   const [isPending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState(15 * 60); // 15 minutes default expiry visual
+  const [countdown, setCountdown] = useState(15 * 60);
   const [resendCountdown, setResendCountdown] = useState(30);
   const [isResending, setIsResending] = useState(false);
+
+  // Initialize countdowns from localStorage on mount
+  useEffect(() => {
+    if (!email || !type) return;
+
+    const expiryKey = `otp_expiry_${email}_${type}`;
+    const resendKey = `otp_resend_${email}_${type}`;
+
+    const now = Date.now();
+    
+    // Handle Expiry Countdown
+    const storedExpiry = localStorage.getItem(expiryKey);
+    if (storedExpiry) {
+      const startTime = parseInt(storedExpiry, 10);
+      const elapsed = Math.floor((now - startTime) / 1000);
+      setCountdown(Math.max(0, 15 * 60 - elapsed));
+    } else {
+      localStorage.setItem(expiryKey, now.toString());
+    }
+
+    // Handle Resend Countdown
+    const storedResend = localStorage.getItem(resendKey);
+    if (storedResend) {
+      const startTime = parseInt(storedResend, 10);
+      const elapsed = Math.floor((now - startTime) / 1000);
+      setResendCountdown(Math.max(0, 30 - elapsed));
+    } else {
+      localStorage.setItem(resendKey, now.toString());
+    }
+  }, [email, type]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -107,6 +137,9 @@ function VerifyForm() {
       toast.error(res.error);
     } else {
       toast.success("A new code has been sent to your email.");
+      const now = Date.now();
+      localStorage.setItem(`otp_resend_${email}_${type}`, now.toString());
+      localStorage.setItem(`otp_expiry_${email}_${type}`, now.toString());
       setResendCountdown(30);
       setCountdown(15 * 60);
     }

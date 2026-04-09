@@ -56,6 +56,9 @@ export async function signUpAction(formData: FormData) {
   })
 
   if (error) {
+    if (error.message.toLowerCase().includes('already registered')) {
+      redirect(`/verify?email=${encodeURIComponent(email)}&type=signup`)
+    }
     return { error: error.message }
   }
 
@@ -107,9 +110,12 @@ export async function resendOtpAction(email: string, type: 'signup' | 'recovery'
   if (type === 'recovery') {
     const { error } = await supabase.auth.resetPasswordForEmail(email)
     if (error) return { error: error.message }
+  } else if (type === 'magiclink') {
+    const { error } = await supabase.auth.signInWithOtp({ email })
+    if (error) return { error: error.message }
   } else {
     const { error } = await supabase.auth.resend({
-      type,
+      type: 'signup', // Explicitly cast to valid type
       email,
     })
     if (error) return { error: error.message }

@@ -41,6 +41,33 @@ function VerifyEmailChangeForm() {
   const [resendCountdown, setResendCountdown] = useState(30);
   const [isResending, setIsResending] = useState(false);
 
+  // Persistence logic
+  useEffect(() => {
+    if (!oldEmail || !newEmail) return;
+
+    const expiryKey = `email_change_expiry_${oldEmail}_${newEmail}`;
+    const resendKey = `email_change_resend_${oldEmail}_${newEmail}`;
+    const now = Date.now();
+
+    // Handle Expiry
+    const storedExpiry = localStorage.getItem(expiryKey);
+    if (storedExpiry) {
+      const elapsed = Math.floor((now - parseInt(storedExpiry, 10)) / 1000);
+      setCountdown(Math.max(0, 15 * 60 - elapsed));
+    } else {
+      localStorage.setItem(expiryKey, now.toString());
+    }
+
+    // Handle Resend
+    const storedResend = localStorage.getItem(resendKey);
+    if (storedResend) {
+      const elapsed = Math.floor((now - parseInt(storedResend, 10)) / 1000);
+      setResendCountdown(Math.max(0, 30 - elapsed));
+    } else {
+      localStorage.setItem(resendKey, now.toString());
+    }
+  }, [oldEmail, newEmail]);
+
   useEffect(() => {
     const timer = setInterval(() => {
       setCountdown((prev) => (prev > 0 ? prev - 1 : 0));
@@ -108,6 +135,9 @@ function VerifyEmailChangeForm() {
       toast.error(res.error);
     } else {
       toast.success("New codes have been sent to both your email addresses.");
+      const now = Date.now();
+      localStorage.setItem(`email_change_resend_${oldEmail}_${newEmail}`, now.toString());
+      localStorage.setItem(`email_change_expiry_${oldEmail}_${newEmail}`, now.toString());
       setResendCountdown(30);
       setCountdown(15 * 60);
     }
