@@ -24,6 +24,21 @@ export async function signInAction(formData: FormData) {
   redirect('/dashboard')
 }
 
+export async function resetPasswordAction(formData: FormData) {
+  const email = formData.get('email') as string
+  const supabase = await createClient()
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/oauth/consent?next=/settings`,
+  })
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  return { success: true }
+}
+
 export async function signUpAction(formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
@@ -60,23 +75,7 @@ export async function signUpAction(formData: FormData) {
   redirect('/dashboard')
 }
 
-export async function signInWithGoogleAction(formData?: FormData) {
-  const supabase = await createClient()
 
-  // Prepare origin logic inside action is tricky, but we can pass the static route.
-  // The route we requested to setup in consent is `/oauth/consent`
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/oauth/consent`,
-    },
-  })
-
-  // Redirect to Google login screen
-  if (data.url) {
-    redirect(data.url)
-  }
-}
 
 export async function signOutAction() {
   const supabase = await createClient()

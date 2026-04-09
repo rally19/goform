@@ -25,13 +25,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Camera, Monitor, ShieldCheck, LogOut, Link2 } from "lucide-react";
+import { Camera, Monitor, ShieldCheck, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { 
   updateProfileAction, 
   updatePasswordAction, 
   signOutOthersAction, 
-  disconnectProviderAction, 
+  resetPasswordFromSettingsAction, 
   deleteAccountAction,
   uploadAvatarAction,
   removeAvatarAction
@@ -52,16 +52,24 @@ export function SettingsClient({
 
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [signOutOthersOpen, setSignOutOthersOpen] = useState(false);
-  const [identityToDisconnect, setIdentityToDisconnect] = useState<UserIdentity | null>(null);
+  const [emailChangeAlertOpen, setEmailChangeAlertOpen] = useState(false);
 
 
   const handleProfileSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const newEmail = formData.get('email') as string;
+    
     startTransition(async () => {
       const res = await updateProfileAction(formData);
-      if (res?.error) toast.error(res.error);
-      else toast.success('Profile updated successfully.');
+      if (res?.error) {
+        toast.error(res.error);
+      } else {
+        toast.success('Profile updated successfully.');
+        if (newEmail !== user.email) {
+          setEmailChangeAlertOpen(true);
+        }
+      }
     });
   };
 
@@ -105,14 +113,7 @@ export function SettingsClient({
     });
   };
 
-  const handleDisconnect = (identity: UserIdentity) => {
-    setIdentityToDisconnect(null);
-    startTransition(async () => {
-      const res = await disconnectProviderAction(identity);
-      if (res?.error) toast.error(res.error);
-      else toast.success('Identity disconnected.');
-    });
-  };
+
 
   const handleDeleteAccount = () => {
     setDeleteAccountOpen(false);
@@ -249,7 +250,23 @@ export function SettingsClient({
                 <CardContent className="space-y-4">
                   {hasPassword && (
                     <div className="space-y-1">
-                      <Label htmlFor="current">Current password</Label>
+                      <div className="flex justify-between items-center">
+                        <Label htmlFor="current">Current password</Label>
+                        <Button
+                          variant="link"
+                          type="button"
+                          className="px-0 h-auto font-normal text-xs text-muted-foreground hover:text-primary"
+                          onClick={() => {
+                            startTransition(async () => {
+                              const res = await resetPasswordFromSettingsAction();
+                              if (res?.error) toast.error(res.error);
+                              else toast.success("Reset link sent! Please check your email.");
+                            });
+                          }}
+                        >
+                          Forgot your current password?
+                        </Button>
+                      </div>
                       <PasswordInput id="current" name="current" required placeholder="Enter current password" />
                     </div>
                   )}
@@ -297,56 +314,7 @@ export function SettingsClient({
                 </CardFooter>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Linked Accounts</CardTitle>
-                  <CardDescription>
-                    Connect your account to social providers for easier sign-in.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {identities.length === 0 ? (
-                      <div className="p-4 text-sm text-muted-foreground border rounded-lg">
-                        No linked accounts.
-                      </div>
-                    ) : identities.map(identity => (
-                      <div key={identity.id} className="flex items-center justify-between p-4 rounded-lg border">
-                        <div className="flex items-center gap-4">
-                          <div className="bg-muted p-2 rounded-full">
-                            {identity.provider === 'google' ? (
-                              <svg className="h-5 w-5" aria-hidden="true" focusable="false" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
-                                <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
-                              </svg>
-                            ) : (
-                               <Link2 className="h-5 w-5 text-muted-foreground" />
-                            )}
-                          </div>
-                          <div>
-                            <div className="font-medium capitalize">{identity.provider}</div>
-                            <div className="text-sm text-muted-foreground">Connected as {identity.identity_data?.email || identity.identity_data?.name || "User"}</div>
-                          </div>
-                        </div>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="h-8"
-                          onClick={() => {
-                            if (!hasPassword) {
-                              toast.error("You must set a password before you can disconnect this provider to avoid being locked out of your account.");
-                              return;
-                            }
-                            setIdentityToDisconnect(identity);
-                          }}
-                          disabled={isPending}
-                        >
-                          Disconnect
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+
             </div>
           </TabsContent>
           
@@ -394,19 +362,17 @@ export function SettingsClient({
           </AlertDialogContent>
         </AlertDialog>
 
-        <AlertDialog open={!!identityToDisconnect} onOpenChange={(open) => !open && setIdentityToDisconnect(null)}>
+        <AlertDialog open={emailChangeAlertOpen} onOpenChange={setEmailChangeAlertOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Disconnect {identityToDisconnect?.provider} account?</AlertDialogTitle>
+              <AlertDialogTitle>Email Change Requested</AlertDialogTitle>
               <AlertDialogDescription>
-                You will no longer be able to use your {identityToDisconnect?.provider} account to log in. 
-                Make sure you have another way to access your account.
+                We have sent confirmation links to both your old and new email addresses. Please check both inboxes and click the links to complete the change. Your email will not be updated until both links are clicked.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => identityToDisconnect && handleDisconnect(identityToDisconnect)}>
-                Disconnect
+              <AlertDialogAction onClick={() => setEmailChangeAlertOpen(false)}>
+                Understood
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

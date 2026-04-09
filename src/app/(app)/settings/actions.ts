@@ -113,15 +113,20 @@ export async function signOutOthersAction() {
   return { success: true }
 }
 
-export async function disconnectProviderAction(identity: UserIdentity) {
+export async function resetPasswordFromSettingsAction() {
   const supabase = await createClient()
-  const { error } = await supabase.auth.unlinkIdentity(identity)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || !user.email) return { error: 'Not authenticated or no email found' }
+
+  const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/oauth/consent?next=/settings`,
+  })
 
   if (error) return { error: error.message }
-
-  revalidatePath('/settings')
   return { success: true }
 }
+
+
 
 export async function deleteAccountAction() {
   // Using Admin API to delete the user.

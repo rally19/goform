@@ -17,13 +17,16 @@ export async function GET(request: Request) {
       const { data: { user } } = await supabase.auth.getUser()
       
       if (user) {
-        // Ensure user exists in our database
+        // Ensure user exists in our database, or update their email if it changed
         await db.insert(users).values({
           id: user.id,
           email: user.email!,
           name: user.user_metadata?.full_name ?? user.email?.split('@')[0] ?? 'User',
           avatarUrl: user.user_metadata?.avatar_url ?? null,
-        }).onConflictDoNothing()
+        }).onConflictDoUpdate({
+          target: users.id,
+          set: { email: user.email! }
+        })
       }
 
       const forwardedHost = request.headers.get('x-forwarded-host') // original origin before load balancer
