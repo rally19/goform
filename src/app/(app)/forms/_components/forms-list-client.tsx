@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -204,6 +204,11 @@ export function FormsListClient({
 }) {
   const router = useRouter();
   const [forms, setForms] = useState<FormRow[]>(initialForms);
+
+  useEffect(() => {
+    setForms(initialForms);
+  }, [initialForms]);
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "draft" | "closed">("all");
   const [createOpen, setCreateOpen] = useState(false);

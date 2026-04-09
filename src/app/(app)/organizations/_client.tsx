@@ -21,7 +21,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Building2, Plus, Users, Settings, SquarePen, Loader2 } from "lucide-react";
-import { createOrganization, setActiveWorkspace, PERSONAL_WORKSPACE_ID } from "@/lib/actions/organizations";
+import { createOrganization, setActiveWorkspace } from "@/lib/actions/organizations";
+import { PERSONAL_WORKSPACE_ID } from "@/lib/constants";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";

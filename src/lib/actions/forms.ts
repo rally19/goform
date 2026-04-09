@@ -7,7 +7,8 @@ import { eq, desc, ilike, and, count, sql, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import type { ActionResult, BuilderField, BuilderForm } from "@/lib/form-types";
 import { z } from "zod";
-import { getActiveWorkspace, verifyWorkspaceAccess, PERSONAL_WORKSPACE_ID } from "./organizations";
+import { getActiveWorkspace, verifyWorkspaceAccess } from "./organizations";
+import { PERSONAL_WORKSPACE_ID } from "../constants";
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 

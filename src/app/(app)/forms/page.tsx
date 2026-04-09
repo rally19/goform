@@ -1,5 +1,6 @@
 import { getForms } from "@/lib/actions/forms";
-import { getUserOrganizations, PERSONAL_WORKSPACE_ID } from "@/lib/actions/organizations";
+import { getUserOrganizations } from "@/lib/actions/organizations";
+import { PERSONAL_WORKSPACE_ID } from "@/lib/constants";
 import { FormsListClient } from "./_components/forms-list-client";
 
 export default async function FormsPage() {

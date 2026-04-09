@@ -8,8 +8,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 
-const WORKSPACE_COOKIE = "goform_workspace";
-export const PERSONAL_WORKSPACE_ID = "personal";
+import { WORKSPACE_COOKIE, PERSONAL_WORKSPACE_ID } from "../constants";
 
 // Helper to reliably get auth user
 async function getAuthUser() {

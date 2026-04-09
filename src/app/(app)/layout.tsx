@@ -1,5 +1,6 @@
 import { AppSidebar } from "@/components/app-sidebar";
-import { getActiveWorkspace, getUserOrganizations, PERSONAL_WORKSPACE_ID } from "@/lib/actions/organizations";
+import { getActiveWorkspace, getUserOrganizations } from "@/lib/actions/organizations";
+import { PERSONAL_WORKSPACE_ID } from "@/lib/constants";
 
 export default async function AppLayout({
   children,
