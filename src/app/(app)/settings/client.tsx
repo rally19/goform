@@ -235,6 +235,9 @@ export function SettingsClient({
                     <div className="space-y-1">
                       <Label htmlFor="email">Email</Label>
                       <Input id="email" name="email" type="email" defaultValue={user.email} />
+                      <p className="text-xs text-muted-foreground">
+                        Note: Changing your email will automatically disconnect all linked social accounts for security.
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -349,7 +352,7 @@ export function SettingsClient({
                       <div className="p-4 text-sm text-muted-foreground border rounded-lg">
                         No linked accounts.
                       </div>
-                    ) : identities.map(identity => (
+                    ) : identities.filter(id => id.provider !== 'email').map(identity => (
                       <div key={identity.id} className="flex items-center justify-between p-4 rounded-lg border">
                         <div className="flex items-center gap-4">
                           <div className="bg-muted p-2 rounded-full">
