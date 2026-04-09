@@ -6,8 +6,14 @@ import { users } from '@/db/schema'
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
+  const errorFromQuery = searchParams.get('error')
+  const errorDescription = searchParams.get('error_description')
   // if "next" is in param, use it as the redirect URL
   const next = searchParams.get('next') ?? '/dashboard'
+
+  if (errorFromQuery) {
+    return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(errorDescription || errorFromQuery)}`)
+  }
 
   if (code) {
     const supabase = await createClient()
