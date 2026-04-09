@@ -351,7 +351,7 @@ export async function getDashboardStats(): Promise<ActionResult<{
     const [stats] = await db
       .select({
         totalForms: count(forms.id),
-        activeForms: sql<number>`SUM(CASE WHEN ${forms.status} = 'active' THEN 1 ELSE 0 END)`.mapWith(Number),
+        activeForms: sql<number>`COALESCE(SUM(CASE WHEN ${forms.status} = 'active' THEN 1 ELSE 0 END), 0)`.mapWith(Number),
         totalResponses: sql<number>`(
           SELECT COUNT(*) FROM form_responses fr
           INNER JOIN forms f2 ON fr.form_id = f2.id

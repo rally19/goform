@@ -31,19 +31,19 @@ export default async function DashboardPage() {
   const statCards = [
     {
       title: "Total Forms",
-      value: stats.totalForms.toLocaleString(),
+      value: (stats.totalForms ?? 0).toLocaleString(),
       icon: SquarePen,
-      description: `${stats.activeForms} active`,
+      description: `${stats.activeForms ?? 0} active`,
     },
     {
       title: "Total Responses",
-      value: stats.totalResponses.toLocaleString(),
+      value: (stats.totalResponses ?? 0).toLocaleString(),
       icon: Users,
       description: "All time",
     },
     {
       title: "Active Forms",
-      value: stats.activeForms.toLocaleString(),
+      value: (stats.activeForms ?? 0).toLocaleString(),
       icon: CheckCircle2,
       description: "Currently accepting responses",
     },
