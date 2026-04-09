@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useRef, useState } from "react";
+import { useEffect, useCallback, useRef, useState, useId } from "react";
 import { useFormBuilder } from "@/hooks/use-form-builder";
 import { FieldCard } from "./field-card";
 import { FormHeaderEditor } from "./form-header-editor";
@@ -70,9 +70,13 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
     updateFormMeta,
   } = useFormBuilder();
 
+  const id = useId();
+  const [mounted, setMounted] = useState(false);
+
   // Initialize once
   useEffect(() => {
     initialize(initialForm, initialFields);
+    setMounted(true);
   }, []);
 
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -216,8 +220,11 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
     return null;
   };
 
+  if (!mounted) return null;
+
   return (
     <DndContext
+      id={id}
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
