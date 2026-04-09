@@ -126,7 +126,7 @@ export async function resendOtpAction(email: string, type: 'signup' | 'recovery'
 
 export async function signOutAction() {
   const supabase = await createClient()
-  await supabase.auth.signOut()
+  await supabase.auth.signOut({ scope: 'local' })
   
   revalidatePath('/', 'layout')
   redirect('/login')
