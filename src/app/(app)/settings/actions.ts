@@ -81,11 +81,19 @@ export async function removeAvatarAction() {
 }
 
 export async function updatePasswordAction(formData: FormData) {
+  const currentPassword = formData.get('current') as string
   const newPassword = formData.get('new') as string
+  const confirmPassword = formData.get('confirm') as string
+  
+  if (newPassword !== confirmPassword) {
+    return { error: 'Passwords do not match' }
+  }
+
   const supabase = await createClient()
 
   const { error } = await supabase.auth.updateUser({
-    password: newPassword
+    password: newPassword,
+    current_password: currentPassword || undefined
   })
 
   if (error) return { error: error.message }

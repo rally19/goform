@@ -221,22 +221,49 @@ export function SettingsClient({
           
           <TabsContent value="password">
             <Card>
-              <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-4">
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.currentTarget);
+                  const newPass = formData.get('new') as string;
+                  const confirmPass = formData.get('confirm') as string;
+                  
+                  if (newPass !== confirmPass) {
+                    toast.error("Passwords do not match");
+                    return;
+                  }
+                  
+                  handlePasswordSubmit(e);
+                }} 
+                className="flex flex-col gap-4"
+              >
                 <CardHeader>
-                  <CardTitle>Password</CardTitle>
+                  <CardTitle>{hasPassword ? "Update Password" : "Create Password"}</CardTitle>
                   <CardDescription>
-                    Change your password here. After saving, you&apos;ll be logged out.
+                    {hasPassword 
+                      ? "Change your existing password. After saving, you'll be logged out." 
+                      : "Set a password for your account so you can log in without social providers. After saving, you'll be logged out."}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {hasPassword && (
+                    <div className="space-y-1">
+                      <Label htmlFor="current">Current password</Label>
+                      <Input id="current" name="current" type="password" required placeholder="Enter current password" />
+                    </div>
+                  )}
                   <div className="space-y-1">
-                    <Label htmlFor="new">New password</Label>
-                    <Input id="new" name="new" type="password" required minLength={6} />
+                    <Label htmlFor="new">{hasPassword ? "New password" : "Password"}</Label>
+                    <Input id="new" name="new" type="password" required minLength={6} placeholder="Min. 6 characters" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="confirm">{hasPassword ? "Confirm new password" : "Confirm password"}</Label>
+                    <Input id="confirm" name="confirm" type="password" required minLength={6} placeholder="Repeat password" />
                   </div>
                 </CardContent>
                 <CardFooter>
                   <Button type="submit" disabled={isPending}>
-                    {isPending ? "Saving..." : "Save password"}
+                    {isPending ? "Saving..." : hasPassword ? "Update password" : "Create password"}
                   </Button>
                 </CardFooter>
               </form>
@@ -305,7 +332,7 @@ export function SettingsClient({
                           className="h-8"
                           onClick={() => {
                             if (!hasPassword) {
-                              toast.error("You must set a password before you can unlink your accounts to avoid being locked out.");
+                              toast.error("You must set a password before you can disconnect this provider to avoid being locked out of your account.");
                               return;
                             }
                             setIdentityToDisconnect(identity);
