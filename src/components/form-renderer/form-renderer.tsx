@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import type { FormField } from "@/db/schema";
 import type { Form } from "@/db/schema";
 import type { FormAnswer } from "@/lib/form-types";
@@ -340,7 +340,11 @@ export function FormRenderer({ form, fields }: FormRendererProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const startTime = useRef(Date.now());
+  const startTime = useRef(0);
+  
+  useEffect(() => {
+    startTime.current = Date.now();
+  }, []);
 
   const totalPages = truePages.length;
   const currentFields = truePages[currentPage] ?? [];

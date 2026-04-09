@@ -41,6 +41,13 @@ export const fieldTypeEnum = pgEnum("field_type", [
   "page_break",
 ]);
 
+export const organizationRoleEnum = pgEnum("organization_role", [
+  "owner",
+  "administrator",
+  "editor",
+  "viewer",
+]);
+
 // ─── Users (mirrors Supabase auth.users) ─────────────────────────────────────
 
 export const users = pgTable("users", {
@@ -50,6 +57,61 @@ export const users = pgTable("users", {
   avatarUrl: text("avatar_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// ─── Organizations ────────────────────────────────────────────────────────────
+
+export const organizations = pgTable("organizations", {
+  id: uuid("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  avatarUrl: text("avatar_url"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const organizationMembers = pgTable(
+  "organization_members",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    userId: varchar("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: organizationRoleEnum("role").notNull().default("viewer"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("org_members_org_id_idx").on(table.organizationId),
+    index("org_members_user_id_idx").on(table.userId),
+  ]
+);
+
+export const organizationInvites = pgTable(
+  "organization_invites",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: organizationRoleEnum("role").notNull().default("viewer"),
+    token: varchar("token", { length: 255 }).notNull().unique(),
+    expiresAt: timestamp("expires_at").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("org_invites_org_id_idx").on(table.organizationId),
+    index("org_invites_email_idx").on(table.email),
+    index("org_invites_token_idx").on(table.token),
+  ]
+);
 
 // ─── Forms ────────────────────────────────────────────────────────────────────
 
@@ -62,6 +124,8 @@ export const forms = pgTable(
     userId: varchar("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id, { onDelete: "cascade" }),
     title: text("title").notNull().default("Untitled Form"),
     description: text("description"),
     slug: varchar("slug", { length: 100 }).notNull().unique(),
@@ -79,7 +143,10 @@ export const forms = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
-  (table) => [index("forms_user_id_idx").on(table.userId)]
+  (table) => [
+    index("forms_user_id_idx").on(table.userId),
+    index("forms_org_id_idx").on(table.organizationId),
+  ]
 );
 
 // ─── Form Fields ──────────────────────────────────────────────────────────────
@@ -168,10 +235,36 @@ export const formResponses = pgTable(
 
 export const usersRelations = relations(users, ({ many }) => ({
   forms: many(forms),
+  organizationMemberships: many(organizationMembers),
+}));
+
+export const organizationsRelations = relations(organizations, ({ many }) => ({
+  members: many(organizationMembers),
+  invites: many(organizationInvites),
+  forms: many(forms),
+}));
+
+export const organizationMembersRelations = relations(organizationMembers, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [organizationMembers.organizationId],
+    references: [organizations.id],
+  }),
+  user: one(users, {
+    fields: [organizationMembers.userId],
+    references: [users.id],
+  }),
+}));
+
+export const organizationInvitesRelations = relations(organizationInvites, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [organizationInvites.organizationId],
+    references: [organizations.id],
+  }),
 }));
 
 export const formsRelations = relations(forms, ({ one, many }) => ({
   user: one(users, { fields: [forms.userId], references: [users.id] }),
+  organization: one(organizations, { fields: [forms.organizationId], references: [organizations.id] }),
   fields: many(formFields),
   responses: many(formResponses),
 }));
@@ -187,6 +280,9 @@ export const formResponsesRelations = relations(formResponses, ({ one }) => ({
 // ─── Type Exports ─────────────────────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
+export type Organization = typeof organizations.$inferSelect;
+export type OrganizationMember = typeof organizationMembers.$inferSelect;
+export type OrganizationInvite = typeof organizationInvites.$inferSelect;
 export type Form = typeof forms.$inferSelect;
 export type FormField = typeof formFields.$inferSelect;
 export type FormResponse = typeof formResponses.$inferSelect;

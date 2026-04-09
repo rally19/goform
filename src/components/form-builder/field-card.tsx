@@ -54,7 +54,7 @@ export function FieldCard({
   };
 
   // Field preview renderer
-  const FieldPreview = () => {
+  const renderFieldPreview = () => {
     if (field.type === "section") {
       return (
         <div className="border-l-2 pl-3" style={{ borderColor: accentColor }}>
@@ -237,7 +237,7 @@ export function FieldCard({
           )}
 
           {/* Preview */}
-          <FieldPreview />
+          {renderFieldPreview()}
         </div>
 
           {/* Actions - Desktop sidebar / Mobile bottom bar */}

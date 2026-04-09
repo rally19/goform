@@ -19,7 +19,7 @@ async function runMigration() {
 
   try {
     const migrationSQL = fs.readFileSync(
-      path.join(__dirname, '../drizzle/0000_smiling_living_mummy.sql'),
+      path.join(__dirname, '../drizzle/0001_clammy_blizzard.sql'),
       'utf8'
     );
 

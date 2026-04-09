@@ -31,18 +31,18 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Copy, MoreHorizontal, Plus, Search, Settings, SquarePen,
   Trash, TrendingUp, Globe, ClipboardList, Loader2, FileText,
-  Clock, CheckCircle2, XCircle, ExternalLink,
+  CheckCircle2, XCircle, ExternalLink, MoveRight, Building2
 } from "lucide-react";
 import Link from "next/link";
 import {
   createForm,
   deleteForm,
   duplicateForm,
-  getForms,
-  setFormStatus,
+  moveForms
 } from "@/lib/actions/forms";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -60,14 +60,22 @@ type FormRow = {
   accentColor: string;
 };
 
+type WorkspaceRow = {
+  id: string;
+  name: string;
+  type: string;
+};
+
 const STATUS_CONFIG = {
   active: { label: "Active", icon: CheckCircle2, className: "text-emerald-600 bg-emerald-500/10 border-emerald-200" },
   draft: { label: "Draft", icon: FileText, className: "text-blue-600 bg-blue-500/10 border-blue-200" },
   closed: { label: "Closed", icon: XCircle, className: "text-muted-foreground bg-muted border-border" },
 };
 
-function FormCard({ form, onDelete, onDuplicate }: {
+function FormCard({ form, isSelected, onToggleSelect, onDelete, onDuplicate }: {
   form: FormRow;
+  isSelected: boolean;
+  onToggleSelect: (id: string, selected: boolean) => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
 }) {
@@ -75,8 +83,17 @@ function FormCard({ form, onDelete, onDuplicate }: {
   const StatusIcon = status.icon;
 
   return (
-    <div className="group flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:border-muted-foreground/30 hover:shadow-sm transition-all">
-      {/* Color dot */}
+    <div className={cn(
+      "group flex items-center gap-4 p-4 rounded-xl border transition-all",
+      isSelected ? "border-primary bg-primary/5" : "border-border bg-card hover:border-muted-foreground/30 hover:shadow-sm"
+    )}>
+      <div className="flex items-center space-x-2 shrink-0 pr-2">
+        <Checkbox 
+          checked={isSelected} 
+          onCheckedChange={(checked) => onToggleSelect(form.id, checked as boolean)} 
+        />
+      </div>
+
       <div
         className="h-9 w-9 rounded-lg shrink-0 flex items-center justify-center shadow-sm"
         style={{ backgroundColor: `${form.accentColor}20`, border: `1.5px solid ${form.accentColor}40` }}
@@ -84,7 +101,6 @@ function FormCard({ form, onDelete, onDuplicate }: {
         <SquarePen className="h-4 w-4" style={{ color: form.accentColor }} />
       </div>
 
-      {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <Link
@@ -100,7 +116,7 @@ function FormCard({ form, onDelete, onDuplicate }: {
             {status.label}
           </div>
           <span className="text-xs text-muted-foreground">
-            {form.responseCount} {form.responseCount === 1 ? "response" : "responses"}
+             {form.responseCount} {form.responseCount === 1 ? "response" : "responses"}
           </span>
           <span className="text-xs text-muted-foreground hidden sm:block">
             Updated {formatDistanceToNow(new Date(form.updatedAt))}
@@ -108,7 +124,6 @@ function FormCard({ form, onDelete, onDuplicate }: {
         </div>
       </div>
 
-      {/* Actions */}
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <Button variant="ghost" size="sm" asChild className="h-8 px-2 hidden sm:flex">
           <Link href={`/forms/${form.id}/results`}>
@@ -180,21 +195,47 @@ function FormCard({ form, onDelete, onDuplicate }: {
   );
 }
 
-export function FormsListClient({ initialForms }: { initialForms: FormRow[] }) {
+export function FormsListClient({ 
+  initialForms, 
+  targetWorkspaces 
+}: { 
+  initialForms: FormRow[], 
+  targetWorkspaces: WorkspaceRow[] 
+}) {
   const router = useRouter();
   const [forms, setForms] = useState<FormRow[]>(initialForms);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "draft" | "closed">("all");
   const [createOpen, setCreateOpen] = useState(false);
+  const [moveOpen, setMoveOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isMoving, setIsMoving] = useState(false);
 
   const filtered = forms.filter((f) => {
     const matchSearch = f.title.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === "all" || f.status === statusFilter;
     return matchSearch && matchStatus;
   });
+
+  const handleToggleSelect = (id: string, selected: boolean) => {
+    if (selected) {
+      setSelectedIds(prev => [...prev, id]);
+    } else {
+      setSelectedIds(prev => prev.filter(x => x !== id));
+    }
+  };
+
+  const handleSelectAll = (selected: boolean) => {
+    if (selected) {
+      setSelectedIds(filtered.map(f => f.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
 
   const handleCreate = async () => {
     if (!newTitle.trim()) return;
@@ -213,6 +254,7 @@ export function FormsListClient({ initialForms }: { initialForms: FormRow[] }) {
       const result = await deleteForm(id);
       if (result.success) {
         setForms((f) => f.filter((x) => x.id !== id));
+        setSelectedIds(prev => prev.filter(x => x !== id));
         toast.success("Form deleted");
       } else {
         toast.error(result.error ?? "Failed to delete");
@@ -231,81 +273,149 @@ export function FormsListClient({ initialForms }: { initialForms: FormRow[] }) {
     }
   };
 
+  const handleMoveSelection = async (targetOrganizationId: string) => {
+    setIsMoving(true);
+    const res = await moveForms(selectedIds, targetOrganizationId);
+    setIsMoving(false);
+    if (res.success) {
+      toast.success(`Successfully moved ${selectedIds.length} form(s)`);
+      setForms(f => f.filter(form => !selectedIds.includes(form.id)));
+      setSelectedIds([]);
+      setMoveOpen(false);
+    } else {
+      toast.error(res.error || "Failed to move forms");
+    }
+  };
+
   return (
     <>
-      <div className="flex-1 p-4 pt-6 md:p-8 space-y-6 overflow-y-auto h-full">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight">Forms</h2>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {forms.length} form{forms.length !== 1 ? "s" : ""} in your workspace
-            </p>
-          </div>
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus data-icon="inline-start" />
-            New Form
-          </Button>
-        </div>
-
-        {/* Search + Filter */}
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search forms..."
-              className="pl-9"
-            />
-          </div>
-          <div className="flex gap-1">
-            {(["all", "active", "draft", "closed"] as const).map((s) => (
-              <Button
-                key={s}
-                variant={statusFilter === s ? "default" : "outline"}
-                size="sm"
-                onClick={() => setStatusFilter(s)}
-                className="capitalize"
-              >
-                {s}
+      <div className="flex-1 p-4 pt-6 md:p-8 space-y-6 overflow-y-auto h-full relative">
+        {/* Bulk Action Bar (Overlay) */}
+        {selectedIds.length > 0 && (
+          <div className="absolute top-0 inset-x-0 h-16 bg-primary/5 border-b border-primary/20 flex items-center justify-between px-8 z-10 animate-in slide-in-from-top-4">
+            <div className="flex items-center gap-4">
+               <Checkbox 
+                 checked={selectedIds.length === filtered.length}
+                 onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
+               />
+               <span className="text-sm font-medium">{selectedIds.length} selected</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
+                Cancel
               </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* List */}
-        {filtered.length === 0 ? (
-          <div className="border-2 border-dashed border-muted-foreground/20 rounded-xl p-12 text-center">
-            <FileText className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-            <p className="font-medium text-foreground">
-              {search || statusFilter !== "all" ? "No forms match your filters" : "No forms yet"}
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {search || statusFilter !== "all"
-                ? "Try adjusting your search or filters"
-                : "Create your first form to get started"}
-            </p>
-            {!search && statusFilter === "all" && (
-              <Button className="mt-4" onClick={() => setCreateOpen(true)}>
-                <Plus data-icon="inline-start" />
-                Create Form
+              <Button size="sm" onClick={() => setMoveOpen(true)}>
+                <MoveRight className="h-4 w-4 mr-2" /> Move To...
               </Button>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {filtered.map((form) => (
-              <FormCard
-                key={form.id}
-                form={form}
-                onDelete={setDeleteId}
-                onDuplicate={handleDuplicate}
-              />
-            ))}
+            </div>
           </div>
         )}
+
+        <div className={cn("transition-all", selectedIds.length > 0 ? "pt-10" : "")}>
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight">Forms</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {forms.length} form{forms.length !== 1 ? "s" : ""} in your workspace
+              </p>
+            </div>
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus data-icon="inline-start" />
+              New Form
+            </Button>
+          </div>
+
+          {/* Search + Filter */}
+          <div className="flex flex-col sm:flex-row gap-2 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search forms..."
+                className="pl-9"
+              />
+            </div>
+            <div className="flex gap-1">
+              {(["all", "active", "draft", "closed"] as const).map((s) => (
+                <Button
+                  key={s}
+                  variant={statusFilter === s ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setStatusFilter(s)}
+                  className="capitalize"
+                >
+                  {s}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* List */}
+          {filtered.length === 0 ? (
+            <div className="border-2 border-dashed border-muted-foreground/20 rounded-xl p-12 text-center">
+              <FileText className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+              <p className="font-medium text-foreground">
+                {search || statusFilter !== "all" ? "No forms match your filters" : "No forms yet"}
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {search || statusFilter !== "all"
+                  ? "Try adjusting your search or filters"
+                  : "Create your first form to get started"}
+              </p>
+              {!search && statusFilter === "all" && (
+                <Button className="mt-4" onClick={() => setCreateOpen(true)}>
+                  <Plus data-icon="inline-start" />
+                  Create Form
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filtered.map((form) => (
+                <FormCard
+                  key={form.id}
+                  form={form}
+                  isSelected={selectedIds.includes(form.id)}
+                  onToggleSelect={handleToggleSelect}
+                  onDelete={setDeleteId}
+                  onDuplicate={handleDuplicate}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Move Dialog */}
+      <Dialog open={moveOpen} onOpenChange={setMoveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Move Forms</DialogTitle>
+            <DialogDescription>Select a target workspace to move {selectedIds.length} form(s) to.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-4 max-h-[300px] overflow-y-auto">
+            {targetWorkspaces.map(workspace => (
+              <Button 
+                key={workspace.id} 
+                variant="outline" 
+                className="w-full justify-start py-6"
+                onClick={() => handleMoveSelection(workspace.id)}
+                disabled={isMoving}
+              >
+                <div className="mr-3 p-2 bg-muted rounded-md flex items-center justify-center">
+                  {workspace.type === "personal" ? <SquarePen className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
+                </div>
+                <div className="flex flex-col items-start gap-1">
+                  <span>{workspace.name}</span>
+                  <span className="text-xs text-muted-foreground capitalize font-normal">{workspace.type === "personal" ? "Private Space" : "Organization"}</span>
+                </div>
+              </Button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Create Dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -333,6 +443,7 @@ export function FormsListClient({ initialForms }: { initialForms: FormRow[] }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
 
       {/* Delete Confirm */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
