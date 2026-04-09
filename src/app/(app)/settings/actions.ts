@@ -127,11 +127,16 @@ export async function deleteAccountAction() {
   // Using Admin API to delete the user.
   // Warning: Requires service role key to be passed or executed in Edge function.
   // We'll use service_role client specifically for this.
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) {
+    return { error: 'Admin service role key is not configured. Please add SUPABASE_SERVICE_ROLE_KEY to your .env.local file.' }
+  }
+
   const { createClient: createAdminClient } = await import('@supabase/supabase-js')
   
   const adminClient = createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    serviceRoleKey
   )
 
   const supabase = await createClient()
