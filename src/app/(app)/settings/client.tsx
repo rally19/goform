@@ -66,8 +66,8 @@ export function SettingsClient({
         toast.error(res.error);
       } else {
         toast.success('Profile updated successfully.');
-        if (newEmail !== user.email) {
-          setEmailChangeAlertOpen(true);
+        if (res?.emailChangePending) {
+          window.location.href = `/settings/verify-email-change?oldEmail=${encodeURIComponent(user.email)}&newEmail=${encodeURIComponent(res.newEmail || newEmail)}`;
         }
       }
     });

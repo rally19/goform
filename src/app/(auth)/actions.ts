@@ -28,15 +28,13 @@ export async function resetPasswordAction(formData: FormData) {
   const email = formData.get('email') as string
   const supabase = await createClient()
 
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/oauth/consent?next=/settings`,
-  })
+  const { error } = await supabase.auth.resetPasswordForEmail(email)
 
   if (error) {
     return { error: error.message }
   }
 
-  return { success: true }
+  redirect(`/verify?email=${encodeURIComponent(email)}&type=recovery`)
 }
 
 export async function signUpAction(formData: FormData) {
@@ -61,21 +59,64 @@ export async function signUpAction(formData: FormData) {
     return { error: error.message }
   }
 
-  // If successfully authenticated immediately (no email confirmation or auto-login)
+  // If user object is created, we can store their profile
   if (data.user) {
-    // Insert robust profile info into drizzle schema
     await db.insert(users).values({
       id: data.user.id,
       email: data.user.email!,
       name: name,
-    }).onConflictDoNothing() // in case webhook/trigger beat us to it, or re-running
+    }).onConflictDoNothing() 
+  }
+
+  if (!data.session) {
+    // If Supabase confirms email is needed, session will be null
+    redirect(`/verify?email=${encodeURIComponent(email)}&type=signup`)
   }
 
   revalidatePath('/', 'layout')
   redirect('/dashboard')
 }
 
+export async function verifyOtpAction(formData: FormData) {
+  const email = formData.get('email') as string
+  const token = formData.get('token') as string
+  const type = formData.get('type') as any
 
+  const supabase = await createClient()
+
+  const { error } = await supabase.auth.verifyOtp({
+    email,
+    token,
+    type,
+  })
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/', 'layout')
+  
+  if (type === 'recovery') {
+    redirect('/settings')
+  } else {
+    redirect('/dashboard')
+  }
+}
+
+export async function resendOtpAction(email: string, type: 'signup' | 'recovery' | 'magiclink') {
+  const supabase = await createClient()
+
+  if (type === 'recovery') {
+    const { error } = await supabase.auth.resetPasswordForEmail(email)
+    if (error) return { error: error.message }
+  } else {
+    const { error } = await supabase.auth.resend({
+      type,
+      email,
+    })
+    if (error) return { error: error.message }
+  }
+
+  return { success: true }
+}
 
 export async function signOutAction() {
   const supabase = await createClient()

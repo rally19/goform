@@ -36,6 +36,59 @@ export async function updateProfileAction(formData: FormData) {
   if (authError) return { error: authError.message }
 
   revalidatePath('/settings')
+  
+  if (user.email !== email) {
+    return { success: true, emailChangePending: true, newEmail: email }
+  }
+  
+  return { success: true }
+}
+
+export async function verifyEmailChangeAction(formData: FormData) {
+  const oldEmail = formData.get('oldEmail') as string
+  const newEmail = formData.get('newEmail') as string
+  const oldOtp = formData.get('oldOtp') as string
+  const newOtp = formData.get('newOtp') as string
+
+  const supabase = await createClient()
+
+  // Verify old email OTP
+  const { error: error1 } = await supabase.auth.verifyOtp({
+    email: oldEmail,
+    token: oldOtp,
+    type: 'email_change'
+  })
+
+  if (error1) return { error: 'Failed to verify current email code: ' + error1.message }
+
+  // Verify new email OTP
+  const { error: error2 } = await supabase.auth.verifyOtp({
+    email: newEmail,
+    token: newOtp,
+    type: 'email_change'
+  })
+
+  if (error2) return { error: 'Failed to verify new email code: ' + error2.message }
+
+  // Update drizzle DB assuming success
+  await db.update(users).set({
+    email: newEmail,
+  }).where(eq(users.email, oldEmail))
+
+  revalidatePath('/settings')
+  redirect('/settings')
+}
+
+export async function resendEmailChangeOtpAction(newEmail: string) {
+  const supabase = await createClient()
+  
+  // Resending an email change OTP uses the 'email_change' type and the requested new email
+  const { error } = await supabase.auth.resend({
+    type: 'email_change',
+    email: newEmail,
+  })
+
+  if (error) return { error: error.message }
   return { success: true }
 }
 
