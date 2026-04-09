@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -249,16 +250,16 @@ export function SettingsClient({
                   {hasPassword && (
                     <div className="space-y-1">
                       <Label htmlFor="current">Current password</Label>
-                      <Input id="current" name="current" type="password" required placeholder="Enter current password" />
+                      <PasswordInput id="current" name="current" required placeholder="Enter current password" />
                     </div>
                   )}
                   <div className="space-y-1">
                     <Label htmlFor="new">{hasPassword ? "New password" : "Password"}</Label>
-                    <Input id="new" name="new" type="password" required minLength={6} placeholder="Min. 6 characters" />
+                    <PasswordInput id="new" name="new" required minLength={6} placeholder="Min. 6 characters" />
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="confirm">{hasPassword ? "Confirm new password" : "Confirm password"}</Label>
-                    <Input id="confirm" name="confirm" type="password" required minLength={6} placeholder="Repeat password" />
+                    <PasswordInput id="confirm" name="confirm" required minLength={6} placeholder="Repeat password" />
                   </div>
                 </CardContent>
                 <CardFooter>
