@@ -9,44 +9,45 @@ import { redirect } from 'next/navigation'
 import type { UserIdentity } from '@supabase/supabase-js'
 
 export async function updateProfileAction(formData: FormData) {
+  // Only handles name and avatar — email is changed separately via requestEmailChangeAction
   const name = formData.get('name') as string
-  const email = formData.get('email') as string
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  // Update Supabase Auth Email (will send confirmation depending on settings)
-  let authError;
-  if (user.email !== email) {
-    // If the user changes their email, unlink ALL social identities to require re-validation
-    const { data } = await supabase.auth.getUserIdentities();
-    const identities = data?.identities;
-    if (identities) {
-      for (const identity of identities) {
-        if (identity.provider !== 'email') {
-          await supabase.auth.unlinkIdentity(identity);
-        }
-      }
-    }
-
-    const { error } = await supabase.auth.updateUser({ email })
-    authError = error
-  }
-
-  // Update Drizzle Profile
   try {
-    await db.update(users).set({
-      name,
-      email,
-    }).where(eq(users.id, user.id))
-  } catch (err: any) {
+    await db.update(users).set({ name }).where(eq(users.id, user.id))
+  } catch {
     return { error: 'Failed to update profile data' }
   }
 
-  if (authError) return { error: authError.message }
-
   revalidatePath('/settings')
+  return { success: true }
+}
+
+/**
+ * Initiates a secure email change.
+ * Supabase sends confirmation emails to BOTH old and new addresses.
+ * The change only finalizes after both links are clicked.
+ * When finalized (via callback), all social identities are unlinked and sessions are revoked.
+ */
+export async function requestEmailChangeAction(newEmail: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  if (user.email === newEmail) return { error: 'New email must be different from your current email.' }
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+
+  const { error } = await supabase.auth.updateUser(
+    { email: newEmail },
+    { emailRedirectTo: `${siteUrl}/auth/callback?type=email_change` }
+  )
+
+  if (error) return { error: error.message }
+
   return { success: true }
 }
 
