@@ -35,6 +35,8 @@ import {
   uploadAvatarAction,
   removeAvatarAction
 } from "./actions";
+import { resetPasswordAction } from "@/app/(auth)/actions";
+import { createClient } from "@/lib/client";
 import type { UserIdentity } from "@supabase/supabase-js";
 
 export function SettingsClient({ 
@@ -120,6 +122,32 @@ export function SettingsClient({
       if (res?.error) toast.error(res.error);
     });
   };
+
+  const handleForgotCurrentPassword = () => {
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.append('email', user.email);
+      const res = await resetPasswordAction(formData);
+      if (res?.error) toast.error(res.error);
+      else toast.success('Password reset link sent to your email.');
+    });
+  };
+
+  const handleLinkGoogle = async () => {
+    const supabase = createClient();
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+    const { data, error } = await supabase.auth.linkIdentity({
+      provider: 'google',
+      options: {
+        redirectTo: `${siteUrl}/auth/callback?next=/settings`,
+      }
+    });
+    if (error) {
+      toast.error(error.message);
+    }
+  };
+
+  const hasGoogle = identities.some(id => id.provider === 'google');
 
   return (
     <div className="flex-1 space-y-4 p-4 pt-6 md:p-8 overflow-y-auto h-full">
@@ -248,8 +276,20 @@ export function SettingsClient({
                 <CardContent className="space-y-4">
                   {hasPassword && (
                     <div className="space-y-1">
-                      <Label htmlFor="current">Current password</Label>
-                      <Input id="current" name="current" type="password" required placeholder="Enter current password" />
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="current">Current password</Label>
+                        <button
+                          type="button"
+                          onClick={handleForgotCurrentPassword}
+                          className="text-sm font-medium text-muted-foreground hover:text-primary"
+                        >
+                          Forgot password?
+                        </button>
+                      </div>
+                      <Input id="current" name="current" type="password" placeholder="Enter current password" />
+                      <p className="text-xs text-muted-foreground mt-1 text-right">
+                         Leave empty if you used the &quot;Forgot password?&quot; link.
+                      </p>
                     </div>
                   )}
                   <div className="space-y-1">
@@ -305,7 +345,7 @@ export function SettingsClient({
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {identities.length === 0 ? (
+                    {identities.length === 0 && !hasGoogle ? (
                       <div className="p-4 text-sm text-muted-foreground border rounded-lg">
                         No linked accounts.
                       </div>
@@ -343,6 +383,30 @@ export function SettingsClient({
                         </Button>
                       </div>
                     ))}
+
+                    {!hasGoogle && (
+                      <div className="flex items-center justify-between p-4 rounded-lg border border-dashed">
+                        <div className="flex items-center gap-4 opacity-70">
+                          <div className="bg-muted p-2 rounded-full">
+                            <svg className="h-5 w-5" aria-hidden="true" focusable="false" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
+                              <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
+                            </svg>
+                          </div>
+                          <div>
+                            <div className="font-medium capitalize">Google</div>
+                            <div className="text-sm text-muted-foreground">Not connected</div>
+                          </div>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="h-8"
+                          onClick={handleLinkGoogle}
+                        >
+                          Link Google
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

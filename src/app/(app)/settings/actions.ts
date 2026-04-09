@@ -19,6 +19,15 @@ export async function updateProfileAction(formData: FormData) {
   // Update Supabase Auth Email (will send confirmation depending on settings)
   let authError;
   if (user.email !== email) {
+    // If the user changes their email, devalidate/unlink their google account to prevent bypassing verification
+    const { data: { identities } } = await supabase.auth.getUserIdentities();
+    if (identities) {
+      const googleIdentity = identities.find(id => id.provider === 'google');
+      if (googleIdentity) {
+        await supabase.auth.unlinkIdentity(googleIdentity);
+      }
+    }
+
     const { error } = await supabase.auth.updateUser({ email })
     authError = error
   }
