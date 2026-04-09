@@ -19,14 +19,12 @@ export async function updateProfileAction(formData: FormData) {
   // Update Supabase Auth Email (will send confirmation depending on settings)
   let authError;
   if (user.email !== email) {
-    // If the user changes their email, unlink ALL social identities to require re-validation
-    const { data } = await supabase.auth.getUserIdentities();
-    const identities = data?.identities;
+    // If the user changes their email, devalidate/unlink their google account to prevent bypassing verification
+    const { data: { identities } } = await supabase.auth.getUserIdentities();
     if (identities) {
-      for (const identity of identities) {
-        if (identity.provider !== 'email') {
-          await supabase.auth.unlinkIdentity(identity);
-        }
+      const googleIdentity = identities.find(id => id.provider === 'google');
+      if (googleIdentity) {
+        await supabase.auth.unlinkIdentity(googleIdentity);
       }
     }
 
@@ -125,9 +123,6 @@ export async function signOutOthersAction() {
 }
 
 export async function disconnectProviderAction(identity: UserIdentity) {
-  if (identity.provider === 'email') {
-    return { error: 'Email identity cannot be disconnected.' }
-  }
   const supabase = await createClient()
   const { error } = await supabase.auth.unlinkIdentity(identity)
 
