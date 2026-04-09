@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FormInput } from "lucide-react";
+import { SquarePen } from "lucide-react";
 
 const registerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
@@ -62,8 +62,8 @@ export default function RegisterPage() {
       <Card className="border-border shadow-md">
         <CardHeader className="space-y-1 text-center sm:text-left">
           <div className="flex justify-center sm:hidden mb-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                <FormInput className="size-6" />
+              <div className="flex h-7 w-7 items-center justify-center rounded bg-primary text-primary-foreground">
+                <SquarePen className="size-4" />
               </div>
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight">Create an account</CardTitle>

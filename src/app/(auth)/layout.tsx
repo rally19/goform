@@ -1,5 +1,5 @@
 import { ThemeToggle } from "@/components/theme-toggle";
-import { FormInput } from "lucide-react";
+import { SquarePen } from "lucide-react";
 import Link from "next/link";
 
 export default function AuthLayout({
@@ -17,8 +17,8 @@ export default function AuthLayout({
         <div className="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-primary opacity-20 blur-[100px]"></div>
         
         <div className="relative z-20 flex items-center gap-2 text-lg font-medium">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-zinc-950 text-zinc-50 dark:bg-white dark:text-zinc-950">
-            <FormInput className="size-5" />
+          <div className="flex h-7 w-7 items-center justify-center rounded bg-primary text-primary-foreground">
+            <SquarePen className="size-4" />
           </div>
           GoForm
         </div>
