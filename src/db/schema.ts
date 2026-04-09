@@ -58,6 +58,24 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ─── API Keys ───────────────────────────────────────────────────────────────
+
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    userId: text("user_id").notNull(),
+    keyPrefix: text("key_prefix").notNull(),
+    keyHash: text("key_hash").notNull(),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    lastUsedAt: timestamp("last_used_at"),
+  },
+  (table) => [index("api_keys_user_id_idx").on(table.userId)]
+);
+
 // ─── Organizations ────────────────────────────────────────────────────────────
 
 export const organizations = pgTable("organizations", {
@@ -150,6 +168,30 @@ export const forms = pgTable(
   ]
 );
 
+// ─── Active Form Sessions (Database Realtime Presence) ───────────────────────
+
+export const activeFormSessions = pgTable(
+  "active_form_sessions",
+  {
+    id: text("id").primaryKey(), // We use `${formId}_${presenceKey}`
+    formId: uuid("form_id")
+      .notNull()
+      .references(() => forms.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
+    presenceKey: text("presence_key").notNull(),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    color: text("color").notNull(),
+    selectedFieldId: uuid("selected_field_id"),
+    selectedFieldIdText: text("selected_field_id_text"), 
+    lastPing: timestamp("last_ping").defaultNow().notNull(),
+  },
+  (table) => [
+    index("active_form_sessions_form_id_idx").on(table.formId),
+    index("active_form_sessions_last_ping_idx").on(table.lastPing),
+  ]
+);
+
 // ─── Form Fields ──────────────────────────────────────────────────────────────
 
 export const formFields = pgTable(
@@ -193,6 +235,8 @@ export const formFields = pgTable(
       acceptedTypes?: string[];
       maxFileSize?: number;
     }>(),
+    // Realtime locking - user ID of who is editing this field
+    lockedBy: text("locked_by"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [

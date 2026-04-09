@@ -271,7 +271,11 @@ export interface BuilderField {
     allowMultiple?: boolean;
     acceptedTypes?: string[];
     maxFileSize?: number;
+    // Add any other dynamic text like placeholder overwrites
+    [key: string]: unknown;
   };
+  // Realtime Database Locked By userId
+  lockedBy?: string | null;
   // dirty flag — needs to be saved
   isDirty?: boolean;
   // new flag — needs to be inserted

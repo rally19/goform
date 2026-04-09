@@ -38,11 +38,16 @@ export function FieldCard({
   accentColor = "#6366f1",
   isOverlay = false,
 }: FieldCardProps) {
-  const { selectField, removeField, duplicateField, fieldLocks, form } = useFormBuilder();
+  const { selectField, removeField, duplicateField, fieldLocks, collaborators, form } = useFormBuilder();
   const Icon = FIELD_ICONS[field.type] ?? Type;
   
   const collaborationEnabled = form?.collaborationEnabled ?? false;
-  const locker = collaborationEnabled ? fieldLocks[field.id] : undefined;
+  let locker = collaborationEnabled ? fieldLocks[field.id] : undefined;
+  
+  if (collaborationEnabled && !locker && field.lockedBy) {
+    locker = collaborators.find(c => c.userId === field.lockedBy);
+  }
+  
   const isLockedByOther = !!locker;
 
   const {
@@ -195,9 +200,9 @@ export function FieldCard({
           backgroundColor: isOverlay ? "var(--card)" : `${accentColor}05`,
         } : {}),
         ...(isLockedByOther ? {
-          borderColor: locker.color,
-          boxShadow: `0 0 0 2px ${locker.color}30`,
-          backgroundColor: `${locker.color}05`,
+          borderColor: locker?.color,
+          boxShadow: `0 0 0 2px ${locker?.color}30`,
+          backgroundColor: `${locker?.color}05`,
         } : {}),
       }}
       onClick={(e) => {
@@ -214,16 +219,33 @@ export function FieldCard({
         />
       )}
 
-      {/* Lock indicator — shown when another user is editing */}
-      {isLockedByOther && (
-        <div
-          className="absolute top-2 right-2 flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium text-white shadow-sm z-10"
-          style={{ backgroundColor: locker.color }}
-        >
-          {/* Avatar initials */}
-          <span className="font-semibold">{getInitials(locker.name)}</span>
-          <Lock className="h-3 w-3" />
+      {/* Locked Overlay */}
+      {isLockedByOther && locker && (
+        <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] rounded-lg z-10 flex items-center justify-center pointer-events-none">
+          <div 
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-white text-xs font-medium shadow-sm transition-transform"
+            style={{ backgroundColor: locker?.color, transform: "scale(1)" }}
+          >
+            <Lock className="h-3 w-3" />
+            <span>Locked by {locker?.name}</span>
+          </div>
         </div>
+      )}
+
+      {/* Drag overlay matching exactly */}
+      {isOverlay && (
+        <div 
+          className="absolute inset-0 border-2 rounded-lg pointer-events-none z-20"
+          style={{ borderColor: accentColor }}
+        />
+      )}
+      
+      {/* Outer Lock Border */}
+      {isLockedByOther && locker && (
+        <div 
+          className="absolute inset-0 border-2 rounded-lg pointer-events-none z-20"
+          style={{ borderColor: locker?.color }}
+        />
       )}
 
       <div className="flex items-start gap-2 md:gap-3 p-3 md:p-4">

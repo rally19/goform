@@ -76,7 +76,7 @@ function CollaboratorAvatars() {
     <TooltipProvider delayDuration={200}>
       <div className="flex items-center -space-x-2">
         {collaborators.slice(0, 4).map((c) => (
-          <Tooltip key={c.userId}>
+          <Tooltip key={c.presenceKey}>
             <TooltipTrigger asChild>
               <div
                 className="h-7 w-7 rounded-full border-2 border-card flex items-center justify-center text-[10px] font-bold text-white shrink-0 cursor-default"
@@ -372,7 +372,7 @@ export function BuilderCanvas({
           <div className="flex flex-col gap-2">
             {editors.map((c) => (
               <div
-                key={c.userId}
+                key={c.presenceKey}
                 className="flex items-center gap-3 rounded-lg px-3 py-2 bg-muted"
               >
                 <div
