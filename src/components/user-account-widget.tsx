@@ -28,7 +28,7 @@ export function UserAccountWidget() {
     let isActive = true;
     const supabase = createClient();
     
-    supabase.auth.getUser().then(({ data: { user: authUser } }) => {
+    supabase.auth.getUser().then(({ data: { user: authUser } }: { data: { user: import("@supabase/supabase-js").User | null } }) => {
       if (authUser && isActive) {
         setUser({
           name: authUser.user_metadata?.name || null,

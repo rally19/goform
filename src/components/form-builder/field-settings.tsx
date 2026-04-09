@@ -13,8 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
   GripVertical, Plus, Trash2, X,
-  Settings2, ChevronDown,
+  Settings2, ChevronDown, Lock,
 } from "lucide-react";
+import { getInitials } from "@/hooks/use-form-realtime";
 
 export function FieldSettings() {
   const {
@@ -25,9 +26,14 @@ export function FieldSettings() {
     addOption,
     removeOption,
     updateOption,
+    fieldLocks,
+    form,
   } = useFormBuilder();
 
   const field = fields.find((f) => f.id === selectedFieldId);
+  const collaborationEnabled = form?.collaborationEnabled ?? false;
+  const locker = field && collaborationEnabled ? fieldLocks[field.id] : undefined;
+  const isLockedByOther = !!locker;
 
   if (!field) {
     return (
@@ -74,8 +80,25 @@ export function FieldSettings() {
         </Button>
       </div>
 
+      {/* Lock overlay when another user is editing */}
+      {isLockedByOther && locker && (
+        <div
+          className="mx-3 mt-3 rounded-lg p-3 flex items-center gap-2.5 text-white text-sm font-medium"
+          style={{ backgroundColor: locker.color }}
+        >
+          <div className="h-7 w-7 rounded-full bg-white/20 flex items-center justify-center shrink-0 text-xs font-bold">
+            {getInitials(locker.name)}
+          </div>
+          <div className="min-w-0">
+            <p className="font-semibold truncate">{locker.name}</p>
+            <p className="text-xs opacity-80">is editing this field</p>
+          </div>
+          <Lock className="h-4 w-4 shrink-0 ml-auto" />
+        </div>
+      )}
+
       <ScrollArea className="flex-1 min-h-0">
-        <div className="p-4 space-y-5">
+        <div className={cn("p-4 space-y-5", isLockedByOther && "pointer-events-none opacity-50")}>
           {/* Basic info */}
           <div className="space-y-3">
             <div className="space-y-1.5">
@@ -85,6 +108,7 @@ export function FieldSettings() {
                 onChange={(e) => updateField(field.id, { label: e.target.value })}
                 className="h-8 text-sm"
                 placeholder="Question label"
+                disabled={isLockedByOther}
               />
             </div>
             <div className="space-y-1.5">
@@ -95,6 +119,7 @@ export function FieldSettings() {
                 className="text-sm resize-none"
                 rows={2}
                 placeholder="Helper text for respondents"
+                disabled={isLockedByOther}
               />
             </div>
             {!isLayout && field.type !== "rating" && field.type !== "scale" && !hasOptions && (
@@ -105,6 +130,7 @@ export function FieldSettings() {
                   onChange={(e) => updateField(field.id, { placeholder: e.target.value })}
                   className="h-8 text-sm"
                   placeholder="e.g., Enter your answer"
+                  disabled={isLockedByOther}
                 />
               </div>
             )}
@@ -122,6 +148,7 @@ export function FieldSettings() {
                 <Switch
                   checked={field.required}
                   onCheckedChange={(v) => updateField(field.id, { required: v })}
+                  disabled={isLockedByOther}
                 />
               </div>
             </>
@@ -139,6 +166,7 @@ export function FieldSettings() {
                     size="sm"
                     className="h-6 text-xs"
                     onClick={() => addOption(field.id)}
+                    disabled={isLockedByOther}
                   >
                     <Plus className="h-3 w-3 mr-1" />
                     Add
@@ -153,13 +181,14 @@ export function FieldSettings() {
                         onChange={(e) => updateOption(field.id, i, e.target.value)}
                         className="h-7 text-sm flex-1"
                         placeholder={`Option ${i + 1}`}
+                        disabled={isLockedByOther}
                       />
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
                         onClick={() => removeOption(field.id, i)}
-                        disabled={(field.options?.length ?? 0) <= 1}
+                        disabled={(field.options?.length ?? 0) <= 1 || isLockedByOther}
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
@@ -188,6 +217,7 @@ export function FieldSettings() {
                       properties: { ...(field.properties ?? {}), stars: v },
                     })
                   }
+                  disabled={isLockedByOther}
                 />
               </div>
             </>
@@ -210,6 +240,7 @@ export function FieldSettings() {
                         })
                       }
                       className="h-8 text-sm"
+                      disabled={isLockedByOther}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -223,6 +254,7 @@ export function FieldSettings() {
                         })
                       }
                       className="h-8 text-sm"
+                      disabled={isLockedByOther}
                     />
                   </div>
                 </div>
@@ -237,6 +269,7 @@ export function FieldSettings() {
                     }
                     className="h-8 text-sm"
                     placeholder="e.g., Not likely"
+                    disabled={isLockedByOther}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -250,6 +283,7 @@ export function FieldSettings() {
                     }
                     className="h-8 text-sm"
                     placeholder="e.g., Very likely"
+                    disabled={isLockedByOther}
                   />
                 </div>
               </div>
@@ -274,6 +308,7 @@ export function FieldSettings() {
                       properties: { ...(field.properties ?? {}), rows: v },
                     })
                   }
+                  disabled={isLockedByOther}
                 />
               </div>
             </>
@@ -299,6 +334,7 @@ export function FieldSettings() {
                         }
                         className="h-8 text-sm"
                         placeholder="—"
+                        disabled={isLockedByOther}
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -313,6 +349,7 @@ export function FieldSettings() {
                         }
                         className="h-8 text-sm"
                         placeholder="—"
+                        disabled={isLockedByOther}
                       />
                     </div>
                   </div>
@@ -331,6 +368,7 @@ export function FieldSettings() {
                         }
                         className="h-8 text-sm"
                         placeholder="—"
+                        disabled={isLockedByOther}
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -345,6 +383,7 @@ export function FieldSettings() {
                         }
                         className="h-8 text-sm"
                         placeholder="—"
+                        disabled={isLockedByOther}
                       />
                     </div>
                   </div>

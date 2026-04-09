@@ -140,6 +140,7 @@ export const forms = pgTable(
       .default("Thank you for your response!"),
     redirectUrl: text("redirect_url"),
     autoSave: boolean("auto_save").notNull().default(true),
+    collaborationEnabled: boolean("collaboration_enabled").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

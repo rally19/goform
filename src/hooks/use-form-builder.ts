@@ -6,11 +6,21 @@ import type { BuilderField, BuilderForm, FieldType } from "@/lib/form-types";
 import { FIELD_TYPE_META } from "@/lib/form-types";
 
 // ─── Helper: nanoid without external dep ─────────────────────────────────────
-// Use crypto.randomUUID which is available in modern browsers/Node
 function uid() {
   return typeof crypto !== "undefined"
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2);
+}
+
+// ─── Collaborator presence info ────────────────────────────────────────────────
+export interface CollaboratorInfo {
+  userId: string;
+  name: string;
+  email: string;
+  color: string;
+  selectedFieldId: string | null;
+  /** presenceRef key from Supabase (used to remove on leave) */
+  presenceKey: string;
 }
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -26,6 +36,14 @@ interface FormBuilderState {
   isDirty: boolean;
   // Saving state
   isSaving: boolean;
+
+  // ─── Collaboration ──────────────────────────────────────────────────────────
+  /** Other connected collaborators (not current user) */
+  collaborators: CollaboratorInfo[];
+  /** Map of fieldId → CollaboratorInfo of who is currently selecting that field */
+  fieldLocks: Record<string, CollaboratorInfo>;
+
+  // ─── Actions ────────────────────────────────────────────────────────────────
   // Init from DB data
   initialize: (form: BuilderForm, fields: BuilderField[]) => void;
   // Add a field from component panel
@@ -54,6 +72,16 @@ interface FormBuilderState {
   updateOption: (fieldId: string, optionIndex: number, label: string) => void;
   // Reorder options
   reorderOptions: (fieldId: string, fromIndex: number, toIndex: number) => void;
+
+  // ─── Collaboration actions ──────────────────────────────────────────────────
+  /**
+   * Apply a remote broadcast update. Does NOT set isDirty to avoid re-broadcasting loops.
+   */
+  applyRemoteUpdate: (payload: { fields?: BuilderField[]; form?: Partial<BuilderForm> }) => void;
+  /** Replace the full collaborators list from a Presence sync event */
+  setCollaborators: (collaborators: CollaboratorInfo[]) => void;
+  /** Recompute fieldLocks from current collaborators list */
+  recomputeLocks: () => void;
 }
 
 export const useFormBuilder = create<FormBuilderState>()(
@@ -63,6 +91,8 @@ export const useFormBuilder = create<FormBuilderState>()(
     selectedFieldId: null,
     isDirty: false,
     isSaving: false,
+    collaborators: [],
+    fieldLocks: {},
 
     initialize: (form, fields) => {
       set((state) => {
@@ -70,6 +100,8 @@ export const useFormBuilder = create<FormBuilderState>()(
         state.fields = fields;
         state.isDirty = false;
         state.selectedFieldId = null;
+        state.collaborators = [];
+        state.fieldLocks = {};
       });
     },
 
@@ -167,7 +199,6 @@ export const useFormBuilder = create<FormBuilderState>()(
       set((state) => {
         state.isDirty = false;
         state.isSaving = false;
-        // Mark all fields as not new/dirty
         state.fields.forEach((f) => {
           f.isDirty = false;
           f.isNew = false;
@@ -225,6 +256,47 @@ export const useFormBuilder = create<FormBuilderState>()(
           field.options.splice(toIndex, 0, moved);
           state.isDirty = true;
         }
+      });
+    },
+
+    // ─── Collaboration ────────────────────────────────────────────────────────
+
+    applyRemoteUpdate: ({ fields, form: formChanges }) => {
+      set((state) => {
+        if (fields !== undefined) {
+          // Preserve isNew/isDirty flags for local-only fields that haven't been broadcast yet
+          state.fields = fields;
+        }
+        if (formChanges !== undefined && state.form) {
+          Object.assign(state.form, formChanges);
+        }
+        // Deliberately NOT setting isDirty — this is a remote update
+      });
+    },
+
+    setCollaborators: (collaborators) => {
+      set((state) => {
+        state.collaborators = collaborators;
+        // Recompute locks from new collaborators
+        const locks: Record<string, CollaboratorInfo> = {};
+        for (const c of collaborators) {
+          if (c.selectedFieldId) {
+            locks[c.selectedFieldId] = c;
+          }
+        }
+        state.fieldLocks = locks;
+      });
+    },
+
+    recomputeLocks: () => {
+      set((state) => {
+        const locks: Record<string, CollaboratorInfo> = {};
+        for (const c of state.collaborators) {
+          if (c.selectedFieldId) {
+            locks[c.selectedFieldId] = c;
+          }
+        }
+        state.fieldLocks = locks;
       });
     },
   }))

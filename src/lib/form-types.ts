@@ -292,6 +292,7 @@ export interface BuilderForm {
   successMessage: string;
   redirectUrl?: string;
   autoSave: boolean;
+  collaborationEnabled: boolean;
 }
 
 export type FormAnswer = string | string[] | number | boolean | null;

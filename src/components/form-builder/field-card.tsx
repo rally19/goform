@@ -6,13 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
-  GripVertical, Trash2, Copy, Settings2, Star,
+  GripVertical, Trash2, Copy, Star,
   Type, AlignLeft, Hash, Mail, Phone, Link2, Calendar, Clock,
   CircleDot, CheckSquare, ChevronDown, ListChecks,
   SlidersHorizontal, Heading, Columns2, Upload, CalendarClock,
+  Lock,
 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { getInitials } from "@/hooks/use-form-realtime";
 
 const FIELD_ICONS: Record<string, React.ElementType> = {
   short_text: Type, long_text: AlignLeft, number: Hash, email: Mail,
@@ -36,8 +38,12 @@ export function FieldCard({
   accentColor = "#6366f1",
   isOverlay = false,
 }: FieldCardProps) {
-  const { selectField, removeField, duplicateField } = useFormBuilder();
+  const { selectField, removeField, duplicateField, fieldLocks, form } = useFormBuilder();
   const Icon = FIELD_ICONS[field.type] ?? Type;
+  
+  const collaborationEnabled = form?.collaborationEnabled ?? false;
+  const locker = collaborationEnabled ? fieldLocks[field.id] : undefined;
+  const isLockedByOther = !!locker;
 
   const {
     attributes,
@@ -46,7 +52,7 @@ export function FieldCard({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: field.id, disabled: isOverlay });
+  } = useSortable({ id: field.id, disabled: isOverlay || isLockedByOther });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -168,44 +174,69 @@ export function FieldCard({
     <div
       ref={setNodeRef}
       className={cn(
-        "group relative rounded-xl border bg-card cursor-pointer",
+        "group relative rounded-xl border bg-card",
         !isDragging && !isOverlay && "transition-all duration-300",
+        isLockedByOther
+          ? "cursor-not-allowed"
+          : "cursor-pointer",
         isSelected || isOverlay
           ? "shadow-md"
-          : "border-border hover:border-muted-foreground/30 hover:shadow-sm",
+          : !isLockedByOther && "border-border hover:border-muted-foreground/30 hover:shadow-sm",
         isDragging ? "opacity-0" : "opacity-100",
         isOverlay && "z-50 cursor-grabbing shadow-xl border-primary/50"
       )}
       style={{
         ...style,
-        ...((isSelected || isOverlay) ? {
+        ...((isSelected || isOverlay) && !isLockedByOther ? {
           borderColor: accentColor,
           boxShadow: isOverlay 
             ? `0 10px 30px -10px ${accentColor}40` 
             : `0 0 0 4px ${accentColor}10, 0 4px 20px -4px ${accentColor}25`,
           backgroundColor: isOverlay ? "var(--card)" : `${accentColor}05`,
-        } : {})
+        } : {}),
+        ...(isLockedByOther ? {
+          borderColor: locker.color,
+          boxShadow: `0 0 0 2px ${locker.color}30`,
+          backgroundColor: `${locker.color}05`,
+        } : {}),
       }}
       onClick={(e) => {
-        if (isOverlay) return;
+        if (isOverlay || isLockedByOther) return;
         e.stopPropagation();
         selectField(field.id);
       }}
     >
-      {/* Left accent bar - Premium floating style */}
-      {isSelected && (
+      {/* Left accent bar */}
+      {isSelected && !isLockedByOther && (
         <div
           className="absolute left-1.5 top-3 bottom-3 w-1.5 rounded-full"
           style={{ backgroundColor: accentColor }}
         />
       )}
 
+      {/* Lock indicator — shown when another user is editing */}
+      {isLockedByOther && (
+        <div
+          className="absolute top-2 right-2 flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium text-white shadow-sm z-10"
+          style={{ backgroundColor: locker.color }}
+        >
+          {/* Avatar initials */}
+          <span className="font-semibold">{getInitials(locker.name)}</span>
+          <Lock className="h-3 w-3" />
+        </div>
+      )}
+
       <div className="flex items-start gap-2 md:gap-3 p-3 md:p-4">
         {/* Drag handle */}
         <div
           {...attributes}
-          {...listeners}
-          className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground pt-0.5 outline-none touch-none shrink-0"
+          {...(isLockedByOther ? {} : listeners)}
+          className={cn(
+            "pt-0.5 outline-none touch-none shrink-0",
+            isLockedByOther
+              ? "text-muted-foreground/30 cursor-not-allowed"
+              : "cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
+          )}
           onClick={(e) => e.stopPropagation()}
         >
           <GripVertical className="h-4 w-4" />
@@ -240,7 +271,8 @@ export function FieldCard({
           {renderFieldPreview()}
         </div>
 
-          {/* Actions - Desktop sidebar / Mobile bottom bar */}
+        {/* Actions - only shown when not locked by another user */}
+        {!isLockedByOther && (
           <div
             className={cn(
               "md:flex flex-col gap-0.5 transition-opacity shrink-0",
@@ -268,10 +300,11 @@ export function FieldCard({
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </div>
-        </div>
+        )}
+      </div>
 
         {/* Mobile Actions Bottom Row */}
-        {isSelected && (
+        {isSelected && !isLockedByOther && (
           <div 
             className="flex md:hidden items-center justify-end gap-2 px-3 pb-3 border-t border-border/50 pt-2 mx-1"
             onClick={(e) => e.stopPropagation()}
@@ -296,6 +329,6 @@ export function FieldCard({
             </Button>
           </div>
         )}
-      </div>
+    </div>
   );
 }

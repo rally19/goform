@@ -2,6 +2,8 @@
 
 import { useEffect, useCallback, useRef, useState, useId } from "react";
 import { useFormBuilder } from "@/hooks/use-form-builder";
+import { useFormRealtime, getInitials, pickColor } from "@/hooks/use-form-realtime";
+import { createClient } from "@/lib/client";
 import { FieldCard } from "./field-card";
 import { FormHeaderEditor } from "./form-header-editor";
 import { ComponentPanel } from "./component-panel";
@@ -9,6 +11,7 @@ import { FieldSettings } from "./field-settings";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import type { BuilderField, BuilderForm, FieldType } from "@/lib/form-types";
 import { saveFormFields, updateForm, setFormStatus } from "@/lib/actions/forms";
@@ -30,7 +33,8 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import {
-  Save, Loader2, PlusCircle, Globe, LayoutGrid, Settings2, Palette, Check,
+  Save, Loader2, PlusCircle, Globe, Settings2, Palette, Check,
+  Users, Wifi, WifiOff, CheckCheck,
 } from "lucide-react";
 import Link from "next/link";
 import { ACCENT_COLORS } from "@/lib/form-types";
@@ -46,11 +50,51 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface BuilderCanvasProps {
   formId: string;
   initialForm: BuilderForm;
   initialFields: BuilderField[];
+}
+
+// ─── Collaborator avatar stack ─────────────────────────────────────────────────
+function CollaboratorAvatars() {
+  const { collaborators } = useFormBuilder();
+  if (collaborators.length === 0) return null;
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      <div className="flex items-center -space-x-2">
+        {collaborators.slice(0, 4).map((c) => (
+          <Tooltip key={c.userId}>
+            <TooltipTrigger asChild>
+              <div
+                className="h-7 w-7 rounded-full border-2 border-card flex items-center justify-center text-[10px] font-bold text-white shrink-0 cursor-default"
+                style={{ backgroundColor: c.color }}
+              >
+                {getInitials(c.name)}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">
+              {c.name}
+              {c.selectedFieldId && <span className="text-muted-foreground ml-1">(editing)</span>}
+            </TooltipContent>
+          </Tooltip>
+        ))}
+        {collaborators.length > 4 && (
+          <div className="h-7 w-7 rounded-full border-2 border-card bg-muted flex items-center justify-center text-[10px] font-semibold text-muted-foreground">
+            +{collaborators.length - 4}
+          </div>
+        )}
+      </div>
+    </TooltipProvider>
+  );
 }
 
 export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCanvasProps) {
@@ -68,10 +112,15 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
     setSaving,
     markSaved,
     updateFormMeta,
+    fieldLocks,
   } = useFormBuilder();
 
   const id = useId();
   const [mounted, setMounted] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ id: string; name: string; email: string } | null>(null);
+
+  // ─── Saved indicator state ─────────────────────────────────────────────────
+  const [justSaved, setJustSaved] = useState(false);
 
   // Initialize once
   useEffect(() => {
@@ -79,22 +128,115 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
     setMounted(true);
   }, []);
 
+  // Fetch current user for presence
+  useEffect(() => {
+    (async () => {
+      const { data: { user: authUser } } = await createClient().auth.getUser();
+      if (authUser) {
+        setCurrentUser({
+          id: authUser.id,
+          name:
+            authUser.user_metadata?.full_name ??
+            authUser.email?.split("@")[0] ??
+            "User",
+          email: authUser.email ?? "",
+        });
+      }
+    })();
+  }, []);
+
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeData, setActiveData] = useState<any>(null);
   const [isComponentsOpen, setIsComponentsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // Close settings sheet when a field is selected or deselected if on mobile
-  useEffect(() => {
-    if (selectedFieldId) {
-      // Small delay to ensure smooth transition
-      const timer = setTimeout(() => {
-        // Only auto-open on smaller screens if we want to, 
-        // but usually we want to let the user click "Properties"
-      }, 100);
-      return () => clearTimeout(timer);
+  const collaborationEnabled = form?.collaborationEnabled ?? false;
+
+  // ─── Realtime integration ───────────────────────────────────────────────────
+  const { broadcastState, myColor } = useFormRealtime({
+    formId,
+    enabled: collaborationEnabled && !!currentUser,
+    currentUser: currentUser ?? { id: "anon", name: "User", email: "" },
+    onBroadcastState: () => {
+      if (form) broadcastState(fields, form);
+    },
+  });
+
+  // ─── Save handler ──────────────────────────────────────────────────────────
+  const handleSave = useCallback(async () => {
+    if (!form || isSaving) return;
+    setSaving(true);
+    try {
+      const [metaResult, fieldsResult] = await Promise.all([
+        updateForm(formId, form),
+        saveFormFields(formId, fields),
+      ]);
+      if (!metaResult.success) throw new Error(metaResult.error);
+      if (!fieldsResult.success) throw new Error(fieldsResult.error);
+      markSaved();
+      if (!collaborationEnabled) {
+        toast.success("Form saved!");
+      }
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 2000);
+    } catch (err) {
+      toast.error("Failed to save: " + (err as Error).message);
+      setSaving(false);
     }
-  }, [selectedFieldId]);
+  }, [form, fields, formId, isSaving, collaborationEnabled]);
+
+  const handlePublish = useCallback(async () => {
+    if (!form) return;
+    const newStatus = form.status === "active" ? "draft" : "active";
+    const result = await setFormStatus(formId, newStatus);
+    if (result.success) {
+      updateFormMeta({ status: newStatus });
+      toast.success(newStatus === "active" ? "Form published!" : "Form unpublished");
+    } else {
+      toast.error(result.error ?? "Failed to update status");
+    }
+  }, [form, formId]);
+
+  // ─── Collaboration toggle ───────────────────────────────────────────────────
+  const handleCollabToggle = useCallback(async (enabled: boolean) => {
+    updateFormMeta({ collaborationEnabled: enabled });
+    // Persist immediately
+    const result = await updateForm(formId, { ...form!, collaborationEnabled: enabled });
+    if (!result.success) {
+      toast.error("Failed to update collaboration setting");
+      updateFormMeta({ collaborationEnabled: !enabled }); // revert
+    } else {
+      toast.success(enabled ? "Collaboration mode enabled" : "Collaboration mode disabled");
+    }
+  }, [form, formId, updateFormMeta]);
+
+  // ─── Auto-save: manual / default autosave (non-collab mode) ───────────────
+  const saveTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => {
+    if (!isDirty || collaborationEnabled) return;
+    if (!form?.autoSave) return;
+    clearTimeout(saveTimeout.current);
+    saveTimeout.current = setTimeout(() => {
+      handleSave();
+    }, 3000);
+    return () => clearTimeout(saveTimeout.current);
+  }, [isDirty, fields, form, handleSave, collaborationEnabled]);
+
+  // ─── Auto-save: collaboration mode (instant broadcast + debounce save) ─────
+  const collabSaveTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => {
+    if (!isDirty || !collaborationEnabled || !form) return;
+
+    // Instantly broadcast to peers
+    broadcastState(fields, form);
+
+    // Debounce persist to DB (1.5s)
+    clearTimeout(collabSaveTimeout.current);
+    collabSaveTimeout.current = setTimeout(() => {
+      handleSave();
+    }, 1500);
+    return () => clearTimeout(collabSaveTimeout.current);
+  }, [isDirty, fields, form, collaborationEnabled]);
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 3 } }),
@@ -114,27 +256,20 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
 
     if (!over) return;
 
-    // Case 1: Dragging from sidebar to canvas
     if (active.id.toString().startsWith("new:")) {
       const type = active.data.current?.type as FieldType;
-      // Determine if dropping over a specific field or the canvas itself
       const overId = over.id.toString();
       const overIdx = fields.findIndex((f) => f.id === overId);
-      
-      // If dropped over a field, insert at that index
-      // If dropped over the canvas (not a field), add to end
       addField(type, overIdx >= 0 ? overIdx : undefined);
       return;
     }
 
-    // Case 2: Dragging from canvas to sidebar (remove)
     if (over.id === "component-panel") {
       removeField(active.id as string);
       toast.success("Field removed");
       return;
     }
 
-    // Case 3: Reordering within canvas
     if (active.id !== over.id) {
       const fromIdx = fields.findIndex((f) => f.id === active.id);
       const toIdx = fields.findIndex((f) => f.id === over.id);
@@ -144,58 +279,12 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
     }
   };
 
-  // Save handler
-  const handleSave = useCallback(async () => {
-    // ... same as before
-    if (!form || isSaving) return;
-    setSaving(true);
-    try {
-      const [metaResult, fieldsResult] = await Promise.all([
-        updateForm(formId, form),
-        saveFormFields(formId, fields),
-      ]);
-      if (!metaResult.success) throw new Error(metaResult.error);
-      if (!fieldsResult.success) throw new Error(fieldsResult.error);
-      markSaved();
-      toast.success("Form saved!");
-    } catch (err) {
-      toast.error("Failed to save: " + (err as Error).message);
-      setSaving(false);
-    }
-  }, [form, fields, formId, isSaving]);
-
-  const handlePublish = useCallback(async () => {
-    // ... same as before
-    if (!form) return;
-    const newStatus = form.status === "active" ? "draft" : "active";
-    const result = await setFormStatus(formId, newStatus);
-    if (result.success) {
-      updateFormMeta({ status: newStatus });
-      toast.success(newStatus === "active" ? "Form published!" : "Form unpublished");
-    } else {
-      toast.error(result.error ?? "Failed to update status");
-    }
-  }, [form, formId]);
-
-  // Auto-save debounce
-  const saveTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(() => {
-    if (!isDirty || !form?.autoSave) return;
-    clearTimeout(saveTimeout.current);
-    saveTimeout.current = setTimeout(() => {
-      handleSave();
-    }, 3000);
-    return () => clearTimeout(saveTimeout.current);
-  }, [isDirty, fields, form, handleSave]);
-
   const accentColor = form?.accentColor ?? "#6366f1";
 
-  // Overlay component helper
   const renderOverlay = () => {
     if (!activeId) return null;
 
     if (activeId.toString().startsWith("new:")) {
-      const type = activeId.toString().split(":")[1];
       const label = activeData?.label || "New Field";
       return (
         <div className="bg-card border-2 border-primary rounded-xl p-4 shadow-2xl opacity-90 w-72 flex items-center gap-3">
@@ -255,36 +344,119 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
         {/* Center: Canvas */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* Toolbar */}
-          <div className="h-12 border-b border-border bg-card flex items-center justify-between px-2 md:px-4 shrink-0">
-            <div className="flex items-center gap-2">
+          <div className="h-12 border-b border-border bg-card flex items-center justify-between px-2 md:px-4 shrink-0 gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <Badge
                 variant={form?.status === "active" ? "default" : "secondary"}
-                className="capitalize"
+                className="capitalize shrink-0"
               >
                 {form?.status ?? "draft"}
               </Badge>
-              {isDirty && (
-                <span className="text-xs text-muted-foreground">• Unsaved changes</span>
+
+              {/* Save status indicator */}
+              {collaborationEnabled ? (
+                <div className="flex items-center gap-1.5">
+                  {isSaving ? (
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <span className="hidden sm:inline">Saving...</span>
+                    </span>
+                  ) : justSaved ? (
+                    <span className="flex items-center gap-1 text-xs text-emerald-600">
+                      <CheckCheck className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Saved</span>
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground/60">
+                      <CheckCheck className="h-3 w-3" />
+                      <span className="hidden sm:inline">Auto-saving</span>
+                    </span>
+                  )}
+                </div>
+              ) : (
+                isDirty && (
+                  <span className="text-xs text-muted-foreground">• Unsaved changes</span>
+                )
               )}
             </div>
 
             <div className="flex-1" />
 
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleSave}
-                disabled={isSaving || !isDirty}
-                className="h-8"
-              >
-                {isSaving ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Save className="h-3.5 w-3.5" />
-                )}
-                <span className="ml-1.5 hidden sm:inline">Save</span>
-              </Button>
+            <div className="flex items-center gap-1.5 md:gap-2">
+              {/* Collaborator avatars */}
+              {collaborationEnabled && currentUser && (
+                <div className="flex items-center gap-2">
+                  {/* My own avatar */}
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div
+                          className="h-7 w-7 rounded-full border-2 border-primary/30 flex items-center justify-center text-[10px] font-bold text-white shrink-0 cursor-default ring-2 ring-offset-1"
+                          style={{ backgroundColor: myColor }}
+                        >
+                          {getInitials(currentUser.name)}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="text-xs">
+                        {currentUser.name} (you)
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <CollaboratorAvatars />
+                </div>
+              )}
+
+              {/* Collab toggle */}
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-muted transition-colors cursor-pointer"
+                      onClick={() => handleCollabToggle(!collaborationEnabled)}
+                    >
+                      {collaborationEnabled ? (
+                        <Wifi className="h-3.5 w-3.5 text-emerald-500" />
+                      ) : (
+                        <WifiOff className="h-3.5 w-3.5 text-muted-foreground" />
+                      )}
+                      <span className="text-xs font-medium hidden sm:inline">
+                        {collaborationEnabled ? "Live" : "Collab"}
+                      </span>
+                      <Switch
+                        checked={collaborationEnabled}
+                        onCheckedChange={handleCollabToggle}
+                        className="h-4 w-7 [&_span]:h-3 [&_span]:w-3"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs max-w-[200px] text-center">
+                    {collaborationEnabled
+                      ? "Collaboration is ON — changes auto-save and sync in real-time"
+                      : "Enable collaboration for real-time multi-user editing"}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              {/* Manual save (only in non-collab mode) */}
+              {!collaborationEnabled && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSave}
+                  disabled={isSaving || !isDirty}
+                  className="h-8"
+                >
+                  {isSaving ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : justSaved ? (
+                    <Check className="h-3.5 w-3.5 text-emerald-500" />
+                  ) : (
+                    <Save className="h-3.5 w-3.5" />
+                  )}
+                  <span className="ml-1.5 hidden sm:inline">Save</span>
+                </Button>
+              )}
+
               <Button
                 size="sm"
                 onClick={handlePublish}
@@ -387,7 +559,7 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
 
         {/* Mobile Floating Action Buttons */}
         <div className="contents">
-          {/* Bottom Left: Add Components - Hidden when left panel is visible (md) */}
+          {/* Bottom Left: Add Components */}
           <div className="fixed bottom-6 left-6 z-40 md:hidden">
             <Button
               size="icon"
@@ -399,7 +571,7 @@ export function BuilderCanvas({ formId, initialForm, initialFields }: BuilderCan
             </Button>
           </div>
 
-          {/* Bottom Right: Field Properties - Hidden when right panel is visible (lg) */}
+          {/* Bottom Right: Field Properties */}
           <div className="fixed bottom-6 right-6 z-40 lg:hidden">
             <Button
               size="icon"
