@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +11,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -35,15 +41,17 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Copy, MoreHorizontal, Plus, Search, Settings, SquarePen,
   Trash, TrendingUp, Globe, ClipboardList, Loader2, FileText,
-  CheckCircle2, XCircle, ExternalLink, MoveRight, Building2
+  CheckCircle2, XCircle, ExternalLink, MoveRight, Building2, Lock
 } from "lucide-react";
 import Link from "next/link";
 import {
   createForm,
   deleteForm,
   duplicateForm,
-  moveForms
+  moveForms,
 } from "@/lib/actions/forms";
+import { getActiveSessions } from "@/lib/actions/collaboration";
+import { createClient } from "@/lib/client";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -58,6 +66,14 @@ type FormRow = {
   updatedAt: Date;
   slug: string;
   accentColor: string;
+  collaborationEnabled: boolean;
+};
+
+type ActiveUser = {
+  userId: string;
+  name: string;
+  color: string;
+  presenceKey: string;
 };
 
 type WorkspaceRow = {
@@ -72,15 +88,24 @@ const STATUS_CONFIG = {
   closed: { label: "Closed", icon: XCircle, className: "text-muted-foreground bg-muted border-border" },
 };
 
-function FormCard({ form, isSelected, onToggleSelect, onDelete, onDuplicate }: {
+function FormCard({ 
+  form, 
+  isSelected, 
+  activeUsers = [],
+  onToggleSelect, 
+  onDelete, 
+  onDuplicate 
+}: {
   form: FormRow;
   isSelected: boolean;
+  activeUsers?: ActiveUser[];
   onToggleSelect: (id: string, selected: boolean) => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
 }) {
   const status = STATUS_CONFIG[form.status];
   const StatusIcon = status.icon;
+  const isLocked = !form.collaborationEnabled && activeUsers.length > 0;
 
   return (
     <div className={cn(
@@ -90,7 +115,8 @@ function FormCard({ form, isSelected, onToggleSelect, onDelete, onDuplicate }: {
       <div className="flex items-center space-x-2 shrink-0 pr-2">
         <Checkbox 
           checked={isSelected} 
-          onCheckedChange={(checked) => onToggleSelect(form.id, checked as boolean)} 
+          onCheckedChange={(checked) => onToggleSelect(form.id, checked as boolean)}
+          disabled={isLocked}
         />
       </div>
 
@@ -104,11 +130,23 @@ function FormCard({ form, isSelected, onToggleSelect, onDelete, onDuplicate }: {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <Link
-            href={`/forms/${form.id}/edit`}
-            className="font-medium text-sm text-foreground hover:underline truncate"
+            href={isLocked ? `/forms/${form.id}/results` : `/forms/${form.id}/edit`}
+            className="font-medium text-sm text-foreground hover:underline truncate flex items-center gap-2"
           >
             {form.title}
           </Link>
+          {isLocked && (
+            <Badge variant="outline" className="h-5 px-1.5 gap-1 text-[10px] bg-amber-500/10 text-amber-600 border-amber-200">
+              <Lock className="h-2.5 w-2.5" />
+              Locked
+            </Badge>
+          )}
+          {!isLocked && activeUsers.length > 0 && form.collaborationEnabled && (
+            <Badge variant="outline" className="h-5 px-1.5 gap-1 text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-200">
+              <span className="h-1 w-1 rounded-full bg-emerald-500 animate-pulse" />
+              Live
+            </Badge>
+          )}
         </div>
         <div className="flex items-center gap-3 mt-0.5">
           <div className={cn("flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded-full border", status.className)}>
@@ -123,6 +161,26 @@ function FormCard({ form, isSelected, onToggleSelect, onDelete, onDuplicate }: {
           </span>
         </div>
       </div>
+
+      {activeUsers.length > 0 && (
+        <div className="flex items-center -space-x-1.5 mr-2">
+          {activeUsers.slice(0, 3).map((user) => (
+            <div
+              key={user.presenceKey}
+              className="h-6 w-6 rounded-full border-2 border-background flex items-center justify-center text-[9px] font-bold text-white shrink-0"
+              style={{ backgroundColor: user.color }}
+              title={user.name}
+            >
+              {user.name.charAt(0).toUpperCase()}
+            </div>
+          ))}
+          {activeUsers.length > 3 && (
+            <div className="h-6 w-6 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[9px] font-semibold text-muted-foreground">
+              +{activeUsers.length - 3}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <Button variant="ghost" size="sm" asChild className="h-8 px-2 hidden sm:flex">
@@ -146,7 +204,7 @@ function FormCard({ form, isSelected, onToggleSelect, onDelete, onDuplicate }: {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-          <DropdownMenuItem asChild>
+          <DropdownMenuItem asChild disabled={isLocked}>
             <Link href={`/forms/${form.id}/edit`}>
               <SquarePen className="h-4 w-4 mr-2" />
               Edit Form
@@ -195,6 +253,51 @@ function FormCard({ form, isSelected, onToggleSelect, onDelete, onDuplicate }: {
   );
 }
 
+function useDashboardRealtime() {
+  const [sessions, setSessions] = useState<Record<string, ActiveUser[]>>({});
+
+  const refreshSessions = useCallback(async () => {
+    // This is a bit heavy if there are thousands of forms, 
+    // but getActiveSessions for the whole workspace is fine for now.
+    const res = await getActiveSessions();
+    if (res.success && res.data) {
+      const map: Record<string, ActiveUser[]> = {};
+      res.data.forEach(s => {
+        if (!map[s.formId]) map[s.formId] = [];
+        map[s.formId].push({
+          userId: s.userId,
+          name: s.name,
+          color: s.color,
+          presenceKey: s.presenceKey
+        });
+      });
+      setSessions(map);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshSessions();
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel("dashboard_sessions")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "active_form_sessions" },
+        () => {
+          refreshSessions();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [refreshSessions]);
+
+  return sessions;
+}
+
 export function FormsListClient({ 
   initialForms, 
   targetWorkspaces 
@@ -204,6 +307,7 @@ export function FormsListClient({
 }) {
   const router = useRouter();
   const [forms, setForms] = useState<FormRow[]>(initialForms);
+  const activeSessionsMap = useDashboardRealtime();
 
   useEffect(() => {
     setForms(initialForms);
@@ -225,6 +329,9 @@ export function FormsListClient({
     const matchStatus = statusFilter === "all" || f.status === statusFilter;
     return matchSearch && matchStatus;
   });
+
+  const selectedForms = forms.filter(f => selectedIds.includes(f.id));
+  const hasLockedForms = selectedForms.some(f => !f.collaborationEnabled && (activeSessionsMap[f.id]?.length ?? 0) > 0);
 
   const handleToggleSelect = (id: string, selected: boolean) => {
     if (selected) {
@@ -309,9 +416,26 @@ export function FormsListClient({
               <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
                 Cancel
               </Button>
-              <Button size="sm" onClick={() => setMoveOpen(true)}>
-                <MoveRight className="h-4 w-4 mr-2" /> Move To...
-              </Button>
+              {hasLockedForms ? (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="cursor-not-allowed">
+                        <Button size="sm" disabled className="opacity-50 pointer-events-none">
+                          <MoveRight className="h-4 w-4 mr-2" /> Move To...
+                        </Button>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Cannot move forms that are currently being edited</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : (
+                <Button size="sm" onClick={() => setMoveOpen(true)}>
+                  <MoveRight className="h-4 w-4 mr-2" /> Move To...
+                </Button>
+              )}
             </div>
           </div>
         )}
@@ -383,6 +507,7 @@ export function FormsListClient({
                   key={form.id}
                   form={form}
                   isSelected={selectedIds.includes(form.id)}
+                  activeUsers={activeSessionsMap[form.id]}
                   onToggleSelect={handleToggleSelect}
                   onDelete={setDeleteId}
                   onDuplicate={handleDuplicate}

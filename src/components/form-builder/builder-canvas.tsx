@@ -126,6 +126,7 @@ export function BuilderCanvas({
     markSaved,
     updateFormMeta,
     collaborators,
+    fieldLocks,
   } = useFormBuilder();
 
   const dndId = useId();
@@ -171,32 +172,19 @@ export function BuilderCanvas({
 
   const collaborationEnabled = form?.collaborationEnabled ?? false;
 
-  // ─── "Blocked" state: collab OFF and someone else is already editing ──────
-  const [isBlocked, setIsBlocked] = useState(false);
-
   // ─── Realtime hook — ALWAYS mounted (presence is always-on) ───────────────
-  const { broadcastState, broadcastKick, trackMyPresence, myColor } = useFormRealtime({
+  const { broadcastState, broadcastKick, trackMyPresence, myColor, isSecondary } = useFormRealtime({
     formId,
     broadcastEnabled: collaborationEnabled,
     currentUser: currentUserMeta,
     onKicked: useCallback(() => {
-      toast.error("Collaboration mode was disabled. You have been redirected.", {
-        duration: 5000,
-      });
-      router.push("/forms");
-    }, [router]),
+      // User requested not to be kicked, so we just show a subtle notice if needed
+      // But the Read-Only overlay handles the locked state now.
+    }, []),
   });
 
-  // ─── Determine "blocked" status ────────────────────────────────────────────
-  // When collab is OFF, non-admins are blocked if anyone else is present.
-  useEffect(() => {
-    if (collaborationEnabled || canManageCollab) {
-      setIsBlocked(false);
-      return;
-    }
-    const othersPresent = collaborators.some((c) => c.userId !== currentUserId);
-    setIsBlocked(othersPresent);
-  }, [collaborators, collaborationEnabled, canManageCollab, currentUserId]);
+  const isAdmissionLocked = !collaborationEnabled && !canManageCollab && isSecondary;
+  const activeLocker = collaborators[0];
 
   // ─── Track drag in presence ────────────────────────────────────────────────
   useEffect(() => {
@@ -209,7 +197,7 @@ export function BuilderCanvas({
       trackMyPresence({ selectedFieldId: dragFieldId });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeId]);
+  }, [activeId, selectedFieldId]);
 
   // ─── Save handler ──────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
@@ -230,7 +218,7 @@ export function BuilderCanvas({
       toast.error("Failed to save: " + (err as Error).message);
       setSaving(false);
     }
-  }, [form, fields, formId, isSaving, collaborationEnabled]);
+  }, [form, fields, formId, isSaving, collaborationEnabled, setSaving, markSaved]);
 
   const handlePublish = useCallback(async () => {
     if (!form) return;
@@ -242,7 +230,7 @@ export function BuilderCanvas({
     } else {
       toast.error(result.error ?? "Failed to update status");
     }
-  }, [form, formId]);
+  }, [form, formId, updateFormMeta]);
 
   // ─── Collaboration toggle (admin-only) ─────────────────────────────────────
   const handleCollabToggle = useCallback(async (enabled: boolean) => {
@@ -260,7 +248,7 @@ export function BuilderCanvas({
       updateFormMeta({ collaborationEnabled: !enabled }); // revert
     } else {
       toast.success(
-        enabled ? "Collaboration mode enabled" : "Collaboration mode disabled — others have been redirected"
+        enabled ? "Collaboration mode enabled" : "Collaboration mode disabled"
       );
     }
   }, [canManageCollab, form, formId, updateFormMeta, broadcastKick]);
@@ -283,7 +271,7 @@ export function BuilderCanvas({
     collabSaveTimeout.current = setTimeout(handleSave, 1500);
     return () => clearTimeout(collabSaveTimeout.current);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDirty, fields, form, collaborationEnabled]);
+  }, [isDirty, fields, form, collaborationEnabled, broadcastState, handleSave]);
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 3 } }),
@@ -353,58 +341,6 @@ export function BuilderCanvas({
 
   if (!mounted) return null;
 
-  // ─── Blocked overlay (collab OFF, someone else is editing) ────────────────
-  if (isBlocked) {
-    const editors = collaborators.filter((c) => c.userId !== currentUserId);
-    return (
-      <div className="flex flex-col h-full items-center justify-center bg-muted/30 p-6">
-        <div className="max-w-md w-full bg-card rounded-2xl border border-border shadow-xl p-8 text-center space-y-5">
-          <div className="h-16 w-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mx-auto">
-            <Lock className="h-8 w-8 text-amber-600 dark:text-amber-400" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-foreground mb-2">Form is being edited</h2>
-            <p className="text-sm text-muted-foreground">
-              Collaboration mode is <strong>off</strong>. Only one person can edit at a time.
-            </p>
-          </div>
-
-          {/* Active editors */}
-          <div className="flex flex-col gap-2">
-            {editors.map((c) => (
-              <div
-                key={c.presenceKey}
-                className="flex items-center gap-3 rounded-lg px-3 py-2 bg-muted"
-              >
-                <div
-                  className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
-                  style={{ backgroundColor: c.color }}
-                >
-                  {getInitials(c.name)}
-                </div>
-                <div className="text-left min-w-0">
-                  <p className="text-sm font-medium truncate">{c.name}</p>
-                  <p className="text-xs text-muted-foreground truncate">{c.email}</p>
-                </div>
-                <div className="ml-auto flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
-                  <div className="h-2 w-2 rounded-full bg-current animate-pulse" />
-                  editing
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <p className="text-xs text-muted-foreground">
-            Wait for them to finish, or ask an admin to enable collaboration mode.
-          </p>
-          <Button variant="outline" onClick={() => router.push("/forms")} className="w-full">
-            Go back to Forms
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <DndContext
       id={dndId}
@@ -417,7 +353,7 @@ export function BuilderCanvas({
         setActiveData(null);
       }}
     >
-      <div className="flex h-full overflow-hidden">
+      <div className="flex h-full overflow-hidden relative">
         {/* Left: Component Panel (Desktop) */}
         <div className="w-56 shrink-0 hidden md:flex flex-col border-r border-border h-full min-h-0">
           <ComponentPanel />
@@ -642,7 +578,7 @@ export function BuilderCanvas({
 
         {/* Right: Field Settings (Desktop) */}
         <div className="w-64 shrink-0 hidden lg:flex flex-col border-l border-border h-full min-h-0">
-          <FieldSettings />
+          <FieldSettings currentUserId={currentUserId} />
         </div>
 
         {/* Right: Field Settings (Mobile Sheet) */}
@@ -652,7 +588,7 @@ export function BuilderCanvas({
               <SheetTitle>Field Properties</SheetTitle>
             </SheetHeader>
             <div className="h-full">
-              <FieldSettings />
+              <FieldSettings currentUserId={currentUserId} />
             </div>
           </SheetContent>
         </Sheet>
@@ -685,6 +621,34 @@ export function BuilderCanvas({
             </Button>
           </div>
         </div>
+
+        {/* Read-Only Overlay */}
+        {isAdmissionLocked && (
+          <div className="absolute inset-x-0 bottom-0 top-0 z-[60] flex items-center justify-center backdrop-blur-[2px] bg-background/40 animate-in fade-in duration-500">
+            <div className="max-w-md w-full mx-4 bg-card border border-border shadow-2xl rounded-2xl p-8 text-center ring-1 ring-amber-500/10 flex flex-col items-center gap-4 text-pretty">
+              <div className="h-16 w-16 bg-amber-500/10 rounded-full flex items-center justify-center mb-2">
+                <ShieldAlert className="h-8 w-8 text-amber-500" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-foreground font-heading">Read-Only Mode</h3>
+                <p className="text-sm text-muted-foreground mt-2">
+                  This form is currently being edited by <span className="font-semibold text-foreground">{activeLocker?.name}</span>. 
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Direct collaboration is disabled for this form. You can still view results and analytics in the other tabs.
+                </p>
+              </div>
+              <div className="flex gap-3 w-full mt-4">
+                <Button variant="outline" className="flex-1 text-xs h-9" asChild>
+                  <Link href="/forms">Exit to Forms</Link>
+                </Button>
+                <Button className="flex-1 text-xs h-9" asChild>
+                  <Link href={`/forms/${formId}/results`}>View Results</Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <DragOverlay

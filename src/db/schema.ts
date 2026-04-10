@@ -185,10 +185,12 @@ export const activeFormSessions = pgTable(
     selectedFieldId: uuid("selected_field_id"),
     selectedFieldIdText: text("selected_field_id_text"), 
     lastPing: timestamp("last_ping").defaultNow().notNull(),
+    joinedAt: timestamp("joined_at").defaultNow().notNull(),
   },
   (table) => [
     index("active_form_sessions_form_id_idx").on(table.formId),
     index("active_form_sessions_last_ping_idx").on(table.lastPing),
+    index("active_form_sessions_joined_at_idx").on(table.joinedAt),
   ]
 );
 

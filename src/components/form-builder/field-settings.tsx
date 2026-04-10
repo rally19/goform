@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { getInitials } from "@/hooks/use-form-realtime";
 
-export function FieldSettings() {
+export function FieldSettings({ currentUserId }: { currentUserId: string }) {
   const {
     fields,
     selectedFieldId,
@@ -32,8 +32,12 @@ export function FieldSettings() {
 
   const field = fields.find((f) => f.id === selectedFieldId);
   const collaborationEnabled = form?.collaborationEnabled ?? false;
-  const locker = field && collaborationEnabled ? fieldLocks[field.id] : undefined;
-  const isLockedByOther = !!locker;
+  
+  // Consistently check both session-based locks and persistent DB-based locks (Fast-Path ready)
+  const sessionLocker = field && collaborationEnabled ? fieldLocks[field.id] : undefined;
+  // If there's a DB lock but no session locker yet, it still counts as locked if it's not us
+  const isLockedByOther = !!sessionLocker || (!!field?.lockedBy && field.lockedBy !== currentUserId);
+  const locker = sessionLocker; 
 
   if (!field) {
     return (

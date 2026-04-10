@@ -43,6 +43,7 @@ export async function getForms({ search }: { search?: string } = {}): Promise<
     updatedAt: Date;
     slug: string;
     accentColor: string;
+    collaborationEnabled: boolean;
   }[]>
 > {
   try {
@@ -71,6 +72,7 @@ export async function getForms({ search }: { search?: string } = {}): Promise<
         updatedAt: forms.updatedAt,
         slug: forms.slug,
         accentColor: forms.accentColor,
+        collaborationEnabled: forms.collaborationEnabled,
         responseCount: sql<number>`(
           SELECT COUNT(*) FROM form_responses WHERE form_id = ${forms.id}
         )`.mapWith(Number),

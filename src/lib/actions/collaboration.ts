@@ -39,12 +39,14 @@ export async function pingActiveSession(
         email,
         color,
         selectedFieldIdText,
+        joinedAt: new Date(), // Set on initial insert
       })
       .onConflictDoUpdate({
         target: activeFormSessions.id,
         set: {
           selectedFieldIdText,
           lastPing: new Date(),
+          // joinedAt is NOT updated on conflict, preserving original join time
         },
       });
 
@@ -114,14 +116,19 @@ export async function updateFieldLock(formId: string, fieldId: string, lockValue
   }
 }
 
-export async function getActiveSessions(formId: string) {
+export async function getActiveSessions(formId?: string) {
   try {
     const user = await getAuthUser();
     if (!user) return { success: false, data: [] };
 
+    const filters = [];
+    if (formId) {
+      filters.push(eq(activeFormSessions.formId, formId));
+    }
+
     const sessions = await db.query.activeFormSessions.findMany({
-      where: eq(activeFormSessions.formId, formId),
-      orderBy: (table, { desc }) => [desc(table.lastPing)],
+      where: filters.length > 0 ? and(...filters) : undefined,
+      orderBy: (table, { asc }) => [asc(table.joinedAt)],
     });
     
     return { success: true, data: sessions };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { createClient } from "@/lib/client";
 import { useFormBuilder, type CollaboratorInfo } from "./use-form-builder";
 import type { BuilderField, BuilderForm } from "@/lib/form-types";
@@ -73,14 +73,26 @@ export function useFormRealtime({
   const broadcastEnabledRef = useRef(broadcastEnabled);
   broadcastEnabledRef.current = broadcastEnabled;
 
+  const [isSecondary, setIsSecondary] = useState(false);
+
   // ─── Database Sync Handlers ────────────────────────────────────────────────
   
   const syncSessionsFromDB = useCallback(async () => {
     const res = await getActiveSessions(formId);
     if (!res.success || !res.data) return;
     
+    const allSessions = res.data;
+    // Find our own position based on joinedAt
+    const mySession = allSessions.find(s => s.presenceKey === myPresenceKey);
+    const earlierSessions = mySession 
+      ? allSessions.filter(s => new Date(s.joinedAt) < new Date(mySession.joinedAt))
+      : [];
+    
+    // If there is ANYONE else who joined before us, we are secondary
+    setIsSecondary(earlierSessions.length > 0);
+
     const result: CollaboratorInfo[] = [];
-    for (const s of res.data) {
+    for (const s of allSessions) {
       if (s.presenceKey === myPresenceKey) continue;
       result.push({
         userId: s.userId,
@@ -230,11 +242,12 @@ export function useFormRealtime({
         if (payload.senderId === currentUser.id) return;
         applyRemoteUpdateRef.current({ fields: payload.fields, form: payload.form });
       })
-      // Broadcast: collab disabled → kick non-senders
+      // Broadcast: collab disabled → show overlay (don't kick)
       .on("broadcast", { event: "COLLAB_DISABLED" }, ({ payload }: { payload: BroadcastPayload }) => {
         if (payload.type !== "COLLAB_DISABLED") return;
         if (payload.senderId === currentUser.id) return; 
-        onKickedRef.current();
+        // We no longer call onKickedRef.current()
+        // The UI will respond to the form.collaborationEnabled change via DB listener
       })
       // Broadcast: selection change (Fast Path)
       .on("broadcast", { event: "SELECTION_CHANGE" }, ({ payload }: { payload: BroadcastPayload }) => {
@@ -309,5 +322,6 @@ export function useFormRealtime({
     broadcastKick,
     trackMyPresence,
     myColor: myColor.current,
+    isSecondary,
   };
 }
