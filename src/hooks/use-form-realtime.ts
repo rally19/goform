@@ -74,12 +74,18 @@ export function useFormRealtime({
   broadcastEnabledRef.current = broadcastEnabled;
 
   const [isSecondary, setIsSecondary] = useState(false);
+  const [isReady, setIsReady] = useState(false);
+  const hasSyncedOnce = useRef(false);
 
   // ─── Database Sync Handlers ────────────────────────────────────────────────
   
   const syncSessionsFromDB = useCallback(async () => {
     const res = await getActiveSessions(formId);
-    if (!res.success || !res.data) return;
+    if (!res.success || !res.data) {
+      // If we fail but haven't synced yet, we stay not ready 
+      // though ideally we might want a timeout.
+      return;
+    }
     
     const allSessions = res.data;
     // Find our own position based on joinedAt
@@ -104,6 +110,11 @@ export function useFormRealtime({
       });
     }
     setCollaboratorsRef.current(result);
+    
+    if (!hasSyncedOnce.current) {
+      hasSyncedOnce.current = true;
+      setIsReady(true);
+    }
   }, [formId, currentUser.id, myPresenceKey]);
 
   // ─── Keep-Alive Ping (Heartbeat) ───────────────────────────────────────────
@@ -340,5 +351,6 @@ export function useFormRealtime({
     trackMyPresence,
     myColor: myColor.current,
     isSecondary,
+    isReady,
   };
 }
