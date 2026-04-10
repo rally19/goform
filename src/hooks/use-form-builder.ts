@@ -81,8 +81,13 @@ interface FormBuilderState {
   /** Replace the full collaborators list from a Presence sync event */
   setCollaborators: (collaborators: CollaboratorInfo[]) => void;
   /** Recompute fieldLocks from current collaborators list */
+  recomputeLocks: () => void;
+  /** Update a specific collaborator's selection (fast-path from broadcast) */
+  updateCollaboratorSelection: (userId: string, fieldId: string | null) => void;
   /** Update local field lock state from DB change (non-dirtying) */
   setFieldLock: (id: string, lockedBy: string | null) => void;
+  /** Update form metadata from DB change (non-dirtying) */
+  setFormMeta: (changes: Partial<BuilderForm>) => void;
 }
 
 export const useFormBuilder = create<FormBuilderState>()(
@@ -301,11 +306,38 @@ export const useFormBuilder = create<FormBuilderState>()(
       });
     },
 
+    updateCollaboratorSelection: (userId, fieldId) => {
+      set((state) => {
+        const collab = state.collaborators.find((c) => c.userId === userId);
+        if (collab) {
+          collab.selectedFieldId = fieldId;
+          
+          // Fast-recompute locks
+          const locks: Record<string, CollaboratorInfo> = {};
+          for (const c of state.collaborators) {
+            if (c.selectedFieldId) {
+              locks[c.selectedFieldId] = c;
+            }
+          }
+          state.fieldLocks = locks;
+        }
+      });
+    },
+
     setFieldLock: (id, lockedBy) => {
       set((state) => {
         const field = state.fields.find((f) => f.id === id);
         if (field) {
           field.lockedBy = lockedBy;
+        }
+      });
+    },
+
+    setFormMeta: (changes) => {
+      set((state) => {
+        if (state.form) {
+          Object.assign(state.form, changes);
+          // Deliberately NOT setting isDirty
         }
       });
     },

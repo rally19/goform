@@ -36,7 +36,8 @@ export function getInitials(name: string): string {
 
 export type BroadcastPayload =
   | { type: "FORM_UPDATE"; fields: BuilderField[]; form: Partial<BuilderForm>; senderId: string }
-  | { type: "COLLAB_DISABLED"; senderId: string };
+  | { type: "COLLAB_DISABLED"; senderId: string }
+  | { type: "SELECTION_CHANGE"; userId: string; fieldId: string | null; senderId: string };
 
 export interface UseFormRealtimeOptions {
   formId: string;
@@ -59,6 +60,7 @@ export function useFormRealtime({
   const myPresenceKey = `${currentUser.id}_${instanceId}`;
   
   const pingIntervalRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const dbPingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const previousSelectedFieldId = useRef<string | null>(null);
 
   // ─── Referencing Callbacks Safely ───────────────────────────────────────────
@@ -131,30 +133,52 @@ export function useFormRealtime({
     };
   }, [formId, myPresenceKey, currentUser, syncSessionsFromDB, myColor]);
 
+  // ─── Broadcast selection change instantly (Fast Path) ────────────────────
+  const broadcastSelection = useCallback((fieldId: string | null) => {
+    if (!channelRef.current || !broadcastEnabledRef.current) return;
+    channelRef.current.send({
+      type: "broadcast",
+      event: "SELECTION_CHANGE",
+      payload: {
+        type: "SELECTION_CHANGE",
+        userId: currentUser.id,
+        fieldId,
+        senderId: currentUser.id,
+      } satisfies BroadcastPayload,
+    });
+  }, [currentUser.id]);
+
   // Handle locking a specific field instantly when selectedFieldId changes
   useEffect(() => {
     const current = selectedFieldId;
     const prev = previousSelectedFieldId.current;
     
-    if (prev && prev !== current) {
-      updateFieldLock(formId, prev, null); // Unlock old
-    }
-    if (current && !current.startsWith("new:")) {
-      updateFieldLock(formId, current, currentUser.id); // Lock new
-    }
+    // FAST PATH: Broadcast immediately via WebSocket
+    broadcastSelection(current);
+
+    // BACKGROUND PATH: Update DB (Debounced slightly to prevent spam)
+    if (dbPingTimeoutRef.current) clearTimeout(dbPingTimeoutRef.current);
+    dbPingTimeoutRef.current = setTimeout(async () => {
+      if (prev && prev !== current) {
+        await updateFieldLock(formId, prev, null);
+      }
+      if (current && !current.startsWith("new:")) {
+        await updateFieldLock(formId, current, currentUser.id);
+      }
+      
+      // Also ping the sessions table to stay in the header list
+      await pingActiveSession(
+        formId,
+        myPresenceKey,
+        currentUser.id,
+        currentUser.name,
+        currentUser.email,
+        myColor.current,
+        current
+      );
+    }, 100); // 100ms debounce
     
     previousSelectedFieldId.current = current;
-    
-    // Also ping instantly to let others know we selected something
-    pingActiveSession(
-      formId,
-      myPresenceKey,
-      currentUser.id,
-      currentUser.name,
-      currentUser.email,
-      myColor.current,
-      current
-    );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFieldId]);
 
@@ -198,9 +222,10 @@ export function useFormRealtime({
     channelRef.current = channel;
 
     channel
-      // Broadcast: form updates
+      // Broadcast: form updates (content changes)
       .on("broadcast", { event: "FORM_UPDATE" }, ({ payload }: { payload: BroadcastPayload }) => {
-        if (!broadcastEnabledRef.current) return;
+        // We allow processing form updates as long as they aren't from us.
+        // If collaboration is off, the UI will ignore edits anyway, but we allow syncing metadata.
         if (payload.type !== "FORM_UPDATE") return;
         if (payload.senderId === currentUser.id) return;
         applyRemoteUpdateRef.current({ fields: payload.fields, form: payload.form });
@@ -211,6 +236,21 @@ export function useFormRealtime({
         if (payload.senderId === currentUser.id) return; 
         onKickedRef.current();
       })
+      // Broadcast: selection change (Fast Path)
+      .on("broadcast", { event: "SELECTION_CHANGE" }, ({ payload }: { payload: BroadcastPayload }) => {
+        if (payload.type !== "SELECTION_CHANGE") return;
+        if (payload.senderId === currentUser.id) return;
+        useFormBuilder.getState().updateCollaboratorSelection(payload.userId, payload.fieldId);
+      })
+      // Database: Watch form metadata changes (Collaboration toggle, Accent color, etc.)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "forms", filter: `id=eq.${formId}` },
+        (payload: Record<string, any>) => {
+          const newDoc = payload.new as Partial<BuilderForm>;
+          useFormBuilder.getState().setFormMeta(newDoc);
+        }
+      )
       // Database: Watch active sessions
       .on(
         "postgres_changes",
@@ -240,7 +280,11 @@ export function useFormRealtime({
   // We no longer have a trackMyPresence that pushes to channel presence. 
   // It's all managed by the Database updates now. However, for dragging:
   const trackMyPresence = useCallback(async (state: { selectedFieldId: string | null }) => {
-     await pingActiveSession(
+    // FAST PATH: Visual update for peers
+    broadcastSelection(state.selectedFieldId);
+
+    // BACKGROUND: DB update
+    await pingActiveSession(
       formId,
       myPresenceKey,
       currentUser.id,
@@ -249,17 +293,16 @@ export function useFormRealtime({
       myColor.current,
       state.selectedFieldId
     );
+    
     if (state.selectedFieldId) {
       if (!state.selectedFieldId.startsWith("new:")) {
         await updateFieldLock(formId, state.selectedFieldId, currentUser.id);
       }
-    } else {
+    } else if (previousSelectedFieldId.current) {
       // Clear lock on the previous one if we are releasing it
-      if (previousSelectedFieldId.current) {
-        await updateFieldLock(formId, previousSelectedFieldId.current, null);
-      }
+      await updateFieldLock(formId, previousSelectedFieldId.current, null);
     }
-  }, [formId, myPresenceKey, currentUser, myColor]);
+  }, [formId, myPresenceKey, currentUser, myColor, broadcastSelection]);
 
   return {
     broadcastState,

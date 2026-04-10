@@ -45,18 +45,18 @@ export function FieldCard({
   
   const collaborationEnabled = form?.collaborationEnabled ?? false;
   
-  // ─── Lock Logic: Hardened against network race conditions ───────────────
-  // A field is locked if the database says so, OR if our local presence state says so.
-  // We prioritize the database field 'lockedBy' because it's the fastest signal.
-  const isLockedByOther = collaborationEnabled && 
-    !!field.lockedBy && 
-    field.lockedBy !== currentUserId;
-
   let locker = collaborationEnabled ? fieldLocks[field.id] : undefined;
   
   if (collaborationEnabled && !locker && field.lockedBy && field.lockedBy !== currentUserId) {
     locker = collaborators.find(c => c.userId === field.lockedBy);
   }
+  
+  // ─── Lock Logic: Hardened against network race conditions ───────────────
+  // A field is locked if the database says so, OR if our local sync list says so.
+  const isLockedByOther = collaborationEnabled && (
+    (!!field.lockedBy && field.lockedBy !== currentUserId) || 
+    !!locker
+  );
 
   const {
     attributes,
