@@ -36,12 +36,20 @@ interface FormBuilderState {
   isDirty: boolean;
   // Saving state
   isSaving: boolean;
+  // Collaboration toggle guard
+  isCollabToggling: boolean;
+  // Drag and drop state
+  isDragging: boolean;
+  // Origin filtering - was the last change made locally?
+  lastChangeLocal: boolean;
 
   // ─── Collaboration ──────────────────────────────────────────────────────────
   /** Other connected collaborators (not current user) */
   collaborators: CollaboratorInfo[];
   /** Map of fieldId → CollaboratorInfo of who is currently selecting that field */
   fieldLocks: Record<string, CollaboratorInfo>;
+  /** Map of fieldId → Instant broadcast lock (bypasses presence lag) */
+  broadcastLocks: Record<string, { userId: string; name: string; color: string }>;
 
   // ─── Actions ────────────────────────────────────────────────────────────────
   // Init from DB data
@@ -72,6 +80,10 @@ interface FormBuilderState {
   updateOption: (fieldId: string, optionIndex: number, label: string) => void;
   // Reorder options
   reorderOptions: (fieldId: string, fromIndex: number, toIndex: number) => void;
+  // Set collab toggling guard
+  setIsCollabToggling: (val: boolean) => void;
+  // Set drag state
+  setIsDragging: (val: boolean) => void;
 
   // ─── Collaboration actions ──────────────────────────────────────────────────
   /**
@@ -83,7 +95,7 @@ interface FormBuilderState {
   /** Recompute fieldLocks from current collaborators list */
   recomputeLocks: () => void;
   /** Update a specific collaborator's selection (fast-path from broadcast) */
-  updateCollaboratorSelection: (userId: string, fieldId: string | null) => void;
+  updateCollaboratorSelection: (userId: string, name: string, color: string, fieldId: string | null) => void;
   /** Update local field lock state from DB change (non-dirtying) */
   setFieldLock: (id: string, lockedBy: string | null) => void;
   /** Update form metadata from DB change (non-dirtying) */
@@ -99,6 +111,10 @@ export const useFormBuilder = create<FormBuilderState>()(
     isSaving: false,
     collaborators: [],
     fieldLocks: {},
+    broadcastLocks: {},
+    isCollabToggling: false,
+    isDragging: false,
+    lastChangeLocal: false,
 
     initialize: (form, fields) => {
       set((state) => {
@@ -108,6 +124,7 @@ export const useFormBuilder = create<FormBuilderState>()(
         state.selectedFieldId = null;
         state.collaborators = [];
         state.fieldLocks = {};
+        state.lastChangeLocal = false;
       });
     },
 
@@ -136,6 +153,7 @@ export const useFormBuilder = create<FormBuilderState>()(
         }
         state.selectedFieldId = newField.id;
         state.isDirty = true;
+        state.lastChangeLocal = true;
       });
     },
 
@@ -144,6 +162,7 @@ export const useFormBuilder = create<FormBuilderState>()(
         state.fields = state.fields.filter((f) => f.id !== id);
         if (state.selectedFieldId === id) state.selectedFieldId = null;
         state.isDirty = true;
+        state.lastChangeLocal = true;
       });
     },
 
@@ -165,6 +184,7 @@ export const useFormBuilder = create<FormBuilderState>()(
         state.fields.splice(idx + 1, 0, copy);
         state.selectedFieldId = copy.id;
         state.isDirty = true;
+        state.lastChangeLocal = true;
       });
     },
 
@@ -173,6 +193,7 @@ export const useFormBuilder = create<FormBuilderState>()(
         const [moved] = state.fields.splice(fromIndex, 1);
         state.fields.splice(toIndex, 0, moved);
         state.isDirty = true;
+        state.lastChangeLocal = true;
       });
     },
 
@@ -188,6 +209,7 @@ export const useFormBuilder = create<FormBuilderState>()(
         if (field) {
           Object.assign(field, changes, { isDirty: true });
           state.isDirty = true;
+          state.lastChangeLocal = true;
         }
       });
     },
@@ -197,6 +219,7 @@ export const useFormBuilder = create<FormBuilderState>()(
         if (state.form) {
           Object.assign(state.form, changes);
           state.isDirty = true;
+          state.lastChangeLocal = true;
         }
       });
     },
@@ -209,6 +232,7 @@ export const useFormBuilder = create<FormBuilderState>()(
           f.isDirty = false;
           f.isNew = false;
         });
+        state.lastChangeLocal = false;
       });
     },
 
@@ -226,6 +250,7 @@ export const useFormBuilder = create<FormBuilderState>()(
           const idx = field.options.length + 1;
           field.options.push({ label: `Option ${idx}`, value: `option_${idx}` });
           state.isDirty = true;
+          state.lastChangeLocal = true;
         }
       });
     },
@@ -236,6 +261,7 @@ export const useFormBuilder = create<FormBuilderState>()(
         if (field?.options) {
           field.options.splice(optionIndex, 1);
           state.isDirty = true;
+          state.lastChangeLocal = true;
         }
       });
     },
@@ -250,6 +276,7 @@ export const useFormBuilder = create<FormBuilderState>()(
             .replace(/\s+/g, "_")
             .replace(/[^a-z0-9_]/g, "");
           state.isDirty = true;
+          state.lastChangeLocal = true;
         }
       });
     },
@@ -261,7 +288,20 @@ export const useFormBuilder = create<FormBuilderState>()(
           const [moved] = field.options.splice(fromIndex, 1);
           field.options.splice(toIndex, 0, moved);
           state.isDirty = true;
+          state.lastChangeLocal = true;
         }
+      });
+    },
+
+    setIsCollabToggling: (val) => {
+      set((state) => {
+        state.isCollabToggling = val;
+      });
+    },
+
+    setIsDragging: (val) => {
+      set((state) => {
+        state.isDragging = val;
       });
     },
 
@@ -279,6 +319,7 @@ export const useFormBuilder = create<FormBuilderState>()(
           delete safeChanges.collaborationEnabled;
           Object.assign(state.form, safeChanges);
         }
+        state.lastChangeLocal = false;
         // Deliberately NOT setting isDirty — this is a remote update
       });
     },
@@ -286,7 +327,8 @@ export const useFormBuilder = create<FormBuilderState>()(
     setCollaborators: (collaborators) => {
       set((state) => {
         state.collaborators = collaborators;
-        // Recompute locks from new collaborators
+        
+        // Recompute official locks from presence
         const locks: Record<string, CollaboratorInfo> = {};
         for (const c of collaborators) {
           if (c.selectedFieldId) {
@@ -294,6 +336,14 @@ export const useFormBuilder = create<FormBuilderState>()(
           }
         }
         state.fieldLocks = locks;
+
+        // Cleanup broadcastLocks for anyone who is NO LONGER in the presence list
+        const activeIds = new Set(collaborators.map(c => c.userId));
+        for (const fieldId in state.broadcastLocks) {
+          if (!activeIds.has(state.broadcastLocks[fieldId].userId)) {
+             delete state.broadcastLocks[fieldId];
+          }
+        }
       });
     },
 
@@ -309,13 +359,26 @@ export const useFormBuilder = create<FormBuilderState>()(
       });
     },
 
-    updateCollaboratorSelection: (userId, fieldId) => {
+    updateCollaboratorSelection: (userId, name, color, fieldId) => {
       set((state) => {
+        // ALWAYS update the broadcast lock map immediately
+        // Remove user's previous lock first
+        for (const fId in state.broadcastLocks) {
+          if (state.broadcastLocks[fId].userId === userId) {
+            delete state.broadcastLocks[fId];
+          }
+        }
+        // Add new lock if it's not null
+        if (fieldId) {
+          state.broadcastLocks[fieldId] = { userId, name, color };
+        }
+
+        // Also update the presence collaborator if they exist
         const collab = state.collaborators.find((c) => c.userId === userId);
         if (collab) {
           collab.selectedFieldId = fieldId;
           
-          // Fast-recompute locks
+          // Fast-recompute locks from presence list
           const locks: Record<string, CollaboratorInfo> = {};
           for (const c of state.collaborators) {
             if (c.selectedFieldId) {

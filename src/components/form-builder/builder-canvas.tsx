@@ -124,10 +124,14 @@ export function BuilderCanvas({
     markSaved,
     updateFormMeta,
     collaborators,
+    setIsCollabToggling,
+    setIsDragging,
+    lastChangeLocal,
   } = useFormBuilder();
 
   const dndId = useId();
   const [mounted, setMounted] = useState(false);
+  const [togglingDirection, setTogglingDirection] = useState<"on" | "off" | null>(null);
   const [justSaved, setJustSaved] = useState(false);
 
   const [currentUserMeta, setCurrentUserMeta] = useState<{
@@ -165,7 +169,7 @@ export function BuilderCanvas({
 
   const collaborationEnabled = form?.collaborationEnabled ?? false;
 
-  const { trackMyPresence, myColor, isSecondary, isReady, broadcastKick, broadcastState } = useFormRealtime({
+  const { trackMyPresence, myColor, isSecondary, isReady, broadcastState, broadcastKick, broadcastCollabToggle } = useFormRealtime({
     formId,
     broadcastEnabled: collaborationEnabled,
     currentUser: currentUserMeta,
@@ -221,31 +225,47 @@ export function BuilderCanvas({
   const handleCollabToggle = useCallback(async (enabled: boolean) => {
     if (!canManageCollab || !form) return;
 
-    // GUARD: If currently saving or dirty, wait for a clean state first
-    if (isSaving || isDirty) {
-      toast.info(enabled ? "Saving changes before enabling collaboration..." : "Saving changes before disabling collaboration...");
-      // Trigger a save if dirty (if already saving, handleSave returns false but we can just wait)
-      const saveSuccess = await handleSave();
-      if (!saveSuccess && isDirty) {
-        toast.error("Could not toggle collaboration because saving failed. Please try again.");
-        return;
+    // 1. Immediately Deselect any active field
+    selectField(null);
+    
+    // 2. Start Toggling State (shows overlay & locks real-time listener)
+    setTogglingDirection(enabled ? "on" : "off");
+    setIsCollabToggling(true);
+
+    try {
+      // 3. Instant Broadcast (Fast Path) - Lock everyone else immediately
+      broadcastCollabToggle(enabled);
+
+      // 4. GUARD: If currently saving or dirty, wait for a clean state first
+      if (isSaving || isDirty) {
+        // Trigger a save if dirty
+        const saveSuccess = await handleSave();
+        if (!saveSuccess && isDirty) {
+          toast.error("Could not toggle collaboration because saving failed. Please try again.");
+          return;
+        }
       }
-    }
 
-    updateFormMeta({ collaborationEnabled: enabled });
+      // 5. Update local state
+      updateFormMeta({ collaborationEnabled: enabled });
 
-    if (!enabled) {
-      broadcastKick();
+      // 6. DB Update
+      const result = await updateForm(formId, { ...form, collaborationEnabled: enabled });
+      if (!result.success) {
+        toast.error("Failed to update collaboration setting");
+        updateFormMeta({ collaborationEnabled: !enabled });
+        // Re-broadcast the failure state
+        broadcastCollabToggle(!enabled);
+      } else {
+        toast.success(enabled ? "Collaboration mode enabled" : "Collaboration mode disabled");
+      }
+    } catch (error) {
+       toast.error("An error occurred during collaboration toggle");
+    } finally {
+      setTogglingDirection(null);
+      setIsCollabToggling(false);
     }
-
-    const result = await updateForm(formId, { ...form, collaborationEnabled: enabled });
-    if (!result.success) {
-      toast.error("Failed to update collaboration setting");
-      updateFormMeta({ collaborationEnabled: !enabled });
-    } else {
-      toast.success(enabled ? "Collaboration mode enabled" : "Collaboration mode disabled");
-    }
-  }, [canManageCollab, form, formId, updateFormMeta, broadcastKick, isSaving, isDirty, handleSave]);
+  }, [canManageCollab, form, formId, updateFormMeta, broadcastCollabToggle, isSaving, isDirty, handleSave, selectField, setIsCollabToggling]);
 
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
@@ -257,12 +277,15 @@ export function BuilderCanvas({
 
   const collabSaveTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
-    if (!isDirty || !collaborationEnabled || !form) return;
+    // ANTI-HURRICANE GUARD: Only broadcast if the change was made locally.
+    // This stops infinite loops where Tab A broadcasts -> Tab B receives & updates -> Tab B re-broadcasts.
+    if (!isDirty || !collaborationEnabled || !form || !lastChangeLocal) return;
+    
     broadcastState(fields, form);
     clearTimeout(collabSaveTimeout.current);
     collabSaveTimeout.current = setTimeout(handleSave, 1500);
     return () => clearTimeout(collabSaveTimeout.current);
-  }, [isDirty, fields, form, collaborationEnabled, broadcastState, handleSave]);
+  }, [isDirty, fields, form, collaborationEnabled, broadcastState, handleSave, lastChangeLocal]);
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 3 } }),
@@ -270,14 +293,21 @@ export function BuilderCanvas({
   );
 
   const handleDragStart = (event: DragStartEvent) => {
+    setIsDragging(true);
     const { active } = event;
     setActiveId(active.id as string);
     setActiveData(active.data.current as Record<string, unknown>);
   };
 
   const handleDragOver = (event: any) => {};
+  const handleDragCancel = () => {
+    setIsDragging(false);
+    setActiveId(null);
+    setActiveData(null);
+  };
 
   const handleDragEnd = (event: DragEndEvent) => {
+    setIsDragging(false);
     const { active, over } = event;
     setActiveId(null);
     setActiveData(null);
@@ -342,10 +372,7 @@ export function BuilderCanvas({
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
-      onDragCancel={() => {
-        setActiveId(null);
-        setActiveData(null);
-      }}
+      onDragCancel={handleDragCancel}
     >
       {!isReady ? (
         <div className="flex-1 flex flex-col items-center justify-center bg-background/50 backdrop-blur-sm h-full gap-4 animate-in fade-in duration-500">
@@ -469,6 +496,25 @@ export function BuilderCanvas({
                 </div>
               </div>
             </div>
+
+            {/* Toggling Collaboration Mode Overlay */}
+            {togglingDirection && (
+              <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center backdrop-blur-sm bg-background/30 animate-in fade-in duration-300">
+                <div className="bg-card/95 p-8 rounded-2xl shadow-2xl border border-border/50 flex flex-col items-center gap-4 max-w-sm text-center">
+                  <div className="bg-primary/10 p-3 rounded-full animate-pulse">
+                     <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold">
+                      {togglingDirection === "on" ? "Turning On Collaboration" : "Turning Off Collaboration"}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Saving current state and updating session...
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Canvas Content */}
             <ScrollArea className="flex-1 min-h-0 bg-slate-50/50 dark:bg-slate-900/50">

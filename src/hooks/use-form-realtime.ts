@@ -38,7 +38,8 @@ export function getInitials(name: string): string {
 export type BroadcastPayload =
   | { type: "FORM_UPDATE"; fields: BuilderField[]; form: Partial<BuilderForm>; senderId: string }
   | { type: "COLLAB_DISABLED"; senderId: string }
-  | { type: "SELECTION_CHANGE"; userId: string; fieldId: string | null; senderId: string };
+  | { type: "SELECTION_CHANGE"; userId: string; name: string; color: string; fieldId: string | null; senderId: string }
+  | { type: "COLLAB_TOGGLE"; enabled: boolean; senderId: string };
 
 export interface UseFormRealtimeOptions {
   formId: string;
@@ -63,6 +64,11 @@ export function useFormRealtime({
   const pingIntervalRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const dbPingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const previousSelectedFieldId = useRef<string | null>(null);
+  
+  // Performance: Throttling & Debounce timers
+  const broadcastThrottleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const presenceDebounceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const lockDebounceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // ─── Referencing Callbacks Safely ───────────────────────────────────────────
   const applyRemoteUpdateRef = useRef(applyRemoteUpdate);
@@ -183,6 +189,8 @@ export function useFormRealtime({
       payload: {
         type: "SELECTION_CHANGE",
         userId: currentUser.id,
+        name: currentUser.name,
+        color: myColor.current,
         fieldId,
         senderId: currentUser.id,
       } satisfies BroadcastPayload,
@@ -223,10 +231,14 @@ export function useFormRealtime({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFieldId]);
 
-  // ─── Broadcast form state update to peers ─────────────────────────────────
+  // ─── Broadcast form state update to peers (Throttled) ──────────────────────
   const broadcastState = useCallback(
     (fieldsSnapshot: BuilderField[], formSnapshot: Partial<BuilderForm>) => {
       if (!channelRef.current || !broadcastEnabledRef.current) return;
+      
+      // Throttle: Only allow one broadcast every 100ms
+      if (broadcastThrottleTimer.current) return;
+
       channelRef.current.send({
         type: "broadcast",
         event: "FORM_UPDATE",
@@ -237,6 +249,10 @@ export function useFormRealtime({
           senderId: currentUser.id,
         } satisfies BroadcastPayload,
       });
+
+      broadcastThrottleTimer.current = setTimeout(() => {
+        broadcastThrottleTimer.current = undefined;
+      }, 100);
     },
     [currentUser.id]
   );
@@ -269,22 +285,29 @@ export function useFormRealtime({
         // If collaboration is off, the UI will ignore edits anyway, but we allow syncing metadata.
         if (payload.type !== "FORM_UPDATE") return;
         if (payload.senderId === currentUser.id) return;
+        
+        // DRAG ISOLATION: If we are currently dragging a field locally,
+        // ignore incoming field updates to prevent UI jumping/flickering.
+        if (useFormBuilder.getState().isDragging) return;
+
         applyRemoteUpdateRef.current({ fields: payload.fields, form: payload.form });
       })
-      // Broadcast: collab disabled → show overlay (don't kick)
-      .on("broadcast", { event: "COLLAB_DISABLED" }, ({ payload }: { payload: BroadcastPayload }) => {
-        if (payload.type !== "COLLAB_DISABLED") return;
+      // Broadcast: collab toggle → fast path admission control
+      .on("broadcast", { event: "COLLAB_TOGGLE" }, ({ payload }: { payload: BroadcastPayload }) => {
+        if (payload.type !== "COLLAB_TOGGLE") return;
         if (payload.senderId === currentUser.id) return; 
         
-        // Immediately enforce the lock locally to prevent stale auto-saves that might
-        // overwrite the master state back to True before the DB listener catches up.
-        useFormBuilder.getState().setFormMeta({ collaborationEnabled: false });
+        // Fast-path: Update UI state before DB catches up
+        useFormBuilder.getState().setFormMeta({ collaborationEnabled: payload.enabled });
+        
+        // Immediate re-validation of admission hierarchy
+        syncSessionsFromDB();
       })
       // Broadcast: selection change (Fast Path)
       .on("broadcast", { event: "SELECTION_CHANGE" }, ({ payload }: { payload: BroadcastPayload }) => {
         if (payload.type !== "SELECTION_CHANGE") return;
         if (payload.senderId === currentUser.id) return;
-        useFormBuilder.getState().updateCollaboratorSelection(payload.userId, payload.fieldId);
+        useFormBuilder.getState().updateCollaboratorSelection(payload.userId, payload.name, payload.color, payload.fieldId);
       })
       // Database: Watch form metadata changes (Collaboration toggle, Accent color, etc.)
       .on(
@@ -308,7 +331,15 @@ export function useFormRealtime({
           if ("collaboration_enabled" in newDoc) mappedDoc.collaborationEnabled = newDoc.collaboration_enabled;
           if ("last_toggled_by" in newDoc) mappedDoc.lastToggledBy = newDoc.last_toggled_by;
 
-          useFormBuilder.getState().setFormMeta(mappedDoc);
+          const state = useFormBuilder.getState();
+          // METADATA PROTECTION: Skip updating collaborationEnabled if we are currently
+          // in the middle of a local toggle, to prevent the UI from 'bouncing' back 
+          // to the stale DB state before our update lands.
+          if (state.isCollabToggling && "collaborationEnabled" in mappedDoc) {
+            delete mappedDoc.collaborationEnabled;
+          }
+
+          state.setFormMeta(mappedDoc);
         }
       )
       // Database: Watch active sessions
@@ -334,40 +365,64 @@ export function useFormRealtime({
     return () => {
       channel.unsubscribe();
       channelRef.current = null;
+      clearTimeout(broadcastThrottleTimer.current);
+      clearTimeout(presenceDebounceTimer.current);
+      clearTimeout(lockDebounceTimer.current);
     };
   }, [formId, currentUser.id, syncSessionsFromDB]);
 
-  // We no longer have a trackMyPresence that pushes to channel presence. 
-  // It's all managed by the Database updates now. However, for dragging:
-  const trackMyPresence = useCallback(async (state: { selectedFieldId: string | null }) => {
-    // FAST PATH: Visual update for peers
+  const broadcastCollabToggle = useCallback((enabled: boolean) => {
+    if (!channelRef.current) return;
+    channelRef.current.send({
+      type: "broadcast",
+      event: "COLLAB_TOGGLE",
+      payload: { 
+        type: "COLLAB_TOGGLE", 
+        enabled,
+        senderId: currentUser.id 
+      },
+    });
+  }, [currentUser.id]);
+
+  const trackMyPresence = useCallback((state: { selectedFieldId: string | null }) => {
+    // 1. FAST PATH: Visual update for peers (Broadcast is already efficient)
     broadcastSelection(state.selectedFieldId);
 
-    // BACKGROUND: DB update
-    await pingActiveSession(
-      formId,
-      myPresenceKey,
-      currentUser.id,
-      currentUser.name,
-      currentUser.email,
-      myColor.current,
-      state.selectedFieldId
-    );
+    // 2. BACKGROUND: DB update (Debounced to 2s to reduce server load)
+    clearTimeout(presenceDebounceTimer.current);
+    presenceDebounceTimer.current = setTimeout(async () => {
+      await pingActiveSession(
+        formId,
+        myPresenceKey,
+        currentUser.id,
+        currentUser.name,
+        currentUser.email,
+        myColor.current,
+        state.selectedFieldId
+      );
+    }, 2000);
     
-    if (state.selectedFieldId) {
-      if (!state.selectedFieldId.startsWith("new:")) {
+    // 3. LOCKS: DB update (Debounced to 500ms)
+    clearTimeout(lockDebounceTimer.current);
+    lockDebounceTimer.current = setTimeout(async () => {
+      if (state.selectedFieldId && !state.selectedFieldId.startsWith("new:")) {
         await updateFieldLock(formId, state.selectedFieldId, currentUser.id);
       }
-    } else if (previousSelectedFieldId.current) {
-      // Clear lock on the previous one if we are releasing it
-      await updateFieldLock(formId, previousSelectedFieldId.current, null);
-    }
+      
+      // Release logic
+      if (previousSelectedFieldId.current && previousSelectedFieldId.current !== state.selectedFieldId) {
+        await updateFieldLock(formId, previousSelectedFieldId.current, null);
+      }
+      previousSelectedFieldId.current = state.selectedFieldId;
+    }, 500);
+
   }, [formId, myPresenceKey, currentUser, myColor, broadcastSelection]);
 
   return {
     broadcastState,
     broadcastKick,
     trackMyPresence,
+    broadcastCollabToggle,
     myColor: myColor.current,
     isSecondary,
     isReady,
