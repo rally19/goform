@@ -43,6 +43,10 @@ interface FormBuilderState {
   // Origin filtering - was the last change made locally?
   lastChangeLocal: boolean;
   
+  // Buffering for remote updates during drags
+  pendingRemoteFields: BuilderField[] | null;
+  hasPendingUpdate: boolean;
+  
   // Toggling state (Synchronized across peers)
   togglingDirection: "on" | "off" | null;
   toggleStatus: string;
@@ -90,6 +94,8 @@ interface FormBuilderState {
   clearCollabToggling: () => void;
   // Set drag state
   setIsDragging: (val: boolean) => void;
+  // Apply the stashed remote update after drag ends
+  flushPendingUpdate: () => void;
 
   // ─── Collaboration actions ──────────────────────────────────────────────────
   /**
@@ -120,6 +126,8 @@ export const useFormBuilder = create<FormBuilderState>()(
     toggleStatus: "",
     isDragging: false,
     lastChangeLocal: false,
+    pendingRemoteFields: null,
+    hasPendingUpdate: false,
 
     initialize: (form, fields) => {
       set((state) => {
@@ -130,6 +138,8 @@ export const useFormBuilder = create<FormBuilderState>()(
         state.collaborators = [];
         state.activeLocks = {};
         state.lastChangeLocal = false;
+        state.pendingRemoteFields = null;
+        state.hasPendingUpdate = false;
       });
     },
 
@@ -323,6 +333,19 @@ export const useFormBuilder = create<FormBuilderState>()(
     setIsDragging: (val) => {
       set((state) => {
         state.isDragging = val;
+        // When drag stops, we don't auto-flush here, 
+        // we'll trigger it explicitly from the hook after state settles
+      });
+    },
+
+    flushPendingUpdate: () => {
+      set((state) => {
+        if (state.pendingRemoteFields) {
+          state.fields = state.pendingRemoteFields;
+          state.pendingRemoteFields = null;
+          state.hasPendingUpdate = false;
+          state.lastChangeLocal = false;
+        }
       });
     },
 
@@ -330,10 +353,39 @@ export const useFormBuilder = create<FormBuilderState>()(
 
     applyRemoteUpdate: ({ fields, form: formChanges }) => {
       set((state) => {
-        if (fields !== undefined) {
-          // Preserve isNew/isDirty flags for local-only fields that haven't been broadcast yet
-          state.fields = fields;
+        // If we are currently dragging, stash the field update to prevent jumping
+        if (state.isDragging && fields !== undefined) {
+          state.pendingRemoteFields = fields;
+          state.hasPendingUpdate = true;
+          return;
         }
+
+        if (fields !== undefined) {
+          // INTELLIGENT MERGE: Determine which fields are "stable" vs "ephemeral/local"
+          const localNewFieldIds = new Set(state.fields.filter(f => f.isNew || f.isDirty).map(f => f.id));
+          
+          if (localNewFieldIds.size === 0) {
+            // No local unsaved work, safe to replace
+            state.fields = fields;
+          } else {
+            // Merge: Keep remote version for stable fields, but preserve our local "in-flight" fields
+            // and ensure their order is roughly right (this is the hard part of non-CRDT sync)
+            state.fields = fields.map(remoteField => {
+              const localMatch = state.fields.find(f => f.id === remoteField.id);
+              // If we have a local dirty version of a stable field, we accept remote 
+              // but maybe keep some local props? 
+              // For simplicity in "Broadcast Sovereignty", remote wins for stable fields.
+              return localMatch && (localMatch.isDirty || localMatch.isNew) ? localMatch : remoteField;
+            });
+            
+            // Re-add any local-only fields that haven't been broadcast yet
+            const remoteIds = new Set(fields.map(f => f.id));
+            state.fields.filter(f => f.isNew && !remoteIds.has(f.id)).forEach(f => {
+               state.fields.push(f);
+            });
+          }
+        }
+        
         if (formChanges !== undefined && state.form) {
           // Never broadcast snapshot. Server DB is authority.
           const safeChanges = { ...formChanges };
@@ -341,7 +393,6 @@ export const useFormBuilder = create<FormBuilderState>()(
           Object.assign(state.form, safeChanges);
         }
         state.lastChangeLocal = false;
-        // Deliberately NOT setting isDirty — this is a remote update
       });
     },
 

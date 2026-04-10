@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { ACCENT_COLORS } from "@/lib/form-types";
+import { motion, AnimatePresence, LayoutGroup } from "motion/react";
 import {
   Sheet,
   SheetContent,
@@ -367,10 +368,17 @@ export function BuilderCanvas({
     if (activeId.startsWith("new:")) {
       const label = activeData?.label as string || "New Field";
       return (
-        <div className="bg-card border-2 border-primary rounded-xl p-4 shadow-2xl opacity-90 w-72 flex items-center gap-3">
-          <PlusCircle className="h-5 w-5 text-primary" />
+        <motion.div 
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="bg-card border-2 border-primary rounded-xl p-4 shadow-2xl w-72 flex items-center gap-3"
+          style={{ borderColor: accentColor }}
+        >
+          <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <PlusCircle className="h-5 w-5 text-primary" />
+          </div>
           <span className="font-medium text-sm">Adding {label}...</span>
-        </div>
+        </motion.div>
       );
     }
     const field = fields.find((f) => f.id === activeId);
@@ -548,16 +556,31 @@ export function BuilderCanvas({
                 <div className="max-w-2xl mx-auto space-y-4">
                   <FormHeaderEditor accentColor={accentColor} />
                   <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
-                    <div className="space-y-3 min-h-[100px]">
-                      {fields.map((field) => (
-                        <FieldCard
-                          key={field.id}
-                          field={field}
-                          isSelected={selectedFieldId === field.id}
-                          accentColor={accentColor}
-                          currentUserId={currentUserId}
-                        />
-                      ))}
+                    <div className="space-y-3 min-h-[100px] relative">
+                      <AnimatePresence initial={false} mode="popLayout">
+                        {fields.map((field) => (
+                          <motion.div
+                            key={field.id}
+                            layout
+                            initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
+                            transition={{ 
+                              type: "spring", 
+                              stiffness: 500, 
+                              damping: 35,
+                              opacity: { duration: 0.2 }
+                            }}
+                          >
+                            <FieldCard
+                              field={field}
+                              isSelected={selectedFieldId === field.id}
+                              accentColor={accentColor}
+                              currentUserId={currentUserId}
+                            />
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
                     </div>
                   </SortableContext>
                   {fields.length === 0 && (

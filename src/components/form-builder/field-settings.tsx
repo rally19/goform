@@ -16,6 +16,7 @@ import {
   Settings2, ChevronDown, Lock,
 } from "lucide-react";
 import { getInitials } from "@/hooks/use-form-realtime";
+import { motion, AnimatePresence } from "motion/react";
 
 export function FieldSettings({ 
   currentUserId,
@@ -98,21 +99,33 @@ export function FieldSettings({
       </div>
 
       {/* Lock overlay when another user is editing */}
-      {isLockedByOther && locker && (
-        <div
-          className="mx-3 mt-3 rounded-lg p-3 flex items-center gap-2.5 text-white text-sm font-medium"
-          style={{ backgroundColor: locker.color }}
-        >
-          <div className="h-7 w-7 rounded-full bg-white/20 flex items-center justify-center shrink-0 text-xs font-bold">
-            {getInitials(locker.name)}
-          </div>
-          <div className="min-w-0">
-            <p className="font-semibold truncate">{locker.name}</p>
-            <p className="text-xs opacity-80">is editing this field</p>
-          </div>
-          <Lock className="h-4 w-4 shrink-0 ml-auto" />
-        </div>
-      )}
+      <AnimatePresence>
+        {isLockedByOther && locker && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mx-3 mt-3 rounded-lg p-3 flex items-center gap-2.5 text-white text-sm font-medium shadow-lg shadow-black/10"
+            style={{ backgroundColor: locker.color }}
+          >
+            <div className="relative shrink-0">
+              <div className="h-7 w-7 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">
+                {getInitials(locker.name)}
+              </div>
+              <motion.div 
+                className="absolute inset-0 rounded-full bg-white/40"
+                animate={{ scale: [1, 1.5], opacity: [0.5, 0] }}
+                transition={{ repeat: Infinity, duration: 2, ease: "easeOut" }}
+              />
+            </div>
+            <div className="min-w-0">
+              <p className="font-semibold truncate">{locker.name}</p>
+              <p className="text-xs opacity-80">is editing this field</p>
+            </div>
+            <Lock className="h-4 w-4 shrink-0 ml-auto" />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <ScrollArea className="flex-1 min-h-0">
         <div className={cn("p-4 space-y-5", isLockedByOther && "pointer-events-none opacity-50")}>

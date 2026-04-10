@@ -54,7 +54,15 @@ export function useFormRealtime({
   currentUser,
   onKicked,
 }: UseFormRealtimeOptions) {
-  const { applyRemoteUpdate, setCollaborators, selectedFieldId, fields } = useFormBuilder();
+  const { 
+    applyRemoteUpdate, 
+    setCollaborators, 
+    selectedFieldId, 
+    fields,
+    isDragging: isDraggingLocal,
+    hasPendingUpdate,
+    flushPendingUpdate
+  } = useFormBuilder();
 
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
   const myColor = useRef(pickColor(currentUser.id));
@@ -141,6 +149,18 @@ export function useFormRealtime({
       syncSessionsFromDB();
     }
   }, [lastToggledBy, syncSessionsFromDB]);
+
+  // ─── Post-Drag Sync ────────────────────────────────────────────────────────
+  // When a local drag ends, if we stashed any remote updates, apply them now.
+  useEffect(() => {
+    if (!isDraggingLocal && hasPendingUpdate) {
+      // Small delay to let the DnD state settle and local broadcast finish
+      const timer = setTimeout(() => {
+        flushPendingUpdate();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isDraggingLocal, hasPendingUpdate, flushPendingUpdate]);
 
   // ─── Keep-Alive Ping (Heartbeat) ───────────────────────────────────────────
   

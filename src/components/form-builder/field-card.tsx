@@ -15,6 +15,7 @@ import {
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { getInitials } from "@/hooks/use-form-realtime";
+import { motion, AnimatePresence } from "motion/react";
 
 const FIELD_ICONS: Record<string, React.ElementType> = {
   short_text: Type, long_text: AlignLeft, number: Hash, email: Mail,
@@ -220,20 +221,37 @@ export function FieldCard({
       )}
 
       {/* Locked Overlay */}
-      {isLockedByOther && (
-        <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] rounded-lg z-10 flex items-center justify-center pointer-events-none">
-          <div 
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-white text-xs font-medium shadow-sm transition-transform"
-            style={{ 
-              backgroundColor: locker?.color ?? "#94a3b8", // Fallback to gray if color not sync'd
-              transform: "scale(1)" 
-            }}
+      <AnimatePresence>
+        {isLockedByOther && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-background/40 backdrop-blur-[1px] rounded-lg z-10 flex items-center justify-center pointer-events-none"
           >
-            <Lock className="h-3 w-3" />
-            <span>{locker ? `Locked by ${locker.name}` : "Someone is editing"}</span>
-          </div>
-        </div>
-      )}
+            <motion.div 
+              initial={{ scale: 0.8, y: 10 }}
+              animate={{ scale: 1, y: 0 }}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full text-white text-xs font-semibold shadow-lg shadow-black/20 transition-transform"
+              style={{ 
+                backgroundColor: locker?.color ?? "#94a3b8",
+              }}
+            >
+              <div className="relative">
+                <Lock className="h-3 w-3" />
+                <motion.div 
+                  className="absolute inset-0 rounded-full bg-white/50"
+                  animate={{ scale: [1, 1.8], opacity: [0.5, 0] }}
+                  transition={{ repeat: Infinity, duration: 1.5, ease: "easeOut" }}
+                />
+              </div>
+              <span className="truncate max-w-[150px]">
+                {locker ? `Locked by ${locker.name}` : "Someone is editing"}
+              </span>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Drag overlay matching exactly */}
       {isOverlay && (
@@ -298,11 +316,16 @@ export function FieldCard({
 
         {/* Actions - only shown when not locked by another user */}
         {!isLockedByOther && (
-          <div
+          <motion.div
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ 
+              opacity: isSelected ? 1 : 0, 
+              x: isSelected ? 0 : 10,
+            }}
+            whileHover={{ opacity: 1, x: 0 }}
             className={cn(
               "md:flex flex-col gap-0.5 transition-opacity shrink-0",
-              "hidden md:opacity-0 md:group-hover:opacity-100",
-              isSelected && "md:opacity-100"
+              "hidden md:group-hover:opacity-100"
             )}
             onClick={(e) => e.stopPropagation()}
           >
@@ -324,7 +347,7 @@ export function FieldCard({
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
-          </div>
+          </motion.div>
         )}
       </div>
 
