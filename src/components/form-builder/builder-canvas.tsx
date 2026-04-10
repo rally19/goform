@@ -169,14 +169,22 @@ export function BuilderCanvas({
 
   const collaborationEnabled = form?.collaborationEnabled ?? false;
 
-  const { trackMyPresence, myColor, isSecondary, isReady, broadcastState, broadcastKick, broadcastCollabToggle } = useFormRealtime({
+  const {
+    trackMyPresence,
+    myColor,
+    broadcastState,
+    broadcastKick,
+    isSecondary: isSecondaryRealtime,
+    isReady,
+    broadcastCollabToggle,
+  } = useFormRealtime({
     formId,
     broadcastEnabled: collaborationEnabled,
     currentUser: currentUserMeta,
     onKicked: useCallback(() => {}, []),
   });
 
-  const isAdmissionLocked = !collaborationEnabled && isSecondary;
+  const isAdmissionLocked = !collaborationEnabled && isSecondaryRealtime;
   const activeLocker = collaborators[0];
 
   useEffect(() => {
@@ -269,23 +277,28 @@ export function BuilderCanvas({
 
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
-    if (!isDirty || collaborationEnabled || !form?.autoSave) return;
+    // Only the 'Host' (Boss) is allowed to perform auto-saves to the DB.
+    // Guests only broadcast their changes to the Host via WebSocket.
+    if (!isDirty || isSecondaryRealtime || collaborationEnabled || !form?.autoSave) return;
     clearTimeout(saveTimeout.current);
     saveTimeout.current = setTimeout(handleSave, 3000);
     return () => clearTimeout(saveTimeout.current);
-  }, [isDirty, fields, form, handleSave, collaborationEnabled]);
+  }, [isDirty, fields, form, handleSave, collaborationEnabled, isSecondaryRealtime]);
 
   const collabSaveTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
     // ANTI-HURRICANE GUARD: Only broadcast if the change was made locally.
-    // This stops infinite loops where Tab A broadcasts -> Tab B receives & updates -> Tab B re-broadcasts.
     if (!isDirty || !collaborationEnabled || !form || !lastChangeLocal) return;
     
     broadcastState(fields, form);
+    
+    // Only the 'Host' (Boss) triggers the final DB save.
+    if (isSecondaryRealtime) return;
+
     clearTimeout(collabSaveTimeout.current);
     collabSaveTimeout.current = setTimeout(handleSave, 1500);
     return () => clearTimeout(collabSaveTimeout.current);
-  }, [isDirty, fields, form, collaborationEnabled, broadcastState, handleSave, lastChangeLocal]);
+  }, [isDirty, fields, form, collaborationEnabled, broadcastState, handleSave, lastChangeLocal, isSecondaryRealtime]);
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 3 } }),

@@ -32,24 +32,17 @@ export function FieldSettings({
     addOption,
     removeOption,
     updateOption,
-    fieldLocks,
-    broadcastLocks,
+    activeLocks,
     form,
   } = useFormBuilder();
 
   const field = fields.find((f) => f.id === selectedFieldId);
   const collaborationEnabled = form?.collaborationEnabled ?? false;
   
-  // Consistently check both session-based locks (broadcasting/presence) and persistent DB-based locks
-  const presenceLocker = field && collaborationEnabled ? fieldLocks[field.id] : undefined;
-  const broadcastLocker = field && collaborationEnabled ? broadcastLocks[field.id] : undefined;
-  
-  // Prioritize broadcast locker for speed, fallback to presence
-  const sessionLocker = broadcastLocker || presenceLocker;
-  
-  // If there's a DB lock but no session locker yet, it still counts as locked if it's not us
-  const isLockedByOther = !!sessionLocker || (!!field?.lockedBy && field.lockedBy !== currentUserId);
-  const locker = sessionLocker; 
+  // BROADCAST SOVEREIGNTY: In collaboration mode, visual locks are 
+  // 100% driven by real-time broadcasts to ensure zero lag.
+  const locker = field && collaborationEnabled ? activeLocks[field.id] : undefined;
+  const isLockedByOther = !!locker && locker.userId !== currentUserId;
 
   if (!field) {
     return (

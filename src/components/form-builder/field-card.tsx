@@ -40,23 +40,15 @@ export function FieldCard({
   isOverlay = false,
   currentUserId,
 }: FieldCardProps) {
-  const { selectField, removeField, duplicateField, fieldLocks, collaborators, form } = useFormBuilder();
+  const { selectField, removeField, duplicateField, activeLocks, collaborators, form } = useFormBuilder();
   const Icon = FIELD_ICONS[field.type] ?? Type;
   
   const collaborationEnabled = form?.collaborationEnabled ?? false;
   
-  let locker = collaborationEnabled ? fieldLocks[field.id] : undefined;
-  
-  if (collaborationEnabled && !locker && field.lockedBy && field.lockedBy !== currentUserId) {
-    locker = collaborators.find(c => c.userId === field.lockedBy);
-  }
-  
-  // ─── Lock Logic: Hardened against network race conditions ───────────────
-  // A field is locked if the database says so, OR if our local sync list says so.
-  const isLockedByOther = collaborationEnabled && (
-    (!!field.lockedBy && field.lockedBy !== currentUserId) || 
-    !!locker
-  );
+  // BROADCAST SOVEREIGNTY: Visual locks are 100% driven by real-time broadcasts
+  // to prevent 'Ghost Locks' caused by slow database echos.
+  const locker = collaborationEnabled ? activeLocks[field.id] : undefined;
+  const isLockedByOther = !!locker && locker.userId !== currentUserId;
 
   const {
     attributes,

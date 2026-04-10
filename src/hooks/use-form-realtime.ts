@@ -69,6 +69,7 @@ export function useFormRealtime({
   const broadcastThrottleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const presenceDebounceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const lockDebounceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const pendingUpdateRef = useRef<{ fields: BuilderField[]; form: Partial<BuilderForm> } | null>(null);
 
   // ─── Referencing Callbacks Safely ───────────────────────────────────────────
   const applyRemoteUpdateRef = useRef(applyRemoteUpdate);
@@ -180,22 +181,25 @@ export function useFormRealtime({
     };
   }, [formId, myPresenceKey, currentUser, syncSessionsFromDB, myColor]);
 
-  // ─── Broadcast selection change instantly (Fast Path) ────────────────────
-  const broadcastSelection = useCallback((fieldId: string | null) => {
-    if (!channelRef.current || !broadcastEnabledRef.current) return;
-    channelRef.current.send({
-      type: "broadcast",
-      event: "SELECTION_CHANGE",
-      payload: {
-        type: "SELECTION_CHANGE",
-        userId: currentUser.id,
-        name: currentUser.name,
-        color: myColor.current,
-        fieldId,
-        senderId: currentUser.id,
-      } satisfies BroadcastPayload,
-    });
-  }, [currentUser.id]);
+    // ─── Broadcast selection change instantly (Fast Path) ────────────────────
+    const broadcastSelection = useCallback((fieldId: string | null) => {
+      // Use the latest state to get up-to-date name/color
+      const state = useFormBuilder.getState();
+      if (!channelRef.current || !broadcastEnabledRef.current) return;
+      
+      channelRef.current.send({
+        type: "broadcast",
+        event: "SELECTION_CHANGE",
+        payload: {
+          type: "SELECTION_CHANGE",
+          userId: currentUser.id,
+          name: currentUser.name,
+          color: myColor.current,
+          fieldId,
+          senderId: currentUser.id,
+        } satisfies BroadcastPayload,
+      });
+    }, [currentUser.id]);
 
   // Handle locking a specific field instantly when selectedFieldId changes
   useEffect(() => {
@@ -231,14 +235,19 @@ export function useFormRealtime({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFieldId]);
 
-  // ─── Broadcast form state update to peers (Throttled) ──────────────────────
+  // ─── Broadcast form state update to peers (Throttled with Trailing Edge) ──
   const broadcastState = useCallback(
     (fieldsSnapshot: BuilderField[], formSnapshot: Partial<BuilderForm>) => {
       if (!channelRef.current || !broadcastEnabledRef.current) return;
       
-      // Throttle: Only allow one broadcast every 100ms
-      if (broadcastThrottleTimer.current) return;
+      // If a broadcast is already in the cooling-off period, store this update
+      // as the 'trailing' one to be sent when the timer expires.
+      if (broadcastThrottleTimer.current) {
+        pendingUpdateRef.current = { fields: fieldsSnapshot, form: formSnapshot };
+        return;
+      }
 
+      // Otherwise, send immediately (Leading edge)
       channelRef.current.send({
         type: "broadcast",
         event: "FORM_UPDATE",
@@ -250,8 +259,17 @@ export function useFormRealtime({
         } satisfies BroadcastPayload,
       });
 
+      // Start the cooling-off period
       broadcastThrottleTimer.current = setTimeout(() => {
         broadcastThrottleTimer.current = undefined;
+        
+        // When the timer expires, if there's a pending update (the trailing edge),
+        // send it immediately and recursively start a new throttle window if needed.
+        if (pendingUpdateRef.current) {
+          const { fields, form } = pendingUpdateRef.current;
+          pendingUpdateRef.current = null;
+          broadcastState(fields, form);
+        }
       }, 100);
     },
     [currentUser.id]
@@ -314,27 +332,21 @@ export function useFormRealtime({
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "forms", filter: `id=eq.${formId}` },
         (payload: Record<string, any>) => {
+          // ARCHIVE PROTECTOR: If collaboration is active, we PRIORITIZE broadcasts.
+          // We only allow DB updates to sync metadata, not the core layout or content
+          // while a session is live, to prevent 'Postgres Echos' from jumping components.
+          const state = useFormBuilder.getState();
           const newDoc = payload.new as Record<string, any>;
           const mappedDoc: Partial<BuilderForm> = {};
           
+          // Only sync metadata fields from DB, keep layout state broadcast-driven
           if ("title" in newDoc) mappedDoc.title = newDoc.title;
           if ("description" in newDoc) mappedDoc.description = newDoc.description;
-          if ("status" in newDoc) mappedDoc.status = newDoc.status;
           if ("accent_color" in newDoc) mappedDoc.accentColor = newDoc.accent_color;
-          if ("accept_responses" in newDoc) mappedDoc.acceptResponses = newDoc.accept_responses;
-          if ("require_auth" in newDoc) mappedDoc.requireAuth = newDoc.require_auth;
-          if ("show_progress" in newDoc) mappedDoc.showProgress = newDoc.show_progress;
-          if ("one_response_per_user" in newDoc) mappedDoc.oneResponsePerUser = newDoc.one_response_per_user;
-          if ("success_message" in newDoc) mappedDoc.successMessage = newDoc.success_message;
-          if ("redirect_url" in newDoc) mappedDoc.redirectUrl = newDoc.redirect_url;
-          if ("auto_save" in newDoc) mappedDoc.autoSave = newDoc.auto_save;
+          if ("status" in newDoc) mappedDoc.status = newDoc.status;
           if ("collaboration_enabled" in newDoc) mappedDoc.collaborationEnabled = newDoc.collaboration_enabled;
           if ("last_toggled_by" in newDoc) mappedDoc.lastToggledBy = newDoc.last_toggled_by;
 
-          const state = useFormBuilder.getState();
-          // METADATA PROTECTION: Skip updating collaborationEnabled if we are currently
-          // in the middle of a local toggle, to prevent the UI from 'bouncing' back 
-          // to the stale DB state before our update lands.
           if (state.isCollabToggling && "collaborationEnabled" in mappedDoc) {
             delete mappedDoc.collaborationEnabled;
           }
@@ -350,16 +362,10 @@ export function useFormRealtime({
           syncSessionsFromDB();
         }
       )
-      // Database: Watch form fields locks
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "form_fields", filter: `form_id=eq.${formId}` },
-        (payload: Record<string, any>) => {
-          const newRow = payload.new as { id: string; locked_by: string | null };
-          // Inject the lock state into our local fields list WITHOUT marking as dirty
-          useFormBuilder.getState().setFieldLock(newRow.id, newRow.locked_by);
-        }
-      )
+      // BROADCAST SOVEREIGNTY: We no longer listen to 'form_fields' table updates 
+      // via Postgres Realtime while in collaboration mode. All field changes 
+      // (locks, positions, content) are now 100% Broadcast-driven to avoid 
+      // slow DB updates overwriting the fast UI state.
       .subscribe();
 
     return () => {

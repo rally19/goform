@@ -46,10 +46,8 @@ interface FormBuilderState {
   // ─── Collaboration ──────────────────────────────────────────────────────────
   /** Other connected collaborators (not current user) */
   collaborators: CollaboratorInfo[];
-  /** Map of fieldId → CollaboratorInfo of who is currently selecting that field */
-  fieldLocks: Record<string, CollaboratorInfo>;
-  /** Map of fieldId → Instant broadcast lock (bypasses presence lag) */
-  broadcastLocks: Record<string, { userId: string; name: string; color: string }>;
+  /** Unified map of fieldId → Collaborator information for active locking (Broadcast driven) */
+  activeLocks: Record<string, { userId: string; name: string; color: string; presenceKey?: string }>;
 
   // ─── Actions ────────────────────────────────────────────────────────────────
   // Init from DB data
@@ -92,8 +90,6 @@ interface FormBuilderState {
   applyRemoteUpdate: (payload: { fields?: BuilderField[]; form?: Partial<BuilderForm> }) => void;
   /** Replace the full collaborators list from a Presence sync event */
   setCollaborators: (collaborators: CollaboratorInfo[]) => void;
-  /** Recompute fieldLocks from current collaborators list */
-  recomputeLocks: () => void;
   /** Update a specific collaborator's selection (fast-path from broadcast) */
   updateCollaboratorSelection: (userId: string, name: string, color: string, fieldId: string | null) => void;
   /** Update local field lock state from DB change (non-dirtying) */
@@ -110,8 +106,7 @@ export const useFormBuilder = create<FormBuilderState>()(
     isDirty: false,
     isSaving: false,
     collaborators: [],
-    fieldLocks: {},
-    broadcastLocks: {},
+    activeLocks: {},
     isCollabToggling: false,
     isDragging: false,
     lastChangeLocal: false,
@@ -123,7 +118,7 @@ export const useFormBuilder = create<FormBuilderState>()(
         state.isDirty = false;
         state.selectedFieldId = null;
         state.collaborators = [];
-        state.fieldLocks = {};
+        state.activeLocks = {};
         state.lastChangeLocal = false;
       });
     },
@@ -314,7 +309,7 @@ export const useFormBuilder = create<FormBuilderState>()(
           state.fields = fields;
         }
         if (formChanges !== undefined && state.form) {
-          // Never overwrite collaborationEnabled from a broadcast snapshot. Server DB is authority.
+          // Never broadcast snapshot. Server DB is authority.
           const safeChanges = { ...formChanges };
           delete safeChanges.collaborationEnabled;
           Object.assign(state.form, safeChanges);
@@ -328,64 +323,37 @@ export const useFormBuilder = create<FormBuilderState>()(
       set((state) => {
         state.collaborators = collaborators;
         
-        // Recompute official locks from presence
-        const locks: Record<string, CollaboratorInfo> = {};
-        for (const c of collaborators) {
-          if (c.selectedFieldId) {
-            locks[c.selectedFieldId] = c;
-          }
-        }
-        state.fieldLocks = locks;
-
-        // Cleanup broadcastLocks for anyone who is NO LONGER in the presence list
+        // Sync activeLocks with the current presence list
+        // This ensures that if a user leaves, their broadcast-originated lock is eventually cleaned up
         const activeIds = new Set(collaborators.map(c => c.userId));
-        for (const fieldId in state.broadcastLocks) {
-          if (!activeIds.has(state.broadcastLocks[fieldId].userId)) {
-             delete state.broadcastLocks[fieldId];
+        for (const fieldId in state.activeLocks) {
+          if (!activeIds.has(state.activeLocks[fieldId].userId)) {
+             delete state.activeLocks[fieldId];
           }
         }
       });
     },
 
-    recomputeLocks: () => {
-      set((state) => {
-        const locks: Record<string, CollaboratorInfo> = {};
-        for (const c of state.collaborators) {
-          if (c.selectedFieldId) {
-            locks[c.selectedFieldId] = c;
-          }
-        }
-        state.fieldLocks = locks;
-      });
-    },
 
     updateCollaboratorSelection: (userId, name, color, fieldId) => {
       set((state) => {
-        // ALWAYS update the broadcast lock map immediately
-        // Remove user's previous lock first
-        for (const fId in state.broadcastLocks) {
-          if (state.broadcastLocks[fId].userId === userId) {
-            delete state.broadcastLocks[fId];
+        // Broadcast Sovereignty: Update the unified lock map immediately
+        // Remove individual's previous selection
+        for (const fId in state.activeLocks) {
+          if (state.activeLocks[fId].userId === userId) {
+            delete state.activeLocks[fId];
           }
         }
-        // Add new lock if it's not null
+        
+        // Register new selection
         if (fieldId) {
-          state.broadcastLocks[fieldId] = { userId, name, color };
+          state.activeLocks[fieldId] = { userId, name, color };
         }
 
-        // Also update the presence collaborator if they exist
+        // Keep the presence list in sync if the collaborator exists
         const collab = state.collaborators.find((c) => c.userId === userId);
         if (collab) {
           collab.selectedFieldId = fieldId;
-          
-          // Fast-recompute locks from presence list
-          const locks: Record<string, CollaboratorInfo> = {};
-          for (const c of state.collaborators) {
-            if (c.selectedFieldId) {
-              locks[c.selectedFieldId] = c;
-            }
-          }
-          state.fieldLocks = locks;
         }
       });
     },
