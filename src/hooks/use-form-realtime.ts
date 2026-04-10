@@ -432,5 +432,6 @@ export function useFormRealtime({
     myColor: myColor.current,
     isSecondary,
     isReady,
+    syncSessionsFromDB,
   };
 }
