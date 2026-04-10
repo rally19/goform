@@ -81,7 +81,8 @@ interface FormBuilderState {
   /** Replace the full collaborators list from a Presence sync event */
   setCollaborators: (collaborators: CollaboratorInfo[]) => void;
   /** Recompute fieldLocks from current collaborators list */
-  recomputeLocks: () => void;
+  /** Update local field lock state from DB change (non-dirtying) */
+  setFieldLock: (id: string, lockedBy: string | null) => void;
 }
 
 export const useFormBuilder = create<FormBuilderState>()(
@@ -297,6 +298,15 @@ export const useFormBuilder = create<FormBuilderState>()(
           }
         }
         state.fieldLocks = locks;
+      });
+    },
+
+    setFieldLock: (id, lockedBy) => {
+      set((state) => {
+        const field = state.fields.find((f) => f.id === id);
+        if (field) {
+          field.lockedBy = lockedBy;
+        }
       });
     },
   }))

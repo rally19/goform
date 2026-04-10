@@ -30,6 +30,7 @@ interface FieldCardProps {
   isSelected: boolean;
   accentColor?: string;
   isOverlay?: boolean;
+  currentUserId: string;
 }
 
 export function FieldCard({ 
@@ -37,18 +38,25 @@ export function FieldCard({
   isSelected, 
   accentColor = "#6366f1",
   isOverlay = false,
+  currentUserId,
 }: FieldCardProps) {
   const { selectField, removeField, duplicateField, fieldLocks, collaborators, form } = useFormBuilder();
   const Icon = FIELD_ICONS[field.type] ?? Type;
   
   const collaborationEnabled = form?.collaborationEnabled ?? false;
+  
+  // ─── Lock Logic: Hardened against network race conditions ───────────────
+  // A field is locked if the database says so, OR if our local presence state says so.
+  // We prioritize the database field 'lockedBy' because it's the fastest signal.
+  const isLockedByOther = collaborationEnabled && 
+    !!field.lockedBy && 
+    field.lockedBy !== currentUserId;
+
   let locker = collaborationEnabled ? fieldLocks[field.id] : undefined;
   
-  if (collaborationEnabled && !locker && field.lockedBy) {
+  if (collaborationEnabled && !locker && field.lockedBy && field.lockedBy !== currentUserId) {
     locker = collaborators.find(c => c.userId === field.lockedBy);
   }
-  
-  const isLockedByOther = !!locker;
 
   const {
     attributes,
@@ -220,14 +228,17 @@ export function FieldCard({
       )}
 
       {/* Locked Overlay */}
-      {isLockedByOther && locker && (
+      {isLockedByOther && (
         <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] rounded-lg z-10 flex items-center justify-center pointer-events-none">
           <div 
             className="flex items-center gap-2 px-3 py-1.5 rounded-full text-white text-xs font-medium shadow-sm transition-transform"
-            style={{ backgroundColor: locker?.color, transform: "scale(1)" }}
+            style={{ 
+              backgroundColor: locker?.color ?? "#94a3b8", // Fallback to gray if color not sync'd
+              transform: "scale(1)" 
+            }}
           >
             <Lock className="h-3 w-3" />
-            <span>Locked by {locker?.name}</span>
+            <span>{locker ? `Locked by ${locker.name}` : "Someone is editing"}</span>
           </div>
         </div>
       )}
@@ -241,10 +252,10 @@ export function FieldCard({
       )}
       
       {/* Outer Lock Border */}
-      {isLockedByOther && locker && (
+      {isLockedByOther && (
         <div 
           className="absolute inset-0 border-2 rounded-lg pointer-events-none z-20"
-          style={{ borderColor: locker?.color }}
+          style={{ borderColor: locker?.color ?? "#94a3b8" }}
         />
       )}
 

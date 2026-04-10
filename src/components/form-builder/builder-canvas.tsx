@@ -344,6 +344,7 @@ export function BuilderCanvas({
           isSelected={selectedFieldId === activeId}
           accentColor={accentColor}
           isOverlay
+          currentUserId={currentUserId}
         />
       );
     }
@@ -619,6 +620,7 @@ export function BuilderCanvas({
                         field={field}
                         isSelected={selectedFieldId === field.id}
                         accentColor={accentColor}
+                        currentUserId={currentUserId}
                       />
                     ))}
                   </div>

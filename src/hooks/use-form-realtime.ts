@@ -98,7 +98,7 @@ export function useFormRealtime({
   useEffect(() => {
     if (!currentUser.id || currentUser.id === "anon") return;
     
-    // Initial ping & sync
+    // Initial ping
     pingActiveSession(
       formId,
       myPresenceKey,
@@ -107,7 +107,7 @@ export function useFormRealtime({
       currentUser.email,
       myColor.current,
       selectedFieldId
-    ).then(() => syncSessionsFromDB());
+    );
 
     pingIntervalRef.current = setInterval(() => {
       pingActiveSession(
@@ -118,7 +118,7 @@ export function useFormRealtime({
         currentUser.email,
         myColor.current,
         useFormBuilder.getState().selectedFieldId
-      ).then(() => syncSessionsFromDB()); // Refresh other people's presence when we ping
+      );
     }, 5000);
 
     return () => {
@@ -225,8 +225,8 @@ export function useFormRealtime({
         { event: "UPDATE", schema: "public", table: "form_fields", filter: `form_id=eq.${formId}` },
         (payload: Record<string, any>) => {
           const newRow = payload.new as { id: string; locked_by: string | null };
-          // Inject the lock state into our local fields list without overwriting current data
-          useFormBuilder.getState().updateField(newRow.id, { lockedBy: newRow.locked_by });
+          // Inject the lock state into our local fields list WITHOUT marking as dirty
+          useFormBuilder.getState().setFieldLock(newRow.id, newRow.locked_by);
         }
       )
       .subscribe();

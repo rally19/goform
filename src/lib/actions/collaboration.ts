@@ -48,9 +48,9 @@ export async function pingActiveSession(
         },
       });
 
-    // Automatically clean up stale sessions (older than 10 seconds)
-    const tenSecondsAgo = new Date(Date.now() - 10000);
-    await db.delete(activeFormSessions).where(lt(activeFormSessions.lastPing, tenSecondsAgo));
+    // Automatically clean up stale sessions (older than 30 seconds)
+    const thirtySecondsAgo = new Date(Date.now() - 30000);
+    await db.delete(activeFormSessions).where(lt(activeFormSessions.lastPing, thirtySecondsAgo));
 
     return { success: true };
   } catch (error) {
@@ -118,11 +118,6 @@ export async function getActiveSessions(formId: string) {
   try {
     const user = await getAuthUser();
     if (!user) return { success: false, data: [] };
-
-    const tenSecondsAgo = new Date(Date.now() - 10000);
-    
-    // Automatically delete stale so we don't query ghosts
-    await db.delete(activeFormSessions).where(lt(activeFormSessions.lastPing, tenSecondsAgo));
 
     const sessions = await db.query.activeFormSessions.findMany({
       where: eq(activeFormSessions.formId, formId),
