@@ -11,6 +11,16 @@
       "sourceType": "github",
       "computedHash": "22a8401fab0cdf32d5c153b98aba5e95435a479810896879535dc7ac3710efbe"
     },
+    "liveblocks-best-practices": {
+      "source": "liveblocks/skills",
+      "sourceType": "github",
+      "computedHash": "55beac1a470444adbf718be52e68a7b838fdbe280d57b70bf56178acbc07383a"
+    },
+    "liveblocks-ui-skills": {
+      "source": "ihlamury/design-skills",
+      "sourceType": "github",
+      "computedHash": "8becae691f6f0c7efb8244c905f7c70e709c15f67c95ed9e4c6e36fa08ac7398"
+    },
     "shadcn": {
       "source": "shadcn/ui",
       "sourceType": "github",
@@ -35,6 +45,11 @@
       "source": "ueberdosis/tiptap",
       "sourceType": "github",
       "computedHash": "60765ba8cb8a71503e6f14bb3a7a6ee77b34b1d98cd04b60b1bfcbb7c41ba9c7"
+    },
+    "yjs-best-practices": {
+      "source": "liveblocks/skills",
+      "sourceType": "github",
+      "computedHash": "124a75233f0579acf11b38523f1fbdf67233bfc88c4fa4a672a2897c13c3f3a8"
     },
     "zod": {
       "source": "pproenca/dot-skills",
