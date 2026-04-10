@@ -183,7 +183,7 @@ export function BuilderCanvas({
     }, []),
   });
 
-  const isAdmissionLocked = !collaborationEnabled && !canManageCollab && isSecondary;
+  const isAdmissionLocked = !collaborationEnabled && isSecondary;
   const activeLocker = collaborators[0];
 
   // ─── Track drag in presence ────────────────────────────────────────────────

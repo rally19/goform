@@ -246,8 +246,10 @@ export function useFormRealtime({
       .on("broadcast", { event: "COLLAB_DISABLED" }, ({ payload }: { payload: BroadcastPayload }) => {
         if (payload.type !== "COLLAB_DISABLED") return;
         if (payload.senderId === currentUser.id) return; 
-        // We no longer call onKickedRef.current()
-        // The UI will respond to the form.collaborationEnabled change via DB listener
+        
+        // Immediately enforce the lock locally to prevent stale auto-saves that might
+        // overwrite the master state back to True before the DB listener catches up.
+        useFormBuilder.getState().setFormMeta({ collaborationEnabled: false });
       })
       // Broadcast: selection change (Fast Path)
       .on("broadcast", { event: "SELECTION_CHANGE" }, ({ payload }: { payload: BroadcastPayload }) => {
@@ -260,8 +262,23 @@ export function useFormRealtime({
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "forms", filter: `id=eq.${formId}` },
         (payload: Record<string, any>) => {
-          const newDoc = payload.new as Partial<BuilderForm>;
-          useFormBuilder.getState().setFormMeta(newDoc);
+          const newDoc = payload.new as Record<string, any>;
+          const mappedDoc: Partial<BuilderForm> = {};
+          
+          if ("title" in newDoc) mappedDoc.title = newDoc.title;
+          if ("description" in newDoc) mappedDoc.description = newDoc.description;
+          if ("status" in newDoc) mappedDoc.status = newDoc.status;
+          if ("accent_color" in newDoc) mappedDoc.accentColor = newDoc.accent_color;
+          if ("accept_responses" in newDoc) mappedDoc.acceptResponses = newDoc.accept_responses;
+          if ("require_auth" in newDoc) mappedDoc.requireAuth = newDoc.require_auth;
+          if ("show_progress" in newDoc) mappedDoc.showProgress = newDoc.show_progress;
+          if ("one_response_per_user" in newDoc) mappedDoc.oneResponsePerUser = newDoc.one_response_per_user;
+          if ("success_message" in newDoc) mappedDoc.successMessage = newDoc.success_message;
+          if ("redirect_url" in newDoc) mappedDoc.redirectUrl = newDoc.redirect_url;
+          if ("auto_save" in newDoc) mappedDoc.autoSave = newDoc.auto_save;
+          if ("collaboration_enabled" in newDoc) mappedDoc.collaborationEnabled = newDoc.collaboration_enabled;
+
+          useFormBuilder.getState().setFormMeta(mappedDoc);
         }
       )
       // Database: Watch active sessions

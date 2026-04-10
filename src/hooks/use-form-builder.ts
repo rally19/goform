@@ -274,7 +274,10 @@ export const useFormBuilder = create<FormBuilderState>()(
           state.fields = fields;
         }
         if (formChanges !== undefined && state.form) {
-          Object.assign(state.form, formChanges);
+          // Never overwrite collaborationEnabled from a broadcast snapshot. Server DB is authority.
+          const safeChanges = { ...formChanges };
+          delete safeChanges.collaborationEnabled;
+          Object.assign(state.form, safeChanges);
         }
         // Deliberately NOT setting isDirty — this is a remote update
       });
