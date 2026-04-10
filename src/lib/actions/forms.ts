@@ -254,13 +254,22 @@ export async function updateForm(
   data: Partial<BuilderForm>
 ): Promise<ActionResult> {
   try {
+    const user = await getAuthUser();
     await enforceFormAccess(id, "editor");
+    
+    // If collaboration is being toggled, track WHO did it to assign primary edit authority
+    const updateData: Record<string, any> = { 
+      ...data, 
+      updatedAt: new Date() 
+    };
+    
+    if (data.collaborationEnabled !== undefined) {
+      updateData.lastToggledBy = user.id;
+    }
+
     await db
       .update(forms)
-      .set({
-        ...data,
-        updatedAt: new Date(),
-      })
+      .set(updateData)
       .where(eq(forms.id, id));
 
     revalidatePath(`/forms/${id}`);

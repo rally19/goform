@@ -159,6 +159,7 @@ export const forms = pgTable(
     redirectUrl: text("redirect_url"),
     autoSave: boolean("auto_save").notNull().default(true),
     collaborationEnabled: boolean("collaboration_enabled").notNull().default(false),
+    lastToggledBy: text("last_toggled_by"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

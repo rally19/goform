@@ -32,6 +32,7 @@ export default async function FormBuilderPage({
     redirectUrl: form.redirectUrl ?? undefined,
     autoSave: form.autoSave,
     collaborationEnabled: form.collaborationEnabled,
+    lastToggledBy: (form as any).lastToggledBy,
   };
 
   const builderFields: BuilderField[] = fields.map((f) => ({

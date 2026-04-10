@@ -90,12 +90,23 @@ export function useFormRealtime({
     const allSessions = res.data;
     // Find our own position based on joinedAt
     const mySession = allSessions.find(s => s.presenceKey === myPresenceKey);
-    const earlierSessions = mySession 
-      ? allSessions.filter(s => new Date(s.joinedAt) < new Date(mySession.joinedAt))
-      : [];
+    const formState = useFormBuilder.getState().form;
+    const lastToggledBy = formState?.lastToggledBy;
     
-    // If there is ANYONE else who joined before us, we are secondary
-    setIsSecondary(earlierSessions.length > 0);
+    // PRIORITY LOGIC:
+    // 1. If someone just toggled collab OFF, they are the boss regardless of joinedAt
+    // 2. Fallback to joinedAt (earliest joiner is primary)
+    
+    if (lastToggledBy && allSessions.some(s => s.userId === lastToggledBy)) {
+      // Toggle Authority exists and is active in the session
+      setIsSecondary(currentUser.id !== lastToggledBy);
+    } else {
+      // Fallback to Join Order
+      const earlierSessions = mySession 
+        ? allSessions.filter(s => new Date(s.joinedAt) < new Date(mySession.joinedAt))
+        : [];
+      setIsSecondary(earlierSessions.length > 0);
+    }
 
     const result: CollaboratorInfo[] = [];
     for (const s of allSessions) {
@@ -116,6 +127,14 @@ export function useFormRealtime({
       setIsReady(true);
     }
   }, [formId, currentUser.id, myPresenceKey]);
+
+  // Re-run priority check whenever lastToggledBy changes (e.g. from broadcast)
+  const lastToggledBy = useFormBuilder(s => s.form?.lastToggledBy);
+  useEffect(() => {
+    if (hasSyncedOnce.current) {
+      syncSessionsFromDB();
+    }
+  }, [lastToggledBy, syncSessionsFromDB]);
 
   // ─── Keep-Alive Ping (Heartbeat) ───────────────────────────────────────────
   
@@ -288,6 +307,7 @@ export function useFormRealtime({
           if ("redirect_url" in newDoc) mappedDoc.redirectUrl = newDoc.redirect_url;
           if ("auto_save" in newDoc) mappedDoc.autoSave = newDoc.auto_save;
           if ("collaboration_enabled" in newDoc) mappedDoc.collaborationEnabled = newDoc.collaboration_enabled;
+          if ("last_toggled_by" in newDoc) mappedDoc.lastToggledBy = newDoc.last_toggled_by;
 
           useFormBuilder.getState().setFormMeta(mappedDoc);
         }
