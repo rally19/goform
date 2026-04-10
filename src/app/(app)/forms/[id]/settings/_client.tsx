@@ -26,6 +26,7 @@ import { ACCENT_COLORS } from "@/lib/form-types";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { useFormSync } from "@/hooks/use-form-sync";
 import { Loader2, Trash2, Copy, ExternalLink, Globe, Lock } from "lucide-react";
 
 interface SettingsClientProps {
@@ -51,6 +52,11 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
     redirectUrl: initialForm.redirectUrl ?? "",
     autoSave: initialForm.autoSave,
     status: initialForm.status,
+  });
+
+  // Enable Real-time synchronization
+  useFormSync(formId, (changes) => {
+    setForm(f => ({ ...f, ...changes } as typeof form));
   });
 
   const update = (changes: Partial<typeof form>) =>

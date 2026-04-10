@@ -253,12 +253,10 @@ function FormCard({
   );
 }
 
-function useDashboardRealtime() {
+function useDashboardRealtime(onFormUpdate: (id: string, changes: Partial<FormRow>) => void) {
   const [sessions, setSessions] = useState<Record<string, ActiveUser[]>>({});
 
   const refreshSessions = useCallback(async () => {
-    // This is a bit heavy if there are thousands of forms, 
-    // but getActiveSessions for the whole workspace is fine for now.
     const res = await getActiveSessions();
     if (res.success && res.data) {
       const map: Record<string, ActiveUser[]> = {};
@@ -279,21 +277,42 @@ function useDashboardRealtime() {
     refreshSessions();
 
     const supabase = createClient();
-    const channel = supabase
+    
+    // 1. Listen for session changes (locked/active state)
+    const sessionChannel = supabase
       .channel("dashboard_sessions")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "active_form_sessions" },
-        () => {
-          refreshSessions();
+        () => refreshSessions()
+      )
+      .subscribe();
+
+    // 2. Listen for form metadata changes (title, status, etc.)
+    const formChannel = supabase
+      .channel("dashboard_forms")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "forms" },
+        (payload) => {
+          const newDoc = payload.new as Record<string, any>;
+          const changes: Partial<FormRow> = {};
+          if ("title" in newDoc) changes.title = newDoc.title;
+          if ("status" in newDoc) changes.status = newDoc.status;
+          if ("slug" in newDoc) changes.slug = newDoc.slug;
+          if ("accent_color" in newDoc) changes.accentColor = newDoc.accent_color;
+          if ("collaboration_enabled" in newDoc) changes.collaborationEnabled = newDoc.collaboration_enabled;
+          
+          onFormUpdate(newDoc.id, changes);
         }
       )
       .subscribe();
 
     return () => {
-      channel.unsubscribe();
+      supabase.removeChannel(sessionChannel);
+      supabase.removeChannel(formChannel);
     };
-  }, [refreshSessions]);
+  }, [refreshSessions, onFormUpdate]);
 
   return sessions;
 }
@@ -305,9 +324,13 @@ export function FormsListClient({
   initialForms: FormRow[], 
   targetWorkspaces: WorkspaceRow[] 
 }) {
-  const router = useRouter();
   const [forms, setForms] = useState<FormRow[]>(initialForms);
-  const activeSessionsMap = useDashboardRealtime();
+
+  const handleRemoteFormUpdate = useCallback((id: string, changes: Partial<FormRow>) => {
+    setForms(prev => prev.map(f => f.id === id ? { ...f, ...changes } : f));
+  }, []);
+
+  const activeSessionsMap = useDashboardRealtime(handleRemoteFormUpdate);
 
   useEffect(() => {
     setForms(initialForms);
