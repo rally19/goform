@@ -131,7 +131,6 @@ export function BuilderCanvas({
     toggleStatus,
     setCollabToggling,
     clearCollabToggling,
-    setForceSync,
   } = useFormBuilder();
 
   const dndId = useId();
@@ -200,11 +199,6 @@ export function BuilderCanvas({
       trackMyPresence({ selectedFieldId: dragFieldId });
     }
   }, [activeId, selectedFieldId, trackMyPresence]);
-
-  useEffect(() => {
-    setForceSync(syncSessionsFromDB);
-    return () => setForceSync(null);
-  }, [syncSessionsFromDB, setForceSync]);
 
   const handleSave = useCallback(async () => {
     if (!form || isSaving) return false;

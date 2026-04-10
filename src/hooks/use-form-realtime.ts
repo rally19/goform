@@ -4,14 +4,13 @@ import { useEffect, useRef, useCallback, useState } from "react";
 import { createClient } from "@/lib/client";
 import { useFormBuilder, type CollaboratorInfo } from "./use-form-builder";
 import type { BuilderField, BuilderForm } from "@/lib/form-types";
-import { mapFormUpdate, mapFieldUpdate } from "./use-form-realtime-utils";
+import { mapFormUpdate } from "./use-form-realtime-utils";
 import {
   pingActiveSession,
   removeActiveSession,
   getActiveSessions,
   updateFieldLock,
 } from "@/lib/actions/collaboration";
-import { getForm } from "@/lib/actions/forms";
 
 // ─── Collaborator colors (stable per user) ─────────────────────────────────────
 const COLLAB_COLORS = [
@@ -89,53 +88,28 @@ export function useFormRealtime({
   // ─── Database Sync Handlers ────────────────────────────────────────────────
   
   const syncSessionsFromDB = useCallback(async () => {
-    // 0. Simultaneously Fetch fresh Form/Fields state and Active Sessions
-    const [formRes, sessionRes] = await Promise.all([
-      getForm(formId),
-      getActiveSessions(formId)
-    ]);
-
-    if (!sessionRes.success || !sessionRes.data) return;
-    
-    // 1. RE-SYNC FORM/FIELDS: Decisively override local state with DB truth
-    // This cleans up divergent positions and persistent field-level locks.
-    if (formRes.success && formRes.data) {
-       const mappedFields = formRes.data.fields.map(f => mapFieldUpdate({ 
-         id: f.id,
-         label: f.label,
-         type: f.type,
-         required: f.required,
-         placeholder: f.placeholder,
-         description: f.description,
-         order_index: f.orderIndex,
-         properties: f.properties,
-         options: f.options,
-         locked_by: f.lockedBy
-       })) as BuilderField[];
-       
-       const mappedForm: Partial<BuilderForm> = {
-         title: formRes.data.form.title,
-         description: formRes.data.form.description ?? undefined,
-         status: formRes.data.form.status,
-         accentColor: formRes.data.form.accentColor,
-         collaborationEnabled: formRes.data.form.collaborationEnabled,
-         lastToggledBy: formRes.data.form.lastToggledBy ?? undefined
-       };
-
-       // Use the Internal setFormMeta and applyRemoteUpdate to jump over local dirty state
-       useFormBuilder.getState().setFormMeta(mappedForm);
-       useFormBuilder.getState().applyRemoteUpdate({ fields: mappedFields });
+    const res = await getActiveSessions(formId);
+    if (!res.success || !res.data) {
+      // If we fail but haven't synced yet, we stay not ready 
+      // though ideally we might want a timeout.
+      return;
     }
-
-    // 2. RE-SYNC SESSIONS: Establishing new authority and cleaning ghost locks
-    const allSessions = sessionRes.data;
+    
+    const allSessions = res.data;
+    // Find our own position based on joinedAt
     const mySession = allSessions.find(s => s.presenceKey === myPresenceKey);
     const formState = useFormBuilder.getState().form;
     const lastToggledBy = formState?.lastToggledBy;
     
+    // PRIORITY LOGIC:
+    // 1. If someone just toggled collab OFF, they are the boss regardless of joinedAt
+    // 2. Fallback to joinedAt (earliest joiner is primary)
+    
     if (lastToggledBy && allSessions.some(s => s.userId === lastToggledBy)) {
+      // Toggle Authority exists and is active in the session
       setIsSecondary(currentUser.id !== lastToggledBy);
     } else {
+      // Fallback to strict Join Order (Database sorted by joinedAt then serialId)
       const primarySession = allSessions[0];
       setIsSecondary(mySession?.id !== primarySession?.id);
     }
