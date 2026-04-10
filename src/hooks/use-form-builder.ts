@@ -104,6 +104,9 @@ interface FormBuilderState {
   setFieldLock: (id: string, lockedBy: string | null) => void;
   /** Update form metadata from DB change (non-dirtying) */
   setFormMeta: (changes: Partial<BuilderForm>) => void;
+  // A manually triggered sync to clear ghost locks
+  forceSync: (() => Promise<void>) | null;
+  setForceSync: (fn: (() => Promise<void>) | null) => void;
 }
 
 export const useFormBuilder = create<FormBuilderState>()(
@@ -120,6 +123,7 @@ export const useFormBuilder = create<FormBuilderState>()(
     toggleStatus: "",
     isDragging: false,
     lastChangeLocal: false,
+    forceSync: null,
 
     initialize: (form, fields) => {
       set((state) => {
@@ -349,14 +353,21 @@ export const useFormBuilder = create<FormBuilderState>()(
       set((state) => {
         state.collaborators = collaborators;
         
-        // Sync activeLocks with the current presence list
-        // This ensures that if a user leaves, their broadcast-originated lock is eventually cleaned up
-        const activeIds = new Set(collaborators.map(c => c.userId));
-        for (const fieldId in state.activeLocks) {
-          if (!activeIds.has(state.activeLocks[fieldId].userId)) {
-             delete state.activeLocks[fieldId];
+        // HARD RECONCILIATION: Rebuild the activeLocks map from scratch using only 
+        // the current session data. This ensures that the Database truth always 
+        // clears out any stale 'ghost' broadcast data.
+        const newLocks: Record<string, { userId: string; name: string; color: string; presenceKey?: string }> = {};
+        for (const c of collaborators) {
+          if (c.selectedFieldId) {
+            newLocks[c.selectedFieldId] = {
+              userId: c.userId,
+              name: c.name,
+              color: c.color,
+              presenceKey: c.presenceKey
+            };
           }
         }
+        state.activeLocks = newLocks;
       });
     },
 
@@ -397,9 +408,14 @@ export const useFormBuilder = create<FormBuilderState>()(
       set((state) => {
         if (state.form) {
           Object.assign(state.form, changes);
-          // Deliberately NOT setting isDirty
         }
       });
     },
+
+    setForceSync: (fn) => {
+      set((state) => {
+         state.forceSync = fn;
+      });
+    },
   }))
-);
+)

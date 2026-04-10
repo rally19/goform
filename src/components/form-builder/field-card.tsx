@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useFormBuilder } from "@/hooks/use-form-builder";
 import type { BuilderField } from "@/lib/form-types";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,7 @@ import {
   Type, AlignLeft, Hash, Mail, Phone, Link2, Calendar, Clock,
   CircleDot, CheckSquare, ChevronDown, ListChecks,
   SlidersHorizontal, Heading, Columns2, Upload, CalendarClock,
-  Lock,
+  Lock, RefreshCw,
 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -40,7 +41,8 @@ export function FieldCard({
   isOverlay = false,
   currentUserId,
 }: FieldCardProps) {
-  const { selectField, removeField, duplicateField, activeLocks, collaborators, form } = useFormBuilder();
+  const { selectField, removeField, duplicateField, activeLocks, collaborators, form, forceSync } = useFormBuilder();
+  const [isSyncing, setIsSyncing] = useState(false); 
   const Icon = FIELD_ICONS[field.type] ?? Type;
   
   const collaborationEnabled = form?.collaborationEnabled ?? false;
@@ -222,16 +224,39 @@ export function FieldCard({
       {/* Locked Overlay */}
       {isLockedByOther && (
         <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] rounded-lg z-10 flex items-center justify-center pointer-events-none">
-          <div 
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-white text-xs font-medium shadow-sm transition-transform"
-            style={{ 
-              backgroundColor: locker?.color ?? "#94a3b8", // Fallback to gray if color not sync'd
-              transform: "scale(1)" 
+          <button 
+            type="button" 
+            onClick={async (e) => {
+              e.stopPropagation();
+              if (!forceSync || isSyncing) return;
+              setIsSyncing(true);
+              try {
+                await forceSync();
+              } finally {
+                // Keep the sync state for a moment to show it happened
+                setTimeout(() => setIsSyncing(false), 800);
+              }
             }}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-white text-xs font-medium shadow-sm transition-all pointer-events-auto hover:scale-105 active:scale-95 group/lock disabled:opacity-70 disabled:cursor-wait"
+            style={{ 
+              backgroundColor: locker?.color ?? "#94a3b8",
+            }}
+            disabled={isSyncing}
           >
-            <Lock className="h-3 w-3" />
-            <span>{locker ? `Locked by ${locker.name}` : "Someone is editing"}</span>
-          </div>
+            {isSyncing ? (
+               <RefreshCw className="h-3 w-3 animate-spin" />
+            ) : (
+              <>
+                <Lock className="h-3 w-3 group-hover/lock:hidden" />
+                <RefreshCw className="h-3 w-3 hidden group-hover/lock:block" />
+              </>
+            )}
+            <span>
+              {isSyncing 
+                ? "Cleaning locks..." 
+                : (locker ? `Locked by ${locker.name}` : "Someone is editing")}
+            </span>
+          </button>
         </div>
       )}
 

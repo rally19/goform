@@ -25,3 +25,24 @@ export function mapFormUpdate(newDoc: Record<string, any>): Partial<BuilderForm>
 
   return mapped;
 }
+
+/**
+ * Maps snake_case database columns from the public.form_fields table
+ * back to the camelCase BuilderField interface.
+ */
+export function mapFieldUpdate(newDoc: Record<string, any>): any {
+  const mapped: any = {
+    id: newDoc.id,
+    label: newDoc.label ?? "Untitled Question",
+    type: newDoc.type,
+    required: !!newDoc.required,
+    placeholder: newDoc.placeholder ?? undefined,
+    description: newDoc.description ?? undefined,
+    order: newDoc.order_index ?? newDoc.order ?? 0,
+    properties: newDoc.properties ?? {},
+    options: newDoc.options ?? [],
+    locked_by: newDoc.locked_by ?? undefined
+  };
+
+  return mapped;
+}
