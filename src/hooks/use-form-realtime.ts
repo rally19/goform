@@ -4,6 +4,7 @@ import { useEffect, useRef, useCallback, useState } from "react";
 import { createClient } from "@/lib/client";
 import { useFormBuilder, type CollaboratorInfo } from "./use-form-builder";
 import type { BuilderField, BuilderForm } from "@/lib/form-types";
+import { mapFormUpdate } from "./use-form-realtime-utils";
 import {
   pingActiveSession,
   removeActiveSession,
@@ -101,11 +102,9 @@ export function useFormRealtime({
       // Toggle Authority exists and is active in the session
       setIsSecondary(currentUser.id !== lastToggledBy);
     } else {
-      // Fallback to Join Order
-      const earlierSessions = mySession 
-        ? allSessions.filter(s => new Date(s.joinedAt) < new Date(mySession.joinedAt))
-        : [];
-      setIsSecondary(earlierSessions.length > 0);
+      // Fallback to strict Join Order (Database sorted by joinedAt then serialId)
+      const primarySession = allSessions[0];
+      setIsSecondary(mySession?.id !== primarySession?.id);
     }
 
     const result: CollaboratorInfo[] = [];

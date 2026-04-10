@@ -9,6 +9,7 @@ import {
   uuid,
   pgEnum,
   index,
+  serial,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -187,6 +188,7 @@ export const activeFormSessions = pgTable(
     selectedFieldIdText: text("selected_field_id_text"), 
     lastPing: timestamp("last_ping").defaultNow().notNull(),
     joinedAt: timestamp("joined_at").defaultNow().notNull(),
+    serialId: serial("serial_id").notNull(),
   },
   (table) => [
     index("active_form_sessions_form_id_idx").on(table.formId),

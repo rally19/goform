@@ -1,8 +1,8 @@
 "use server";
 
 import { db } from "@/db";
-import { formFields, activeFormSessions } from "@/db/schema";
-import { eq, and, lt } from "drizzle-orm";
+import { formFields, activeFormSessions, forms } from "@/db/schema";
+import { eq, and, lt, count } from "drizzle-orm";
 import { createClient } from "@/lib/server";
 
 async function getAuthUser() {
@@ -74,6 +74,19 @@ export async function removeActiveSession(formId: string, presenceKey: string) {
       .set({ lockedBy: null })
       .where(and(eq(formFields.formId, formId), eq(formFields.lockedBy, user.id)));
 
+    // AUTHORITY CLEANUP: If this was the last session, reset the toggler boss in the forms table
+    const remainingResult = await db
+      .select({ value: count() })
+      .from(activeFormSessions)
+      .where(eq(activeFormSessions.formId, formId));
+
+    if (remainingResult[0].value === 0) {
+      await db
+        .update(forms)
+        .set({ lastToggledBy: null })
+        .where(eq(forms.id, formId));
+    }
+
     return { success: true };
   } catch (error) {
     return { success: false };
@@ -128,7 +141,7 @@ export async function getActiveSessions(formId?: string) {
 
     const sessions = await db.query.activeFormSessions.findMany({
       where: filters.length > 0 ? and(...filters) : undefined,
-      orderBy: (table, { asc }) => [asc(table.joinedAt)],
+      orderBy: (table, { asc }) => [asc(table.joinedAt), asc(table.serialId)],
     });
     
     return { success: true, data: sessions };
