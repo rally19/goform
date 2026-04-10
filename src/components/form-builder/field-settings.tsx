@@ -17,7 +17,13 @@ import {
 } from "lucide-react";
 import { getInitials } from "@/hooks/use-form-realtime";
 
-export function FieldSettings({ currentUserId }: { currentUserId: string }) {
+export function FieldSettings({ 
+  currentUserId,
+  onMobileClose 
+}: { 
+  currentUserId: string;
+  onMobileClose?: () => void;
+}) {
   const {
     fields,
     selectedFieldId,
@@ -79,7 +85,15 @@ export function FieldSettings({ currentUserId }: { currentUserId: string }) {
             {field.type.replace(/_/g, " ")}
           </Badge>
         </div>
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => selectField(null)}>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-6 w-6" 
+          onClick={() => {
+            selectField(null);
+            onMobileClose?.();
+          }}
+        >
           <X className="h-3.5 w-3.5" />
         </Button>
       </div>

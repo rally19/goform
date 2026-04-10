@@ -294,7 +294,7 @@ function useDashboardRealtime(onFormUpdate: (id: string, changes: Partial<FormRo
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "forms" },
-        (payload) => {
+        (payload: any) => {
           const newDoc = payload.new as Record<string, any>;
           const changes: Partial<FormRow> = {};
           if ("title" in newDoc) changes.title = newDoc.title;
@@ -324,6 +324,7 @@ export function FormsListClient({
   initialForms: FormRow[], 
   targetWorkspaces: WorkspaceRow[] 
 }) {
+  const router = useRouter();
   const [forms, setForms] = useState<FormRow[]>(initialForms);
 
   const handleRemoteFormUpdate = useCallback((id: string, changes: Partial<FormRow>) => {

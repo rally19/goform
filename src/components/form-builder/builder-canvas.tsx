@@ -143,7 +143,7 @@ export function BuilderCanvas({
     import("@/lib/client").then(({ createClient }) => {
       createClient()
         .auth.getUser()
-        .then(({ data }) => {
+        .then(({ data }: any) => {
           if (data.user) {
             setCurrentUserMeta({
               id: data.user.id,
@@ -185,7 +185,7 @@ export function BuilderCanvas({
   }, [activeId, selectedFieldId, trackMyPresence]);
 
   const handleSave = useCallback(async () => {
-    if (!form || isSaving) return;
+    if (!form || isSaving) return false;
     setSaving(true);
     try {
       const [metaResult, fieldsResult] = await Promise.all([
@@ -198,9 +198,11 @@ export function BuilderCanvas({
       if (!collaborationEnabled) toast.success("Form saved!");
       setJustSaved(true);
       setTimeout(() => setJustSaved(false), 2000);
+      return true;
     } catch (err) {
       toast.error("Failed to save: " + (err as Error).message);
       setSaving(false);
+      return false;
     }
   }, [form, fields, formId, isSaving, collaborationEnabled, setSaving, markSaved]);
 
@@ -217,21 +219,33 @@ export function BuilderCanvas({
   }, [form, formId, updateFormMeta]);
 
   const handleCollabToggle = useCallback(async (enabled: boolean) => {
-    if (!canManageCollab) return;
+    if (!canManageCollab || !form) return;
+
+    // GUARD: If currently saving or dirty, wait for a clean state first
+    if (isSaving || isDirty) {
+      toast.info(enabled ? "Saving changes before enabling collaboration..." : "Saving changes before disabling collaboration...");
+      // Trigger a save if dirty (if already saving, handleSave returns false but we can just wait)
+      const saveSuccess = await handleSave();
+      if (!saveSuccess && isDirty) {
+        toast.error("Could not toggle collaboration because saving failed. Please try again.");
+        return;
+      }
+    }
+
     updateFormMeta({ collaborationEnabled: enabled });
 
     if (!enabled) {
       broadcastKick();
     }
 
-    const result = await updateForm(formId, { ...form!, collaborationEnabled: enabled });
+    const result = await updateForm(formId, { ...form, collaborationEnabled: enabled });
     if (!result.success) {
       toast.error("Failed to update collaboration setting");
       updateFormMeta({ collaborationEnabled: !enabled });
     } else {
       toast.success(enabled ? "Collaboration mode enabled" : "Collaboration mode disabled");
     }
-  }, [canManageCollab, form, formId, updateFormMeta, broadcastKick]);
+  }, [canManageCollab, form, formId, updateFormMeta, broadcastKick, isSaving, isDirty, handleSave]);
 
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
