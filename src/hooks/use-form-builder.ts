@@ -42,6 +42,10 @@ interface FormBuilderState {
   isDragging: boolean;
   // Origin filtering - was the last change made locally?
   lastChangeLocal: boolean;
+  
+  // Toggling state (Synchronized across peers)
+  togglingDirection: "on" | "off" | null;
+  toggleStatus: string;
 
   // ─── Collaboration ──────────────────────────────────────────────────────────
   /** Other connected collaborators (not current user) */
@@ -80,6 +84,10 @@ interface FormBuilderState {
   reorderOptions: (fieldId: string, fromIndex: number, toIndex: number) => void;
   // Set collab toggling guard
   setIsCollabToggling: (val: boolean) => void;
+  // Set detailed toggle state
+  setCollabToggling: (direction: "on" | "off" | null, status: string) => void;
+  // Clear toggle state
+  clearCollabToggling: () => void;
   // Set drag state
   setIsDragging: (val: boolean) => void;
 
@@ -108,6 +116,8 @@ export const useFormBuilder = create<FormBuilderState>()(
     collaborators: [],
     activeLocks: {},
     isCollabToggling: false,
+    togglingDirection: null,
+    toggleStatus: "",
     isDragging: false,
     lastChangeLocal: false,
 
@@ -291,6 +301,22 @@ export const useFormBuilder = create<FormBuilderState>()(
     setIsCollabToggling: (val) => {
       set((state) => {
         state.isCollabToggling = val;
+      });
+    },
+
+    setCollabToggling: (direction, status) => {
+      set((state) => {
+        state.togglingDirection = direction;
+        state.toggleStatus = status;
+        state.isCollabToggling = true;
+      });
+    },
+
+    clearCollabToggling: () => {
+      set((state) => {
+        state.togglingDirection = null;
+        state.toggleStatus = "";
+        state.isCollabToggling = false;
       });
     },
 

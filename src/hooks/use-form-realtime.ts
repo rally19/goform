@@ -311,15 +311,35 @@ export function useFormRealtime({
         applyRemoteUpdateRef.current({ fields: payload.fields, form: payload.form });
       })
       // Broadcast: collab toggle → fast path admission control
-      .on("broadcast", { event: "COLLAB_TOGGLE" }, ({ payload }: { payload: BroadcastPayload }) => {
+      .on("broadcast", { event: "COLLAB_TOGGLE" }, async ({ payload }: { payload: BroadcastPayload }) => {
         if (payload.type !== "COLLAB_TOGGLE") return;
         if (payload.senderId === currentUser.id) return; 
         
-        // Fast-path: Update UI state before DB catches up
-        useFormBuilder.getState().setFormMeta({ collaborationEnabled: payload.enabled });
+        const state = useFormBuilder.getState();
         
-        // Immediate re-validation of admission hierarchy
-        syncSessionsFromDB();
+        // 1. Immediately Deselect any active field locally
+        state.selectField(null);
+        
+        // 2. Start Toggling State UI (Locked for all)
+        state.setCollabToggling(payload.enabled ? "on" : "off", "Saving current state...");
+        
+        // 3. Fast-path: Update metadata
+        state.setFormMeta({ collaborationEnabled: payload.enabled });
+
+        // 4. Shared Settle Phase (Mirror the initiator's flow)
+        await new Promise(resolve => setTimeout(resolve, 800));
+        state.setCollabToggling(payload.enabled ? "on" : "off", "Syncing with peers...");
+        
+        await new Promise(resolve => setTimeout(resolve, 1200));
+        state.setCollabToggling(payload.enabled ? "on" : "off", "Finalizing authority...");
+        
+        // 5. Final authority handshake
+        await syncSessionsFromDB();
+        
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // 6. Clear UI overlay
+        state.clearCollabToggling();
       })
       // Broadcast: selection change (Fast Path)
       .on("broadcast", { event: "SELECTION_CHANGE" }, ({ payload }: { payload: BroadcastPayload }) => {

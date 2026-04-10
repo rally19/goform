@@ -124,15 +124,17 @@ export function BuilderCanvas({
     markSaved,
     updateFormMeta,
     collaborators,
-    setIsCollabToggling,
     setIsDragging,
     lastChangeLocal,
+    isCollabToggling,
+    togglingDirection,
+    toggleStatus,
+    setCollabToggling,
+    clearCollabToggling,
   } = useFormBuilder();
 
   const dndId = useId();
   const [mounted, setMounted] = useState(false);
-  const [toggleStatus, setToggleStatus] = useState<string>("");
-  const [togglingDirection, setTogglingDirection] = useState<"on" | "off" | null>(null);
   const [justSaved, setJustSaved] = useState(false);
 
   const [currentUserMeta, setCurrentUserMeta] = useState<{
@@ -238,10 +240,8 @@ export function BuilderCanvas({
     // 1. Immediately Deselect any active field
     selectField(null);
     
-    // 2. Start Toggling State (shows overlay & locks real-time listener)
-    setTogglingDirection(enabled ? "on" : "off");
-    setToggleStatus("Saving your work...");
-    setIsCollabToggling(true);
+    // 2. Start Toggling State UI (Locked for all)
+    setCollabToggling(enabled ? "on" : "off", "Saving your work...");
 
     try {
       // 3. Instant Broadcast (Fast Path) - Lock everyone else immediately
@@ -253,15 +253,14 @@ export function BuilderCanvas({
         const saveSuccess = await handleSave();
         if (!saveSuccess && isDirty) {
           toast.error("Could not toggle collaboration because saving failed. Please try again.");
-          setIsCollabToggling(false);
-          setTogglingDirection(null);
+          clearCollabToggling();
           return;
         }
       }
 
-      setToggleStatus("Syncing with collaborators...");
+      setCollabToggling(enabled ? "on" : "off", "Syncing with collaborators...");
       // Buffer to let peers receive the broadcast and DB to catch up
-      await new Promise(resolve => setTimeout(resolve, 1200));
+      await new Promise(resolve => setTimeout(resolve, 800));
 
       // 5. Update local state
       updateFormMeta({ collaborationEnabled: enabled });
@@ -273,23 +272,21 @@ export function BuilderCanvas({
         updateFormMeta({ collaborationEnabled: !enabled });
         broadcastCollabToggle(!enabled);
       } else {
-        setToggleStatus("Finalizing authority...");
+        setCollabToggling(enabled ? "on" : "off", "Finalizing authority...");
         // Final authority handshake
         await syncSessionsFromDB();
         
         // Final settle period
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 1200));
         
         toast.success(enabled ? "Collaboration mode enabled" : "Collaboration mode disabled");
       }
     } catch (error) {
        toast.error("An error occurred during collaboration toggle");
     } finally {
-      setIsCollabToggling(false);
-      setTogglingDirection(null);
-      setToggleStatus("");
+      clearCollabToggling();
     }
-  }, [canManageCollab, form, formId, updateFormMeta, broadcastCollabToggle, isSaving, isDirty, handleSave, selectField, setIsCollabToggling, syncSessionsFromDB]);
+  }, [canManageCollab, form, formId, updateFormMeta, broadcastCollabToggle, isSaving, isDirty, handleSave, selectField, setCollabToggling, clearCollabToggling, syncSessionsFromDB]);
 
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
