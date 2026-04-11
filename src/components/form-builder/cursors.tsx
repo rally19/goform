@@ -1,16 +1,6 @@
-"use client";
-
-import { useOthers, useMyPresence } from "@liveblocks/react";
-import { memo, useEffect, useState } from "react";
-
-function Cursor({ color, name, x, y }: { color: string; name: string; x: number; y: number }) {
+export function Cursor({ color, name }: { color: string; name: string }) {
   return (
-    <div
-      className="fixed top-0 left-0 transition-transform duration-75 pointer-events-none z-[9999]"
-      style={{
-        transform: `translateX(${x}px) translateY(${y}px)`,
-      }}
-    >
+    <div className="relative pointer-events-none">
       <svg
         className="relative"
         width="24"
@@ -36,51 +26,12 @@ function Cursor({ color, name, x, y }: { color: string; name: string; x: number;
   );
 }
 
+// Cursors component is now handled locally by CursorArea
 export function Cursors() {
-  const others = useOthers();
-
-  return (
-    <>
-      {others.map(({ connectionId, presence, info }: any) => {
-        if (!presence?.cursor || !info) return null;
-
-        return (
-          <Cursor
-            key={connectionId}
-            color={info.color}
-            name={info.name}
-            x={presence.cursor.x}
-            y={presence.cursor.y}
-          />
-        );
-      })}
-    </>
-  );
+  return null;
 }
 
 export function useCursorTracking() {
-  const [, updateMyPresence] = useMyPresence();
-
-  useEffect(() => {
-    function handleMouseMove(event: MouseEvent) {
-      updateMyPresence({
-        cursor: {
-          x: event.clientX,
-          y: event.clientY,
-        },
-      });
-    }
-
-    function handleMouseLeave() {
-      updateMyPresence({ cursor: null });
-    }
-
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseleave", handleMouseLeave);
-
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseleave", handleMouseLeave);
-    };
-  }, [updateMyPresence]);
+  // Global tracking disabled in favor of Localized CursorArea
+  return null;
 }

@@ -54,7 +54,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Cursors, useCursorTracking } from "./cursors";
+import { CursorArea } from "./cursor-area";
 
 interface BuilderCanvasProps {
   formId: string;
@@ -138,8 +138,7 @@ export function BuilderCanvas({
     initialFields,
   });
 
-  // Track cursors
-  useCursorTracking();
+  // Localized cursor tracking is now handled by CursorArea wrappers
 
   const accentColor = form?.accentColor ?? "#6366f1";
   const [isComponentsOpen, setIsComponentsOpen] = useState(false);
@@ -198,12 +197,10 @@ export function BuilderCanvas({
       onDragEnd={handleDragEnd}
     >
       <div className="flex h-full w-full overflow-hidden bg-muted/30">
-        <Cursors />
-        
         {/* Left Side: Components (Desktop) */}
-        <div className="w-72 shrink-0 hidden md:flex flex-col border-r border-border bg-card overflow-hidden">
+        <CursorArea id="components" className="w-72 shrink-0 hidden md:flex flex-col border-r border-border bg-card overflow-hidden">
           <ComponentPanel />
-        </div>
+        </CursorArea>
 
         {/* Main Canvas Area */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden relative">
@@ -294,53 +291,58 @@ export function BuilderCanvas({
 
           {/* Canvas */}
           <ScrollArea className="flex-1 h-full min-h-0 bg-muted/30">
-            <div className="max-w-2xl mx-auto p-4 md:p-8 space-y-8 pb-32">
-              <FormHeaderEditor 
-                accentColor={accentColor} 
-                title={form?.title}
-                description={form?.description}
-                onUpdate={(changes) => collabUpdateFormMeta(changes)}
-              />
+            <CursorArea id="canvas" className="min-h-full">
+              <div data-cursor-area-root="true" className="max-w-2xl mx-auto p-4 md:p-8 space-y-8 pb-32">
+                <div data-cursor-id="header">
+                  <FormHeaderEditor 
+                    accentColor={accentColor} 
+                    title={form?.title}
+                    description={form?.description}
+                    onUpdate={(changes) => collabUpdateFormMeta(changes)}
+                  />
+                </div>
 
-              <div className="space-y-4">
-                <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-4">
-                    <AnimatePresence>
-                      {fields.map((field) => (
-                        <motion.div
-                          key={field.id}
-                          layout
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                        >
-                          <FieldCard
-                            field={field}
-                            isSelected={selectedFieldId === field.id}
-                            accentColor={accentColor}
-                            currentUserId={currentUserId}
-                            onUpdate={(changes) => collabUpdateField(field.id, changes)}
-                            onRemove={() => collabRemoveField(field.id)}
-                            onDuplicate={() => {
-                              const copy = { ...field, id: crypto.randomUUID(), label: `${field.label} (Copy)`, isNew: true };
-                              const idx = fields.findIndex(f => f.id === field.id);
-                              collabAddField(copy, idx + 1);
-                            }}
-                            others={others}
-                          />
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
-                  </div>
-                </SortableContext>
-                {fields.length === 0 && (
-                  <div className="border-2 border-dashed border-muted-foreground/20 rounded-xl p-12 text-center">
-                    <PlusCircle className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
-                    <p className="text-sm font-medium">Start building your form</p>
-                    <p className="text-xs text-muted-foreground mt-1">Drag components here to begin</p>
-                  </div>
-                )}
+                <div className="space-y-4">
+                  <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-4">
+                      <AnimatePresence>
+                        {fields.map((field) => (
+                          <motion.div
+                            key={field.id}
+                            layout
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            data-cursor-id={field.id}
+                          >
+                            <FieldCard
+                              field={field}
+                              isSelected={selectedFieldId === field.id}
+                              accentColor={accentColor}
+                              currentUserId={currentUserId}
+                              onUpdate={(changes) => collabUpdateField(field.id, changes)}
+                              onRemove={() => collabRemoveField(field.id)}
+                              onDuplicate={() => {
+                                const copy = { ...field, id: crypto.randomUUID(), label: `${field.label} (Copy)`, isNew: true };
+                                const idx = fields.findIndex(f => f.id === field.id);
+                                collabAddField(copy, idx + 1);
+                              }}
+                              others={others}
+                            />
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                    </div>
+                  </SortableContext>
+                  {fields.length === 0 && (
+                    <div className="border-2 border-dashed border-muted-foreground/20 rounded-xl p-12 text-center">
+                      <PlusCircle className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+                      <p className="text-sm font-medium">Start building your form</p>
+                      <p className="text-xs text-muted-foreground mt-1">Drag components here to begin</p>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            </CursorArea>
           </ScrollArea>
 
           {/* Mobile Footer */}
@@ -357,7 +359,7 @@ export function BuilderCanvas({
         </div>
 
         {/* Right Panel */}
-        <div className="w-80 shrink-0 hidden lg:flex flex-col border-l border-border h-full bg-card overflow-hidden">
+        <CursorArea id="settings" className="w-80 shrink-0 hidden lg:flex flex-col border-l border-border h-full bg-card overflow-hidden">
           <FieldSettings 
             currentUserId={currentUserId} 
             field={fields.find(f => f.id === selectedFieldId)}
@@ -395,7 +397,7 @@ export function BuilderCanvas({
             }}
             onMobileClose={() => {}}
           />
-        </div>
+        </CursorArea>
       </div>
 
       {/* Mobile Component Panel */}
