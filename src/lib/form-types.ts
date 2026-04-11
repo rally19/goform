@@ -280,6 +280,8 @@ export interface BuilderField {
   isDirty?: boolean;
   // new flag — needs to be inserted
   isNew?: boolean;
+  // Index signature for Liveblocks compatibility
+  [key: string]: any;
 }
 
 export interface BuilderForm {
@@ -298,6 +300,8 @@ export interface BuilderForm {
   autoSave: boolean;
   collaborationEnabled: boolean;
   lastToggledBy?: string | null;
+  // Index signature for Liveblocks compatibility
+  [key: string]: any;
 }
 
 export type FormAnswer = string | string[] | number | boolean | null;

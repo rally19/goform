@@ -1,5 +1,6 @@
 import { getForm } from "@/lib/actions/forms";
 import { BuilderCanvas } from "@/components/form-builder/builder-canvas";
+import { Room } from "@/components/form-builder/room";
 import type { BuilderField, BuilderForm } from "@/lib/form-types";
 import { redirect } from "next/navigation";
 
@@ -53,12 +54,14 @@ export default async function FormBuilderPage({
     currentUserRole === "owner" || currentUserRole === "administrator";
 
   return (
-    <BuilderCanvas
-      formId={id}
-      initialForm={builderForm}
-      initialFields={builderFields}
-      currentUserId={currentUserId}
-      canManageCollab={canManageCollab}
-    />
+    <Room roomId={id} initialForm={builderForm} initialFields={builderFields}>
+      <BuilderCanvas
+        formId={id}
+        initialForm={builderForm}
+        initialFields={builderFields}
+        currentUserId={currentUserId}
+        canManageCollab={canManageCollab}
+      />
+    </Room>
   );
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import { useFormBuilder } from "@/hooks/use-form-builder";
 import type { BuilderField } from "@/lib/form-types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,11 +9,9 @@ import {
   Type, AlignLeft, Hash, Mail, Phone, Link2, Calendar, Clock,
   CircleDot, CheckSquare, ChevronDown, ListChecks,
   SlidersHorizontal, Heading, Columns2, Upload, CalendarClock,
-  Lock,
 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { getInitials } from "@/hooks/use-form-realtime";
 import { motion, AnimatePresence } from "motion/react";
 
 const FIELD_ICONS: Record<string, React.ElementType> = {
@@ -32,6 +29,10 @@ interface FieldCardProps {
   accentColor?: string;
   isOverlay?: boolean;
   currentUserId: string;
+  onUpdate?: (changes: Partial<BuilderField>) => void;
+  onRemove?: () => void;
+  onDuplicate?: () => void;
+  others?: readonly any[];
 }
 
 export function FieldCard({ 
@@ -40,16 +41,19 @@ export function FieldCard({
   accentColor = "#6366f1",
   isOverlay = false,
   currentUserId,
+  onUpdate,
+  onRemove,
+  onDuplicate,
+  others = [],
 }: FieldCardProps) {
-  const { selectField, removeField, duplicateField, activeLocks, collaborators, form } = useFormBuilder();
   const Icon = FIELD_ICONS[field.type] ?? Type;
   
-  const collaborationEnabled = form?.collaborationEnabled ?? false;
+  // Find if anyone else is editing or dragging this field
+  const editor = others.find(o => o.presence?.selectedFieldId === field.id);
+  const dragger = others.find(o => o.presence?.draggingFieldId === field.id);
   
-  // BROADCAST SOVEREIGNTY: Visual locks are 100% driven by real-time broadcasts
-  // to prevent 'Ghost Locks' caused by slow database echos.
-  const locker = collaborationEnabled ? activeLocks[field.id] : undefined;
-  const isLockedByOther = !!locker && locker.userId !== currentUserId;
+  const isBeingEditedByOther = !!editor;
+  const isBeingDraggedByOther = !!dragger;
 
   const {
     attributes,
@@ -57,15 +61,14 @@ export function FieldCard({
     setNodeRef,
     transform,
     transition,
-    isDragging,
-  } = useSortable({ id: field.id, disabled: isOverlay || isLockedByOther });
+    isDragging: isLocalDragging,
+  } = useSortable({ id: field.id, disabled: isOverlay });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition: isOverlay ? "none" : transition,
   };
 
-  // Field preview renderer
   const renderFieldPreview = () => {
     if (field.type === "section") {
       return (
@@ -168,7 +171,6 @@ export function FieldCard({
         </div>
       );
     }
-    // Default: text-like input
     return (
       <div className="h-9 w-full rounded-md border border-input bg-muted/50 px-3 text-sm text-muted-foreground flex items-center pointer-events-none">
         {field.placeholder || "Your answer"}
@@ -176,110 +178,69 @@ export function FieldCard({
     );
   };
 
+  const editorColor = editor?.info?.color;
+  const draggerColor = dragger?.info?.color;
+
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        "group relative rounded-xl border bg-card",
-        !isDragging && !isOverlay && "transition-all duration-300",
-        isLockedByOther
-          ? "cursor-not-allowed"
-          : "cursor-pointer",
-        isSelected || isOverlay
-          ? "shadow-md"
-          : !isLockedByOther && "border-border hover:border-muted-foreground/30 hover:shadow-sm",
-        isDragging ? "opacity-0" : "opacity-100",
-        isOverlay && "z-50 cursor-grabbing shadow-xl border-primary/50"
+        "group relative rounded-xl border bg-card transition-all duration-300",
+        isLocalDragging ? "opacity-0" : "opacity-100",
+        isOverlay && "z-50 cursor-grabbing shadow-xl border-primary/50",
+        isBeingEditedByOther && "ring-2 ring-offset-2",
+        isBeingDraggedByOther && "opacity-50 scale-[0.98] border-dashed shadow-sm"
       )}
       style={{
         ...style,
-        ...((isSelected || isOverlay) && !isLockedByOther ? {
-          borderColor: accentColor,
-          boxShadow: isOverlay 
-            ? `0 10px 30px -10px ${accentColor}40` 
-            : `0 0 0 4px ${accentColor}10, 0 4px 20px -4px ${accentColor}25`,
-          backgroundColor: isOverlay ? "var(--card)" : `${accentColor}05`,
-        } : {}),
-        ...(isLockedByOther ? {
-          borderColor: locker?.color,
-          boxShadow: `0 0 0 2px ${locker?.color}30`,
-          backgroundColor: `${locker?.color}05`,
-        } : {}),
-      }}
-      onClick={(e) => {
-        if (isOverlay || isLockedByOther) return;
-        e.stopPropagation();
-        selectField(field.id);
+        borderColor: isBeingDraggedByOther 
+          ? draggerColor 
+          : isBeingEditedByOther 
+            ? editorColor 
+            : isSelected || isOverlay 
+              ? accentColor 
+              : undefined,
+        boxShadow: isSelected || isOverlay 
+          ? `0 0 0 4px ${accentColor}10, 0 4px 20px -4px ${accentColor}25` 
+          : undefined,
+        backgroundColor: isSelected && !isOverlay ? `${accentColor}05` : undefined,
+        ...(isBeingEditedByOther ? { ringColor: editorColor } : {}),
       }}
     >
-      {/* Left accent bar */}
-      {isSelected && !isLockedByOther && (
-        <div
-          className="absolute left-1.5 top-3 bottom-3 w-1.5 rounded-full"
-          style={{ backgroundColor: accentColor }}
-        />
-      )}
-
-      {/* Locked Overlay */}
+      {/* Collaborator Presence Glow/Indicator */}
       <AnimatePresence>
-        {isLockedByOther && (
-          <motion.div 
+        {isBeingDraggedByOther && (
+           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-background/40 backdrop-blur-[1px] rounded-lg z-10 flex items-center justify-center pointer-events-none"
+            className="absolute -top-6 left-0 px-2 py-0.5 rounded-t-md text-[10px] font-bold text-white shadow-sm flex items-center gap-1.5"
+            style={{ backgroundColor: draggerColor }}
           >
-            <motion.div 
-              initial={{ scale: 0.8, y: 10 }}
-              animate={{ scale: 1, y: 0 }}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full text-white text-xs font-semibold shadow-lg shadow-black/20 transition-transform"
-              style={{ 
-                backgroundColor: locker?.color ?? "#94a3b8",
-              }}
-            >
-              <div className="relative">
-                <Lock className="h-3 w-3" />
-                <motion.div 
-                  className="absolute inset-0 rounded-full bg-white/50"
-                  animate={{ scale: [1, 1.8], opacity: [0.5, 0] }}
-                  transition={{ repeat: Infinity, duration: 1.5, ease: "easeOut" }}
-                />
-              </div>
-              <span className="truncate max-w-[150px]">
-                {locker ? `Locked by ${locker.name}` : "Someone is editing"}
-              </span>
-            </motion.div>
+            <GripVertical className="h-3 w-3 animate-bounce" />
+            {dragger.info.name} is moving this
+          </motion.div>
+        )}
+        {isBeingEditedByOther && !isBeingDraggedByOther && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute -top-6 left-0 px-2 py-0.5 rounded-t-md text-[10px] font-bold text-white shadow-sm flex items-center gap-1.5"
+            style={{ backgroundColor: editorColor }}
+          >
+            <div className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+            {editor.info.name} is editing
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Drag overlay matching exactly */}
-      {isOverlay && (
-        <div 
-          className="absolute inset-0 border-2 rounded-lg pointer-events-none z-20"
-          style={{ borderColor: accentColor }}
-        />
-      )}
-      
-      {/* Outer Lock Border */}
-      {isLockedByOther && (
-        <div 
-          className="absolute inset-0 border-2 rounded-lg pointer-events-none z-20"
-          style={{ borderColor: locker?.color ?? "#94a3b8" }}
-        />
-      )}
 
       <div className="flex items-start gap-2 md:gap-3 p-3 md:p-4">
         {/* Drag handle */}
         <div
           {...attributes}
-          {...(isLockedByOther ? {} : listeners)}
-          className={cn(
-            "pt-0.5 outline-none touch-none shrink-0",
-            isLockedByOther
-              ? "text-muted-foreground/30 cursor-not-allowed"
-              : "cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
-          )}
+          {...listeners}
+          className="pt-0.5 outline-none touch-none shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
           onClick={(e) => e.stopPropagation()}
         >
           <GripVertical className="h-4 w-4" />
@@ -287,7 +248,6 @@ export function FieldCard({
 
         {/* Content */}
         <div className="flex-1 min-w-0 space-y-3">
-          {/* Question label row */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <div className="flex items-center gap-1.5 min-w-0 flex-1">
               <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
@@ -305,78 +265,74 @@ export function FieldCard({
             </div>
           </div>
 
-          {/* Field description */}
           {field.description && (
-            <p className="text-xs text-muted-foreground -mt-1">{field.description}</p>
+            <p className="text-xs text-muted-foreground -mt-1 text-balance">{field.description}</p>
           )}
 
-          {/* Preview */}
           {renderFieldPreview()}
         </div>
 
-        {/* Actions - only shown when not locked by another user */}
-        {!isLockedByOther && (
-          <motion.div
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ 
-              opacity: isSelected ? 1 : 0, 
-              x: isSelected ? 0 : 10,
-            }}
-            whileHover={{ opacity: 1, x: 0 }}
-            className={cn(
-              "md:flex flex-col gap-0.5 transition-opacity shrink-0",
-              "hidden md:group-hover:opacity-100"
-            )}
-            onClick={(e) => e.stopPropagation()}
+        {/* Actions */}
+        <motion.div
+          initial={{ opacity: 0, x: 10 }}
+          animate={{ 
+            opacity: isSelected ? 1 : 0, 
+            x: isSelected ? 0 : 10,
+          }}
+          whileHover={{ opacity: 1, x: 0 }}
+          className={cn(
+            "md:flex flex-col gap-0.5 transition-opacity shrink-0",
+            "hidden md:group-hover:opacity-100"
+          )}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={onDuplicate}
+            title="Duplicate"
           >
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={() => duplicateField(field.id)}
-              title="Duplicate"
-            >
-              <Copy className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={() => removeField(field.id)}
-              title="Delete"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          </motion.div>
-        )}
+            <Copy className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={onRemove}
+            title="Delete"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </motion.div>
       </div>
 
-        {/* Mobile Actions Bottom Row */}
-        {isSelected && !isLockedByOther && (
-          <div 
-            className="flex md:hidden items-center justify-end gap-2 px-3 pb-3 border-t border-border/50 pt-2 mx-1"
-            onClick={(e) => e.stopPropagation()}
+      {/* Mobile Actions */}
+      {isSelected && (
+        <div 
+          className="flex md:hidden items-center justify-end gap-2 px-3 pb-3 border-t border-border/50 pt-2 mx-1"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1.5 text-xs font-medium"
+            onClick={onDuplicate}
           >
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 gap-1.5 text-xs font-medium"
-              onClick={() => duplicateField(field.id)}
-            >
-              <Copy className="h-3.5 w-3.5" />
-              Duplicate
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 gap-1.5 text-xs font-medium text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={() => removeField(field.id)}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Delete
-            </Button>
-          </div>
-        )}
+            <Copy className="h-3.5 w-3.5" />
+            Duplicate
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1.5 text-xs font-medium text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={onRemove}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

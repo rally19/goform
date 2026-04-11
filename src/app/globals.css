@@ -154,4 +154,11 @@
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
   }
+
+  /* Hide Liveblocks Branding */
+  a[href*="liveblocks.io/badge"],
+  a[href*="lblcks.io/badge"],
+  #liveblocks-badge-hide-button {
+    display: none !important;
+  }
 }

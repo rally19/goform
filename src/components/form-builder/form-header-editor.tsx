@@ -1,18 +1,21 @@
 "use client";
 
 import { useFormBuilder } from "@/hooks/use-form-builder";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 
 interface FormHeaderEditorProps {
   accentColor?: string;
+  title?: string;
+  description?: string;
+  onUpdate?: (changes: { title?: string; description?: string }) => void;
 }
 
-export function FormHeaderEditor({ accentColor = "#6366f1" }: FormHeaderEditorProps) {
-  const { form, updateFormMeta, selectField } = useFormBuilder();
-
-  if (!form) return null;
+export function FormHeaderEditor({ 
+  accentColor = "#6366f1",
+  title = "Untitled Form",
+  description = "",
+  onUpdate
+}: FormHeaderEditorProps) {
+  const { selectField } = useFormBuilder();
 
   return (
     <div
@@ -25,15 +28,15 @@ export function FormHeaderEditor({ accentColor = "#6366f1" }: FormHeaderEditorPr
       <div className="p-4 md:p-8 space-y-3">
         <input
           type="text"
-          value={form.title}
-          onChange={(e) => updateFormMeta({ title: e.target.value })}
+          value={title}
+          onChange={(e) => onUpdate?.({ title: e.target.value })}
           className="w-full text-xl sm:text-2xl md:text-3xl font-bold bg-transparent border-0 outline-none focus:bg-muted/30 transition-colors rounded px-1 -mx-1 text-foreground placeholder:text-muted-foreground/40"
           placeholder="Untitled Form"
           onClick={(e) => e.stopPropagation()}
         />
         <textarea
-          value={form.description ?? ""}
-          onChange={(e) => updateFormMeta({ description: e.target.value })}
+          value={description}
+          onChange={(e) => onUpdate?.({ description: e.target.value })}
           className="w-full text-sm text-muted-foreground bg-transparent border-0 outline-none focus:bg-muted/30 transition-colors rounded px-1 -mx-1 resize-none placeholder:text-muted-foreground/30"
           placeholder="Form description (optional)"
           rows={2}

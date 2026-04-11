@@ -3,12 +3,14 @@
 import { useState, useMemo } from "react";
 import { useFormBuilder } from "@/hooks/use-form-builder";
 import { FIELD_TYPE_META, FIELD_CATEGORIES } from "@/lib/form-types";
-import type { FieldType, FieldCategory, FieldTypeMeta } from "@/lib/form-types";
+import type { FieldType, FieldCategory, FieldTypeMeta, BuilderField } from "@/lib/form-types";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { useMutation } from "@liveblocks/react";
+import { LiveObject } from "@liveblocks/client";
 import {
   Type, AlignLeft, Hash, Mail, Phone, Link, Calendar, Clock,
   CalendarClock, CircleDot, CheckSquare, ChevronDown, ListChecks,
@@ -34,7 +36,25 @@ const CATEGORY_COLORS: Record<FieldCategory, string> = {
 };
 
 function DraggableSidebarItem({ item }: { item: FieldTypeMeta }) {
-  const { addField } = useFormBuilder();
+  const { selectField } = useFormBuilder();
+  const addField = useMutation(({ storage }, type: FieldType) => {
+    const list = storage.get("fields");
+    const newField: BuilderField = {
+      id: crypto.randomUUID(),
+      type,
+      label: item.label,
+      description: "",
+      placeholder: "",
+      required: false,
+      orderIndex: list.length,
+      isNew: true,
+      options: item.defaultOptions ? [...item.defaultOptions] : undefined,
+      properties: item.defaultProperties ? { ...item.defaultProperties } : undefined,
+    };
+    list.push(new LiveObject(newField));
+    selectField(newField.id);
+  }, [item]);
+
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `new:${item.type}`,
     data: {

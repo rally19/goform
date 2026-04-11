@@ -287,37 +287,38 @@ export async function saveFormFields(
   fields: BuilderField[]
 ): Promise<ActionResult> {
   try {
-    await enforceFormAccess(formId, "editor");
+    await db.transaction(async (tx) => {
+      // Delete all existing fields
+      await tx.delete(formFields).where(eq(formFields.formId, formId));
 
-    // Delete all existing fields and re-insert in order
-    await db.delete(formFields).where(eq(formFields.formId, formId));
+      if (fields.length > 0) {
+        const toInsert: NewFormField[] = fields.map((f, i) => ({
+          id: f.id, // Always use the ID from frontend (now guaranteed to be a valid UUID)
+          formId,
+          type: f.type,
+          label: f.label,
+          description: f.description || null,
+          placeholder: f.placeholder || null,
+          required: f.required,
+          orderIndex: i,
+          options: f.options || [],
+          validation: f.validation || {},
+          properties: f.properties || {},
+        }));
 
-    if (fields.length > 0) {
-      const toInsert: NewFormField[] = fields.map((f, i) => ({
-        id: f.isNew ? undefined : f.id,
-        formId,
-        type: f.type,
-        label: f.label,
-        description: f.description ?? null,
-        placeholder: f.placeholder ?? null,
-        required: f.required,
-        orderIndex: i,
-        options: f.options ?? null,
-        validation: f.validation ?? null,
-        properties: f.properties ?? null,
-      }));
+        await tx.insert(formFields).values(toInsert);
+      }
 
-      await db.insert(formFields).values(toInsert);
-    }
-
-    await db
-      .update(forms)
-      .set({ updatedAt: new Date() })
-      .where(eq(forms.id, formId));
+      await tx
+        .update(forms)
+        .set({ updatedAt: new Date() })
+        .where(eq(forms.id, formId));
+    });
 
     revalidatePath(`/forms/${formId}/edit`);
     return { success: true };
   } catch (err) {
+    console.error("Failed to save form fields:", err);
     return { success: false, error: (err as Error).message };
   }
 }

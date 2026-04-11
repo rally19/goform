@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useCallback, useRef, useState, useId } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useCallback, useState } from "react";
 import { useFormBuilder } from "@/hooks/use-form-builder";
-import { useFormRealtime, getInitials } from "@/hooks/use-form-realtime";
+import { useFormCollaboration } from "@/hooks/use-form-collaboration";
 import { FieldCard } from "./field-card";
 import { FormHeaderEditor } from "./form-header-editor";
 import { ComponentPanel } from "./component-panel";
@@ -11,10 +10,9 @@ import { FieldSettings } from "./field-settings";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import type { BuilderField, BuilderForm, FieldType } from "@/lib/form-types";
-import { saveFormFields, updateForm, setFormStatus } from "@/lib/actions/forms";
+import type { BuilderField, BuilderForm } from "@/lib/form-types";
+import { setFormStatus } from "@/lib/actions/forms";
 import { toast } from "sonner";
 import {
   DndContext,
@@ -33,12 +31,11 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import {
-  Save, Loader2, PlusCircle, Globe, Settings2, Palette, Check,
-  Wifi, WifiOff, CheckCheck, ShieldAlert, ShieldCheck, Plus,
+  PlusCircle, Globe, Settings2, Palette, Check,
+  Link as LinkIcon, Plus, Loader2, CheckCheck
 } from "lucide-react";
-import Link from "next/link";
 import { ACCENT_COLORS } from "@/lib/form-types";
-import { motion, AnimatePresence, LayoutGroup } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   Sheet,
   SheetContent,
@@ -57,6 +54,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Cursors, useCursorTracking } from "./cursors";
 
 interface BuilderCanvasProps {
   formId: string;
@@ -66,35 +64,43 @@ interface BuilderCanvasProps {
   canManageCollab: boolean;
 }
 
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
 // ─── Collaborator avatar stack ─────────────────────────────────────────────────
-function CollaboratorAvatars() {
-  const { collaborators } = useFormBuilder();
-  if (collaborators.length === 0) return null;
+function CollaboratorAvatars({ others }: { others: readonly any[] }) {
+  if (others.length === 0) return null;
 
   return (
     <TooltipProvider delayDuration={200}>
       <div className="flex items-center -space-x-2">
-        {collaborators.slice(0, 4).map((c) => (
-          <Tooltip key={c.presenceKey}>
+        {others.slice(0, 4).map(({ connectionId, info, presence }) => (
+          <Tooltip key={connectionId}>
             <TooltipTrigger asChild>
               <div
                 className="h-7 w-7 rounded-full border-2 border-card flex items-center justify-center text-[10px] font-bold text-white shrink-0 cursor-default"
-                style={{ backgroundColor: c.color }}
+                style={{ backgroundColor: info?.color ?? "#ccc" }}
               >
-                {getInitials(c.name)}
+                {getInitials(info?.name ?? "U")}
               </div>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">
-              {c.name}
-              {c.selectedFieldId && (
+              {info?.name}
+              {presence?.selectedFieldId && (
                 <span className="text-muted-foreground ml-1">(editing)</span>
               )}
             </TooltipContent>
           </Tooltip>
         ))}
-        {collaborators.length > 4 && (
+        {others.length > 4 && (
           <div className="h-7 w-7 rounded-full border-2 border-card bg-muted flex items-center justify-center text-[10px] font-semibold text-muted-foreground">
-            +{collaborators.length - 4}
+            +{others.length - 4}
           </div>
         )}
       </div>
@@ -109,552 +115,338 @@ export function BuilderCanvas({
   currentUserId,
   canManageCollab,
 }: BuilderCanvasProps) {
-  const router = useRouter();
   const {
-    form,
-    fields,
     selectedFieldId,
-    isDirty,
-    isSaving,
-    initialize,
-    reorderFields,
-    addField,
-    removeField,
     selectField,
-    setSaving,
-    markSaved,
-    updateFormMeta,
-    collaborators,
     setIsDragging,
-    lastChangeLocal,
-    isCollabToggling,
-    togglingDirection,
-    toggleStatus,
-    setCollabToggling,
-    clearCollabToggling,
   } = useFormBuilder();
 
-  const dndId = useId();
-  const [mounted, setMounted] = useState(false);
-  const [justSaved, setJustSaved] = useState(false);
-
-  const [currentUserMeta, setCurrentUserMeta] = useState<{
-    id: string;
-    name: string;
-    email: string;
-  }>({ id: currentUserId, name: "User", email: "" });
-
-  useEffect(() => {
-    initialize(initialForm, initialFields);
-    setMounted(true);
-
-    import("@/lib/client").then(({ createClient }) => {
-      createClient()
-        .auth.getUser()
-        .then(({ data }: any) => {
-          if (data.user) {
-            setCurrentUserMeta({
-              id: data.user.id,
-              name:
-                data.user.user_metadata?.full_name ??
-                data.user.email?.split("@")[0] ??
-                "User",
-              email: data.user.email ?? "",
-            });
-          }
-        });
-    });
-  }, []);
-
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [activeData, setActiveData] = useState<Record<string, unknown> | null>(null);
-  const [isComponentsOpen, setIsComponentsOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-
-  const collaborationEnabled = form?.collaborationEnabled ?? false;
-
+  // ─── Liveblocks Engine ────────────────────────────────────────────────────
   const {
-    trackMyPresence,
-    myColor,
-    broadcastState,
-    broadcastKick,
-    isSecondary: isSecondaryRealtime,
-    isReady,
-    syncSessionsFromDB,
-    broadcastCollabToggle,
-  } = useFormRealtime({
+    fields,
+    form,
+    others,
+    self,
+    addField: collabAddField,
+    removeField: collabRemoveField,
+    updateField: collabUpdateField,
+    reorderFields: collabReorderFields,
+    updateFormMeta: collabUpdateFormMeta,
+  } = useFormCollaboration({
     formId,
-    broadcastEnabled: collaborationEnabled,
-    currentUser: currentUserMeta,
-    onKicked: useCallback(() => {}, []),
+    initialForm,
+    initialFields,
   });
 
-  const isAdmissionLocked = !collaborationEnabled && isSecondaryRealtime;
-  const activeLocker = collaborators[0];
+  // Track cursors
+  useCursorTracking();
 
-  useEffect(() => {
-    if (!activeId) {
-      trackMyPresence({ selectedFieldId });
-    } else {
-      const dragFieldId = activeId.startsWith("new:") ? null : activeId;
-      trackMyPresence({ selectedFieldId: dragFieldId });
-    }
-  }, [activeId, selectedFieldId, trackMyPresence]);
-
-  const handleSave = useCallback(async () => {
-    if (!form || isSaving) return false;
-    setSaving(true);
-    try {
-      const [metaResult, fieldsResult] = await Promise.all([
-        updateForm(formId, form),
-        saveFormFields(formId, fields),
-      ]);
-      if (!metaResult.success) throw new Error(metaResult.error);
-      if (!fieldsResult.success) throw new Error(fieldsResult.error);
-      markSaved();
-      if (!collaborationEnabled) toast.success("Form saved!");
-      setJustSaved(true);
-      setTimeout(() => setJustSaved(false), 2000);
-      return true;
-    } catch (err) {
-      toast.error("Failed to save: " + (err as Error).message);
-      setSaving(false);
-      return false;
-    }
-  }, [form, fields, formId, isSaving, collaborationEnabled, setSaving, markSaved]);
-
-  const handlePublish = useCallback(async () => {
-    if (!form) return;
-    const newStatus = form.status === "active" ? "draft" : "active";
-    const result = await setFormStatus(formId, newStatus);
-    if (result.success) {
-      updateFormMeta({ status: newStatus });
-      toast.success(newStatus === "active" ? "Form published!" : "Form unpublished");
-    } else {
-      toast.error(result.error ?? "Failed to update status");
-    }
-  }, [form, formId, updateFormMeta]);
-
-  const handleCollabToggle = useCallback(async (enabled: boolean) => {
-    if (!canManageCollab || !form) return;
-
-    // 1. Immediately Deselect any active field
-    selectField(null);
-    
-    // 2. Start Toggling State UI (Locked for all)
-    setCollabToggling(enabled ? "on" : "off", "Saving your work...");
-
-    try {
-      // 3. Instant Broadcast (Fast Path) - Lock everyone else immediately
-      broadcastCollabToggle(enabled);
-
-      // 4. GUARD: If currently saving or dirty, wait for a clean state first
-      if (isSaving || isDirty) {
-        // Trigger a save if dirty
-        const saveSuccess = await handleSave();
-        if (!saveSuccess && isDirty) {
-          toast.error("Could not toggle collaboration because saving failed. Please try again.");
-          clearCollabToggling();
-          return;
-        }
-      }
-
-      setCollabToggling(enabled ? "on" : "off", "Syncing with collaborators...");
-      // Buffer to let peers receive the broadcast and DB to catch up
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      // 5. Update local state
-      updateFormMeta({ collaborationEnabled: enabled });
-
-      // 6. DB Update
-      const result = await updateForm(formId, { ...form, collaborationEnabled: enabled });
-      if (!result.success) {
-        toast.error("Failed to update collaboration setting");
-        updateFormMeta({ collaborationEnabled: !enabled });
-        broadcastCollabToggle(!enabled);
-      } else {
-        setCollabToggling(enabled ? "on" : "off", "Finalizing authority...");
-        // Final authority handshake
-        await syncSessionsFromDB();
-        
-        // Final settle period
-        await new Promise(resolve => setTimeout(resolve, 1200));
-        
-        toast.success(enabled ? "Collaboration mode enabled" : "Collaboration mode disabled");
-      }
-    } catch (error) {
-       toast.error("An error occurred during collaboration toggle");
-    } finally {
-      clearCollabToggling();
-    }
-  }, [canManageCollab, form, formId, updateFormMeta, broadcastCollabToggle, isSaving, isDirty, handleSave, selectField, setCollabToggling, clearCollabToggling, syncSessionsFromDB]);
-
-  const saveTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(() => {
-    // Only the 'Host' (Boss) is allowed to perform auto-saves to the DB.
-    // Guests only broadcast their changes to the Host via WebSocket.
-    if (!isDirty || isSecondaryRealtime || collaborationEnabled || !form?.autoSave) return;
-    clearTimeout(saveTimeout.current);
-    saveTimeout.current = setTimeout(handleSave, 3000);
-    return () => clearTimeout(saveTimeout.current);
-  }, [isDirty, fields, form, handleSave, collaborationEnabled, isSecondaryRealtime]);
-
-  const collabSaveTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(() => {
-    // ANTI-HURRICANE GUARD: Only broadcast if the change was made locally.
-    if (!isDirty || !collaborationEnabled || !form || !lastChangeLocal) return;
-    
-    broadcastState(fields, form);
-    
-    // Only the 'Host' (Boss) triggers the final DB save.
-    if (isSecondaryRealtime) return;
-
-    clearTimeout(collabSaveTimeout.current);
-    collabSaveTimeout.current = setTimeout(handleSave, 1500);
-    return () => clearTimeout(collabSaveTimeout.current);
-  }, [isDirty, fields, form, collaborationEnabled, broadcastState, handleSave, lastChangeLocal, isSecondaryRealtime]);
+  const accentColor = form?.accentColor ?? "#6366f1";
+  const [isComponentsOpen, setIsComponentsOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 3 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
+    useSensor(MouseSensor, { activationConstraint: { distance: 10 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
   );
 
   const handleDragStart = (event: DragStartEvent) => {
-    setIsDragging(true);
     const { active } = event;
     setActiveId(active.id as string);
-    setActiveData(active.data.current as Record<string, unknown>);
-  };
-
-  const handleDragOver = (event: any) => {};
-  const handleDragCancel = () => {
-    setIsDragging(false);
-    setActiveId(null);
-    setActiveData(null);
+    if (!String(active.id).startsWith("new:")) {
+      selectField(active.id as string);
+    }
+    setIsDragging(true);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
+    setActiveId(null);
     setIsDragging(false);
     const { active, over } = event;
-    setActiveId(null);
-    setActiveData(null);
-
     if (!over) return;
 
-    if (active.id.toString().startsWith("new:")) {
-      const type = active.data.current?.type as FieldType;
-      const overIdx = fields.findIndex((f) => f.id === over.id.toString());
-      addField(type, overIdx >= 0 ? overIdx : undefined);
-      return;
-    }
-
-    if (over.id === "component-panel") {
-      removeField(active.id as string);
-      toast.success("Field removed");
-      return;
-    }
-
-    if (active.id !== over.id) {
-      const fromIdx = fields.findIndex((f) => f.id === active.id);
-      const toIdx = fields.findIndex((f) => f.id === over.id);
-      if (fromIdx >= 0 && toIdx >= 0) reorderFields(fromIdx, toIdx);
+    // Handle reordering
+    if (active.id !== over.id && !String(active.id).startsWith("new:")) {
+      const oldIdx = fields.findIndex((f) => f.id === active.id);
+      const newIdx = fields.findIndex((f) => f.id === over.id);
+      if (oldIdx !== -1 && newIdx !== -1) {
+        collabReorderFields(oldIdx, newIdx);
+      }
     }
   };
 
-  const accentColor = form?.accentColor ?? "#6366f1";
-
-  const renderOverlay = () => {
-    if (!activeId) return null;
-    if (activeId.startsWith("new:")) {
-      const label = activeData?.label as string || "New Field";
-      return (
-        <motion.div 
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="bg-card border-2 border-primary rounded-xl p-4 shadow-2xl w-72 flex items-center gap-3"
-          style={{ borderColor: accentColor }}
-        >
-          <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <PlusCircle className="h-5 w-5 text-primary" />
-          </div>
-          <span className="font-medium text-sm">Adding {label}...</span>
-        </motion.div>
-      );
+  const updateStatus = async (status: "draft" | "active" | "closed") => {
+    const res = await setFormStatus(formId, status);
+    if (res.success) {
+      collabUpdateFormMeta({ status });
+      toast.success(`Form ${status}`);
     }
-    const field = fields.find((f) => f.id === activeId);
-    if (field) {
-      return (
-        <FieldCard
-          field={field}
-          isSelected={selectedFieldId === activeId}
-          accentColor={accentColor}
-          isOverlay
-          currentUserId={currentUserId}
-        />
-      );
-    }
-    return null;
   };
 
-  if (!mounted) return null;
+  const copyLink = () => {
+    const url = `${window.location.origin}/f/${form.slug}`;
+    navigator.clipboard.writeText(url);
+    toast.success("Link copied!");
+  };
 
   return (
     <DndContext
-      id={dndId}
       sensors={sensors}
       collisionDetection={closestCorners}
       onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
-      onDragCancel={handleDragCancel}
     >
-      {!isReady ? (
-        <div className="flex-1 flex flex-col items-center justify-center bg-background/50 backdrop-blur-sm h-full gap-4 animate-in fade-in duration-500">
-          <div className="relative h-16 w-16">
-            <div className="absolute inset-0 border-4 border-primary/20 rounded-full" />
-            <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-            <ShieldCheck className="absolute inset-0 m-auto h-6 w-6 text-primary animate-pulse" />
-          </div>
-          <div className="flex flex-col items-center gap-1">
-            <h3 className="text-sm font-semibold text-foreground">Verifying Session</h3>
-            <p className="text-xs text-muted-foreground">Connecting to real-time engine...</p>
-          </div>
+      <div className="flex h-full w-full overflow-hidden bg-muted/30">
+        <Cursors />
+        
+        {/* Left Side: Components (Desktop) */}
+        <div className="w-72 shrink-0 hidden md:flex flex-col border-r border-border bg-card overflow-hidden">
+          <ComponentPanel />
         </div>
-      ) : (
-        <div className="flex h-full overflow-hidden relative">
-          {/* Left Panel */}
-          <div className="w-56 shrink-0 hidden md:flex flex-col border-r border-border h-full min-h-0 bg-card">
-            <ComponentPanel />
-          </div>
 
-          <Sheet open={isComponentsOpen} onOpenChange={setIsComponentsOpen}>
-            <SheetContent side="left" className="p-0 w-72">
-              <SheetHeader className="sr-only">
-                <SheetTitle>Components</SheetTitle>
-              </SheetHeader>
-              <div className="h-full">
-                <ComponentPanel />
-              </div>
-            </SheetContent>
-          </Sheet>
+        {/* Main Canvas Area */}
+        <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
+          {/* Header */}
+          <header className="h-14 border-b border-border bg-card flex items-center justify-between px-4 shrink-0 z-20">
+            <div className="flex items-center gap-3 min-w-0">
+               <div className="hidden sm:flex items-center gap-1 bg-muted/50 rounded-lg p-1 border border-border">
+                  <div 
+                    className="h-7 w-7 rounded-full border-2 border-background flex items-center justify-center text-[10px] font-bold text-white bg-primary shadow-sm"
+                    style={{ backgroundColor: self?.info?.color }}
+                  >
+                    {getInitials(self?.info?.name ?? "Me")}
+                  </div>
+                  <CollaboratorAvatars others={others as any} />
+               </div>
 
-          {/* Center Area */}
-          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-            {/* Toolbar */}
-            <div className="h-12 border-b border-border bg-card flex items-center justify-between px-2 md:px-4 shrink-0 gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <Badge variant={form?.status === "active" ? "default" : "secondary"}>
-                  {form?.status ?? "draft"}
+              <div className="w-px h-4 bg-border mx-1 hidden sm:block" />
+              
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Badge variant="secondary" className={cn(
+                  "px-2 py-0.5 text-[10px] font-bold uppercase",
+                  form.status === "active" ? "bg-emerald-500/10 text-emerald-600" : "bg-orange-500/10 text-orange-600"
+                )}>
+                  {form.status}
                 </Badge>
-                {collaborationEnabled ? (
-                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    {isSaving ? <Loader2 className="h-3 w-3 animate-spin"/> : <CheckCheck className="h-3 w-3 opacity-50"/>}
-                    <span className="hidden sm:inline">{isSaving ? "Saving..." : "Real-time sync"}</span>
-                  </span>
-                ) : isDirty && (
-                  <span className="text-xs text-muted-foreground">• Unsaved changes</span>
+                <div className="flex flex-col">
+                  <h1 className="text-xs font-semibold truncate max-w-[120px] sm:max-w-[200px] leading-none">
+                    {form.title}
+                  </h1>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1 sm:gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8 gap-1.5 hidden sm:flex">
+                    <Globe className="h-3.5 w-3.5" />
+                    <span>Publish</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => updateStatus("active")} className="gap-2">
+                    <CheckCheck className="h-4 w-4 text-emerald-500" />
+                    Publish Form
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => updateStatus("draft")} className="gap-2">
+                    <Settings2 className="h-4 w-4" />
+                    Back to Draft
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={copyLink} className="gap-2">
+                    <LinkIcon className="h-4 w-4" />
+                    Copy Link
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Button variant="ghost" size="icon" className="h-8 w-8 sm:hidden" onClick={copyLink}>
+                <LinkIcon className="h-4 w-4" />
+              </Button>
+
+              <div className="w-px h-4 bg-border mx-1" />
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Palette className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <div className="p-3 grid grid-cols-4 gap-2">
+                    {ACCENT_COLORS.map((c) => (
+                      <button
+                        key={c.value}
+                        className={cn(
+                          "h-6 w-6 rounded-full border ring-offset-2 transition-all",
+                          accentColor === c.value ? "ring-2 ring-primary" : "hover:scale-110"
+                        )}
+                        style={{ backgroundColor: c.value }}
+                        onClick={() => collabUpdateFormMeta({ accentColor: c.value })}
+                      />
+                    ))}
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </header>
+
+          {/* Canvas */}
+          <ScrollArea className="flex-1 bg-muted/30">
+            <div className="max-w-2xl mx-auto p-4 md:p-8 space-y-8 pb-32">
+              <FormHeaderEditor 
+                accentColor={accentColor} 
+                title={form?.title}
+                description={form?.description}
+                onUpdate={(changes) => collabUpdateFormMeta(changes)}
+              />
+
+              <div className="space-y-4">
+                <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-4">
+                    <AnimatePresence>
+                      {fields.map((field) => (
+                        <motion.div
+                          key={field.id}
+                          layout
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                        >
+                          <FieldCard
+                            field={field}
+                            isSelected={selectedFieldId === field.id}
+                            accentColor={accentColor}
+                            currentUserId={currentUserId}
+                            onUpdate={(changes) => collabUpdateField(field.id, changes)}
+                            onRemove={() => collabRemoveField(field.id)}
+                            onDuplicate={() => {
+                              const copy = { ...field, id: crypto.randomUUID(), label: `${field.label} (Copy)`, isNew: true };
+                              const idx = fields.findIndex(f => f.id === field.id);
+                              collabAddField(copy, idx + 1);
+                            }}
+                            others={others}
+                          />
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                </SortableContext>
+                {fields.length === 0 && (
+                  <div className="border-2 border-dashed border-muted-foreground/20 rounded-xl p-12 text-center">
+                    <PlusCircle className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+                    <p className="text-sm font-medium">Start building your form</p>
+                    <p className="text-xs text-muted-foreground mt-1">Drag components here to begin</p>
+                  </div>
                 )}
               </div>
-
-              <div className="flex items-center gap-1.5 md:gap-3">
-                <div className="flex items-center gap-2 mr-1">
-                   <div className="h-7 w-7 rounded-full border-2 border-background flex items-center justify-center text-[10px] font-bold text-white shrink-0" style={{ backgroundColor: myColor }}>
-                     {getInitials(currentUserMeta.name)}
-                   </div>
-                   <CollaboratorAvatars />
-                </div>
-
-                <TooltipProvider delayDuration={200}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div
-                        className={cn(
-                          "flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors",
-                          canManageCollab ? "hover:bg-muted cursor-pointer" : "opacity-50 cursor-not-allowed"
-                        )}
-                        onClick={() => canManageCollab && handleCollabToggle(!collaborationEnabled)}
-                      >
-                        {collaborationEnabled ? (
-                          <Wifi className="h-3.5 w-3.5 text-emerald-500" />
-                        ) : (
-                          <WifiOff className="h-3.5 w-3.5 text-muted-foreground" />
-                        )}
-                        <span className="text-xs font-medium hidden sm:inline">
-                          {collaborationEnabled ? "Collab ON" : "Collab OFF"}
-                        </span>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="text-xs">
-                       {canManageCollab ? "Toggle real-time collaboration" : "Collaboration mode managed by owner"}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-
-                <div className="w-px h-4 bg-border mx-1 hidden sm:block" />
-
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm" className="h-8 px-2 text-xs gap-1.5" onClick={handlePublish}>
-                    <Globe className="h-3.5 w-3.5" />
-                    <span className="hidden xl:inline">{form?.status === "active" ? "Unpublish" : "Publish"}</span>
-                  </Button>
-
-                  <Button variant="default" size="sm" className="h-8 px-3 text-xs gap-1.5 shadow-sm" onClick={handleSave} disabled={!isDirty || isSaving}>
-                    {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCheck className="h-3.5 w-3.5" />}
-                    <span>{isSaving ? "Saving..." : "Save"}</span>
-                  </Button>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Palette className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48 p-2">
-                      <div className="grid grid-cols-4 gap-2">
-                        {ACCENT_COLORS.map((c) => (
-                          <DropdownMenuItem
-                            key={c.value}
-                            className="relative h-8 w-8 rounded-full cursor-pointer p-0"
-                            style={{ backgroundColor: c.value }}
-                            onSelect={(e) => {
-                              e.preventDefault();
-                              updateFormMeta({ accentColor: c.value });
-                            }}
-                          >
-                            {accentColor === c.value && <Check className="h-4 w-4 text-white" />}
-                          </DropdownMenuItem>
-                        ))}
-                      </div>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
             </div>
+          </ScrollArea>
 
-            {/* Toggling Collaboration Mode Overlay */}
-            {togglingDirection && (
-              <div className="absolute inset-0 z-[100] flex flex-col items-center justify-center backdrop-blur-sm bg-background/30 animate-in fade-in duration-300">
-                <div className="bg-card/95 p-8 rounded-2xl shadow-2xl border border-border/50 flex flex-col items-center gap-4 max-w-sm text-center">
-                  <div className="bg-primary/10 p-3 rounded-full animate-pulse">
-                     <Loader2 className="h-8 w-8 text-primary animate-spin" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold">
-                      {toggleStatus}
-                    </h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Finalizing distributed state...
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Canvas Content */}
-            <ScrollArea className="flex-1 min-h-0 bg-slate-50/50 dark:bg-slate-900/50">
-              <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8 min-h-full" onClick={() => selectField(null)}>
-                <div className="max-w-2xl mx-auto space-y-4">
-                  <FormHeaderEditor accentColor={accentColor} />
-                  <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
-                    <div className="space-y-3 min-h-[100px] relative">
-                      <AnimatePresence initial={false} mode="popLayout">
-                        {fields.map((field) => (
-                          <motion.div
-                            key={field.id}
-                            layout
-                            initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
-                            transition={{ 
-                              type: "spring", 
-                              stiffness: 500, 
-                              damping: 35,
-                              opacity: { duration: 0.2 }
-                            }}
-                          >
-                            <FieldCard
-                              field={field}
-                              isSelected={selectedFieldId === field.id}
-                              accentColor={accentColor}
-                              currentUserId={currentUserId}
-                            />
-                          </motion.div>
-                        ))}
-                      </AnimatePresence>
-                    </div>
-                  </SortableContext>
-                  {fields.length === 0 && (
-                    <div className="border-2 border-dashed border-muted-foreground/20 rounded-xl p-12 text-center">
-                      <PlusCircle className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
-                      <p className="text-sm font-medium">Start building your form</p>
-                      <p className="text-xs text-muted-foreground mt-1">Drag components here to begin</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </ScrollArea>
-
-            {/* Mobile Footer */}
-            <div className="md:hidden h-14 border-t border-border bg-card flex items-center justify-around px-4 shrink-0">
-              <Button variant="ghost" size="sm" className="flex flex-col h-auto pt-1 gap-1" onClick={() => setIsComponentsOpen(true)}>
-                <Plus className="h-5 w-5" />
-                <span className="text-[10px]">Add</span>
-              </Button>
-              <Button variant="ghost" size="sm" className="flex flex-col h-auto pt-1 gap-1" onClick={() => setIsSettingsOpen(true)} disabled={!selectedFieldId}>
-                <Settings2 className="h-5 w-5" />
-                <span className="text-[10px]">Settings</span>
-              </Button>
-            </div>
+          {/* Mobile Footer */}
+          <div className="md:hidden h-14 border-t border-border bg-card flex items-center justify-around px-4 shrink-0">
+            <Button variant="ghost" size="sm" className="flex flex-col h-auto pt-1 gap-1" onClick={() => setIsComponentsOpen(true)}>
+              <Plus className="h-5 w-5" />
+              <span className="text-[10px]">Add</span>
+            </Button>
+            <Button variant="ghost" size="sm" className="flex flex-col h-auto pt-1 gap-1" onClick={() => setIsSettingsOpen(true)} disabled={!selectedFieldId}>
+              <Settings2 className="h-5 w-5" />
+              <span className="text-[10px]">Settings</span>
+            </Button>
           </div>
-
-          {/* Right Panel */}
-          <div className="w-80 shrink-0 hidden lg:flex flex-col border-l border-border h-full bg-card overflow-hidden">
-            <FieldSettings currentUserId={currentUserId} />
-          </div>
-
-          <Sheet open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-            <SheetContent side="right" className="p-0 w-[90%] sm:w-80">
-              <SheetHeader className="sr-only">
-                <SheetTitle>Field Settings</SheetTitle>
-              </SheetHeader>
-              <div className="h-full">
-                <FieldSettings currentUserId={currentUserId} onMobileClose={() => setIsSettingsOpen(false)} />
-              </div>
-            </SheetContent>
-          </Sheet>
-
-          {/* Read-Only Overlay */}
-          {isAdmissionLocked && (
-            <div className="absolute inset-x-0 bottom-0 top-0 z-[60] flex items-center justify-center backdrop-blur-[2px] bg-background/40 animate-in fade-in duration-500">
-              <div className="max-w-md w-full mx-4 bg-card border border-border shadow-2xl rounded-2xl p-8 text-center ring-1 ring-amber-500/10 flex flex-col items-center gap-4 text-pretty">
-                <div className="h-16 w-16 bg-amber-500/10 rounded-full flex items-center justify-center mb-2">
-                  <ShieldAlert className="h-8 w-8 text-amber-500" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-foreground font-heading">Read-Only Mode</h3>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    This form is currently being edited by <span className="font-semibold text-foreground">{activeLocker?.name}</span>. 
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1 text-balance">
-                    Structural editing is restricted to the primary editor. You can still view results and analytics in the other sections.
-                  </p>
-                </div>
-                <div className="flex gap-3 w-full mt-4">
-                  <Button variant="outline" className="flex-1 text-xs h-9" asChild>
-                    <Link href="/forms">Exit Editor</Link>
-                  </Button>
-                  <Button className="flex-1 text-xs h-9" asChild>
-                    <Link href={`/forms/${formId}/results`}>View Results</Link>
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
-      )}
 
-      <DragOverlay dropAnimation={{ sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: "0.4" } } }) }}>
-        {renderOverlay()}
+        {/* Right Panel */}
+        <div className="w-80 shrink-0 hidden lg:flex flex-col border-l border-border h-full bg-card overflow-hidden">
+          <FieldSettings 
+            currentUserId={currentUserId} 
+            field={fields.find(f => f.id === selectedFieldId)}
+            onUpdate={(changes) => selectedFieldId && collabUpdateField(selectedFieldId, changes)}
+            onAddOption={() => {
+              if (selectedFieldId) {
+                const field = fields.find(f => f.id === selectedFieldId);
+                if (field) {
+                  const options = [...(field.options || [])];
+                  const idx = options.length + 1;
+                  options.push({ label: `Option ${idx}`, value: `option_${idx}` });
+                  collabUpdateField(selectedFieldId, { options });
+                }
+              }
+            }}
+            onRemoveOption={(idx) => {
+              if (selectedFieldId) {
+                const field = fields.find(f => f.id === selectedFieldId);
+                if (field?.options) {
+                  const options = [...field.options];
+                  options.splice(idx, 1);
+                  collabUpdateField(selectedFieldId, { options });
+                }
+              }
+            }}
+            onUpdateOption={(idx, label) => {
+              if (selectedFieldId) {
+                const field = fields.find(f => f.id === selectedFieldId);
+                if (field?.options) {
+                  const options = [...field.options];
+                  options[idx] = { ...options[idx], label };
+                  collabUpdateField(selectedFieldId, { options });
+                }
+              }
+            }}
+            onMobileClose={() => {}}
+          />
+        </div>
+      </div>
+
+      {/* Mobile Component Panel */}
+      <Sheet open={isComponentsOpen} onOpenChange={setIsComponentsOpen}>
+        <SheetContent side="left" className="p-0 w-80">
+          <SheetHeader className="p-4 border-b">
+            <SheetTitle>Components</SheetTitle>
+          </SheetHeader>
+          <ComponentPanel />
+        </SheetContent>
+      </Sheet>
+
+      {/* Mobile Settings Panel */}
+      <Sheet open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+        <SheetContent side="right" className="p-0 w-full sm:w-80">
+          <SheetHeader className="p-4 border-b">
+            <SheetTitle>Field Properties</SheetTitle>
+          </SheetHeader>
+          <FieldSettings 
+            currentUserId={currentUserId} 
+            field={fields.find(f => f.id === selectedFieldId)}
+            onUpdate={(changes) => selectedFieldId && collabUpdateField(selectedFieldId, changes)}
+            onAddOption={() => {}}
+            onRemoveOption={() => {}}
+            onUpdateOption={() => {}}
+            onMobileClose={() => setIsSettingsOpen(false)}
+          />
+        </SheetContent>
+      </Sheet>
+
+      <DragOverlay dropAnimation={{
+        sideEffects: defaultDropAnimationSideEffects({
+          styles: {
+            active: {
+              opacity: "0.5",
+            },
+          },
+        }),
+      }}>
+        {activeId && !String(activeId).startsWith("new:") ? (
+          <div className="w-[640px]">
+            <FieldCard
+              field={fields.find(f => f.id === activeId)!}
+              accentColor={accentColor}
+              currentUserId={currentUserId}
+              isSelected
+              isOverlay
+              others={[]}
+            />
+          </div>
+        ) : null}
       </DragOverlay>
     </DndContext>
   );

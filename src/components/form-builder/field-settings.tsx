@@ -1,6 +1,6 @@
 "use client";
 
-import { useFormBuilder } from "@/hooks/use-form-builder";
+import type { BuilderField } from "@/lib/form-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,37 +13,32 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
   GripVertical, Plus, Trash2, X,
-  Settings2, ChevronDown, Lock,
+  Settings2,
 } from "lucide-react";
-import { getInitials } from "@/hooks/use-form-realtime";
-import { motion, AnimatePresence } from "motion/react";
+import { useFormBuilder } from "@/hooks/use-form-builder";
 
-export function FieldSettings({ 
-  currentUserId,
-  onMobileClose 
-}: { 
+interface FieldSettingsProps {
+  field?: BuilderField;
+  onUpdate?: (changes: Partial<BuilderField>) => void;
+  onAddOption?: () => void;
+  onRemoveOption?: (idx: number) => void;
+  onUpdateOption?: (idx: number, label: string) => void;
+  onReorderOptions?: (from: number, to: number) => void;
   currentUserId: string;
   onMobileClose?: () => void;
-}) {
-  const {
-    fields,
-    selectedFieldId,
-    selectField,
-    updateField,
-    addOption,
-    removeOption,
-    updateOption,
-    activeLocks,
-    form,
-  } = useFormBuilder();
+}
 
-  const field = fields.find((f) => f.id === selectedFieldId);
-  const collaborationEnabled = form?.collaborationEnabled ?? false;
-  
-  // BROADCAST SOVEREIGNTY: In collaboration mode, visual locks are 
-  // 100% driven by real-time broadcasts to ensure zero lag.
-  const locker = field && collaborationEnabled ? activeLocks[field.id] : undefined;
-  const isLockedByOther = !!locker && locker.userId !== currentUserId;
+export function FieldSettings({ 
+  field,
+  onUpdate,
+  onAddOption,
+  onRemoveOption,
+  onUpdateOption,
+  onReorderOptions,
+  currentUserId,
+  onMobileClose 
+}: FieldSettingsProps) {
+  const { selectField } = useFormBuilder();
 
   if (!field) {
     return (
@@ -76,7 +71,7 @@ export function FieldSettings({
   return (
     <div className="flex flex-col h-full bg-card min-h-0">
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-border">
+      <div className="flex items-center justify-between p-3 border-b border-border shrink-0">
         <div className="flex items-center gap-2">
           <h3 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
             Properties
@@ -98,58 +93,27 @@ export function FieldSettings({
         </Button>
       </div>
 
-      {/* Lock overlay when another user is editing */}
-      <AnimatePresence>
-        {isLockedByOther && locker && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="mx-3 mt-3 rounded-lg p-3 flex items-center gap-2.5 text-white text-sm font-medium shadow-lg shadow-black/10"
-            style={{ backgroundColor: locker.color }}
-          >
-            <div className="relative shrink-0">
-              <div className="h-7 w-7 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">
-                {getInitials(locker.name)}
-              </div>
-              <motion.div 
-                className="absolute inset-0 rounded-full bg-white/40"
-                animate={{ scale: [1, 1.5], opacity: [0.5, 0] }}
-                transition={{ repeat: Infinity, duration: 2, ease: "easeOut" }}
-              />
-            </div>
-            <div className="min-w-0">
-              <p className="font-semibold truncate">{locker.name}</p>
-              <p className="text-xs opacity-80">is editing this field</p>
-            </div>
-            <Lock className="h-4 w-4 shrink-0 ml-auto" />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <ScrollArea className="flex-1 min-h-0">
-        <div className={cn("p-4 space-y-5", isLockedByOther && "pointer-events-none opacity-50")}>
+        <div className="p-4 space-y-5">
           {/* Basic info */}
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Label</Label>
               <Input
                 value={field.label}
-                onChange={(e) => updateField(field.id, { label: e.target.value })}
+                onChange={(e) => onUpdate?.({ label: e.target.value })}
                 className="h-8 text-sm"
                 placeholder="Question label"
-                disabled={isLockedByOther}
               />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Description (optional)</Label>
               <Textarea
                 value={field.description ?? ""}
-                onChange={(e) => updateField(field.id, { description: e.target.value })}
+                onChange={(e) => onUpdate?.({ description: e.target.value })}
                 className="text-sm resize-none"
                 rows={2}
                 placeholder="Helper text for respondents"
-                disabled={isLockedByOther}
               />
             </div>
             {!isLayout && field.type !== "rating" && field.type !== "scale" && !hasOptions && (
@@ -157,10 +121,9 @@ export function FieldSettings({
                 <Label className="text-xs font-medium">Placeholder</Label>
                 <Input
                   value={field.placeholder ?? ""}
-                  onChange={(e) => updateField(field.id, { placeholder: e.target.value })}
+                  onChange={(e) => onUpdate?.({ placeholder: e.target.value })}
                   className="h-8 text-sm"
                   placeholder="e.g., Enter your answer"
-                  disabled={isLockedByOther}
                 />
               </div>
             )}
@@ -169,16 +132,14 @@ export function FieldSettings({
           {!isLayout && (
             <>
               <Separator />
-              {/* Required toggle */}
-              <div className="flex items-center justify-between rounded-lg border border-border p-3 bg-background">
+              <div className="flex items-center justify-between rounded-lg border border-border p-3 bg-background/50">
                 <div>
                   <p className="text-sm font-medium">Required</p>
-                  <p className="text-xs text-muted-foreground">Respondents must answer this question</p>
+                  <p className="text-xs text-muted-foreground">Force respondents to answer</p>
                 </div>
                 <Switch
                   checked={field.required}
-                  onCheckedChange={(v) => updateField(field.id, { required: v })}
-                  disabled={isLockedByOther}
+                  onCheckedChange={(v) => onUpdate?.({ required: v })}
                 />
               </div>
             </>
@@ -194,31 +155,29 @@ export function FieldSettings({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-6 text-xs"
-                    onClick={() => addOption(field.id)}
-                    disabled={isLockedByOther}
+                    className="h-6 text-xs gap-1"
+                    onClick={() => onAddOption?.()}
                   >
-                    <Plus className="h-3 w-3 mr-1" />
-                    Add
+                    <Plus className="h-3 w-3" />
+                    Add Option
                   </Button>
                 </div>
                 <div className="space-y-1.5">
                   {(field.options ?? []).map((opt, i) => (
                     <div key={i} className="flex items-center gap-1.5">
-                      <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 cursor-grab shrink-0" />
+                      <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
                       <Input
                         value={opt.label}
-                        onChange={(e) => updateOption(field.id, i, e.target.value)}
+                        onChange={(e) => onUpdateOption?.(i, e.target.value)}
                         className="h-7 text-sm flex-1"
                         placeholder={`Option ${i + 1}`}
-                        disabled={isLockedByOther}
                       />
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
-                        onClick={() => removeOption(field.id, i)}
-                        disabled={(field.options?.length ?? 0) <= 1 || isLockedByOther}
+                        onClick={() => onRemoveOption?.(i)}
+                        disabled={(field.options?.length ?? 0) <= 1}
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
@@ -233,21 +192,21 @@ export function FieldSettings({
           {hasRating && (
             <>
               <Separator />
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">
-                  Number of Stars: {field.properties?.stars ?? 5}
-                </Label>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                   <span>Stars</span>
+                   <span className="text-foreground">{field.properties?.stars ?? 5}</span>
+                </div>
                 <Slider
                   min={3}
                   max={10}
                   step={1}
                   value={[field.properties?.stars ?? 5]}
                   onValueChange={([v]) =>
-                    updateField(field.id, {
+                    onUpdate?.({
                       properties: { ...(field.properties ?? {}), stars: v },
                     })
                   }
-                  disabled={isLockedByOther}
                 />
               </div>
             </>
@@ -258,62 +217,59 @@ export function FieldSettings({
             <>
               <Separator />
               <div className="space-y-3">
+                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Scale Range</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Min</Label>
+                    <Label className="text-[10px] text-muted-foreground uppercase">Min</Label>
                     <Input
                       type="number"
                       value={field.properties?.scaleMin ?? 1}
                       onChange={(e) =>
-                        updateField(field.id, {
+                        onUpdate?.({
                           properties: { ...(field.properties ?? {}), scaleMin: Number(e.target.value) },
                         })
                       }
                       className="h-8 text-sm"
-                      disabled={isLockedByOther}
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Max</Label>
+                    <Label className="text-[10px] text-muted-foreground uppercase">Max</Label>
                     <Input
                       type="number"
                       value={field.properties?.scaleMax ?? 10}
                       onChange={(e) =>
-                        updateField(field.id, {
+                        onUpdate?.({
                           properties: { ...(field.properties ?? {}), scaleMax: Number(e.target.value) },
                         })
                       }
                       className="h-8 text-sm"
-                      disabled={isLockedByOther}
                     />
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">Min Label</Label>
+                  <Label className="text-[10px] text-muted-foreground uppercase">Min Label</Label>
                   <Input
                     value={field.properties?.scaleMinLabel ?? ""}
                     onChange={(e) =>
-                      updateField(field.id, {
+                      onUpdate?.({
                         properties: { ...(field.properties ?? {}), scaleMinLabel: e.target.value },
                       })
                     }
                     className="h-8 text-sm"
                     placeholder="e.g., Not likely"
-                    disabled={isLockedByOther}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">Max Label</Label>
+                  <Label className="text-[10px] text-muted-foreground uppercase">Max Label</Label>
                   <Input
                     value={field.properties?.scaleMaxLabel ?? ""}
                     onChange={(e) =>
-                      updateField(field.id, {
+                      onUpdate?.({
                         properties: { ...(field.properties ?? {}), scaleMaxLabel: e.target.value },
                       })
                     }
                     className="h-8 text-sm"
                     placeholder="e.g., Very likely"
-                    disabled={isLockedByOther}
                   />
                 </div>
               </div>
@@ -324,21 +280,21 @@ export function FieldSettings({
           {hasRows && (
             <>
               <Separator />
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">
-                  Rows: {field.properties?.rows ?? 4}
-                </Label>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                   <span>Visible Rows</span>
+                   <span className="text-foreground">{field.properties?.rows ?? 4}</span>
+                </div>
                 <Slider
                   min={2}
                   max={12}
                   step={1}
                   value={[field.properties?.rows ?? 4]}
                   onValueChange={([v]) =>
-                    updateField(field.id, {
+                    onUpdate?.({
                       properties: { ...(field.properties ?? {}), rows: v },
                     })
                   }
-                  disabled={isLockedByOther}
                 />
               </div>
             </>
@@ -349,37 +305,35 @@ export function FieldSettings({
             <>
               <Separator />
               <div className="space-y-3">
-                <Label className="text-xs font-medium uppercase tracking-wider">Validation</Label>
+                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Validation Rules</Label>
                 {(field.type === "short_text" || field.type === "long_text") && (
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">Min Length</Label>
+                      <Label className="text-[10px] text-muted-foreground uppercase">Min Length</Label>
                       <Input
                         type="number"
                         value={field.validation?.minLength ?? ""}
                         onChange={(e) =>
-                          updateField(field.id, {
+                          onUpdate?.({
                             validation: { ...(field.validation ?? {}), minLength: e.target.value ? Number(e.target.value) : undefined },
                           })
                         }
                         className="h-8 text-sm"
                         placeholder="—"
-                        disabled={isLockedByOther}
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">Max Length</Label>
+                      <Label className="text-[10px] text-muted-foreground uppercase">Max Length</Label>
                       <Input
                         type="number"
                         value={field.validation?.maxLength ?? ""}
                         onChange={(e) =>
-                          updateField(field.id, {
+                          onUpdate?.({
                             validation: { ...(field.validation ?? {}), maxLength: e.target.value ? Number(e.target.value) : undefined },
                           })
                         }
                         className="h-8 text-sm"
                         placeholder="—"
-                        disabled={isLockedByOther}
                       />
                     </div>
                   </div>
@@ -387,33 +341,31 @@ export function FieldSettings({
                 {field.type === "number" && (
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">Min</Label>
+                      <Label className="text-[10px] text-muted-foreground uppercase">Min Value</Label>
                       <Input
                         type="number"
                         value={field.validation?.min ?? ""}
                         onChange={(e) =>
-                          updateField(field.id, {
+                          onUpdate?.({
                             validation: { ...(field.validation ?? {}), min: e.target.value ? Number(e.target.value) : undefined },
                           })
                         }
                         className="h-8 text-sm"
                         placeholder="—"
-                        disabled={isLockedByOther}
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">Max</Label>
+                      <Label className="text-[10px] text-muted-foreground uppercase">Max Value</Label>
                       <Input
                         type="number"
                         value={field.validation?.max ?? ""}
                         onChange={(e) =>
-                          updateField(field.id, {
+                          onUpdate?.({
                             validation: { ...(field.validation ?? {}), max: e.target.value ? Number(e.target.value) : undefined },
                           })
                         }
                         className="h-8 text-sm"
                         placeholder="—"
-                        disabled={isLockedByOther}
                       />
                     </div>
                   </div>
