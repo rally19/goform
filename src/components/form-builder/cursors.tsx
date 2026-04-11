@@ -6,7 +6,7 @@ import { memo, useEffect, useState } from "react";
 function Cursor({ color, name, x, y }: { color: string; name: string; x: number; y: number }) {
   return (
     <div
-      className="absolute top-0 left-0 transition-transform duration-75 pointer-events-none z-50"
+      className="fixed top-0 left-0 transition-transform duration-75 pointer-events-none z-[9999]"
       style={{
         transform: `translateX(${x}px) translateY(${y}px)`,
       }}

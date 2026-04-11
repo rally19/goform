@@ -5,10 +5,9 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, BarChart2, Settings, SquarePen, ClipboardList,
-  ExternalLink, ChevronLeft, ChevronRight, Loader2,
+  ExternalLink, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getForm } from "@/lib/actions/forms";
 
 export default function FormLayout({
   children,
@@ -22,8 +21,6 @@ export default function FormLayout({
   const scrollRef = useRef<HTMLElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
-  const [formTitle, setFormTitle] = useState("");
-  const [isLoadingForm, setIsLoadingForm] = useState(true);
 
   const tabs = [
     { name: "Builder", href: `/forms/${formId}/edit`, icon: SquarePen },
@@ -45,21 +42,6 @@ export default function FormLayout({
     return () => window.removeEventListener("resize", updateScrollData);
   }, [updateScrollData]);
 
-  useEffect(() => {
-    async function loadForm() {
-      try {
-        const result = await getForm(formId);
-        if (result.success && result.data) {
-          setFormTitle(result.data.form.title);
-        }
-      } catch (err) {
-        console.error("Failed to load form title:", err);
-      } finally {
-        setIsLoadingForm(false);
-      }
-    }
-    loadForm();
-  }, [formId]);
 
   const scroll = (direction: "left" | "right") => {
     if (!scrollRef.current) return;
@@ -138,16 +120,6 @@ export default function FormLayout({
               )}
             </div>
 
-            {/* Form title */}
-            <div className="flex-1 hidden md:flex items-center justify-center gap-2 px-4 overflow-hidden min-w-0">
-              {isLoadingForm ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground/50" />
-              ) : (
-                <span className="text-sm font-semibold text-foreground/80 truncate max-w-[200px] lg:max-w-[400px]">
-                  {formTitle}
-                </span>
-              )}
-            </div>
 
             <Button variant="outline" size="sm" asChild className="shrink-0 h-8 hidden md:flex">
               <Link href={`/preview/${formId}`} target="_blank">
@@ -159,7 +131,7 @@ export default function FormLayout({
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {children}
       </div>
     </div>

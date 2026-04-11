@@ -5,10 +5,12 @@ import {
   LiveblocksProvider,
   RoomProvider,
   ClientSideSuspense,
+  useStatus,
 } from "@liveblocks/react";
 import { LiveList, LiveObject } from "@liveblocks/client";
 import { Loader2 } from "lucide-react";
 import type { BuilderField, BuilderForm } from "@/lib/form-types";
+import { useState, useEffect } from "react";
 
 interface RoomProps {
   children: ReactNode;
@@ -52,11 +54,33 @@ export function Room({ children, roomId, initialForm, initialFields }: RoomProps
         initialStorage={initialStorage}
       >
         <ClientSideSuspense fallback={<Loading />}>
-          {children}
+          <ReadyBoundary>
+            {children}
+          </ReadyBoundary>
         </ClientSideSuspense>
       </RoomProvider>
     </LiveblocksProvider>
   );
+}
+
+function ReadyBoundary({ children }: { children: ReactNode }) {
+  const status = useStatus();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    // Small delay to ensure form components have settled after mount
+    const timer = setTimeout(() => setIsMounted(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // We wait for both the collaborative engine to be connected AND the component to be mounted/settled
+  const isReady = status === "connected" && isMounted;
+
+  if (!isReady) {
+    return <Loading />;
+  }
+
+  return <>{children}</>;
 }
 
 function Loading() {
