@@ -10,7 +10,7 @@ export default async function OrganizationsPage() {
   ]);
 
   const organizations = orgsResult.success && orgsResult.data ? orgsResult.data : [];
-  const userAvatar = userResult.success ? userResult.data.avatarUrl : null;
+  const userAvatar = (userResult.success && userResult.data) ? userResult.data.avatarUrl : null;
 
   return (
     <OrganizationsClient 

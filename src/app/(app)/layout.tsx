@@ -17,7 +17,7 @@ export default async function AppLayout({
       id: PERSONAL_WORKSPACE_ID,
       name: "Personal Workspace",
       type: "personal",
-      avatarUrl: userResult.success ? userResult.data.avatarUrl : null,
+      avatarUrl: (userResult.success && userResult.data) ? userResult.data.avatarUrl : null,
     }
   ];
 
