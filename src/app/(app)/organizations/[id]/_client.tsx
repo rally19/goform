@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   Building2, Users, Settings, Plus, Loader2, Link as LinkIcon, Trash2, Mail
 } from "lucide-react";
@@ -223,9 +224,12 @@ export function OrganizationManageClient({
                 {initialMembers.map((m) => (
                   <div key={m.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
                     <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium text-sm">
-                        {m.user?.email?.charAt(0).toUpperCase()}
-                      </div>
+                      <Avatar className="h-9 w-9">
+                        <AvatarImage src={m.user?.avatarUrl || undefined} />
+                        <AvatarFallback className="bg-primary/10 text-primary font-medium text-sm">
+                          {m.user?.name ? m.user.name.charAt(0).toUpperCase() : (m.user?.email?.charAt(0).toUpperCase() || "U")}
+                        </AvatarFallback>
+                      </Avatar>
                       <div>
                         <p className="text-sm font-medium leading-none">{m.user?.name || m.user?.email}</p>
                         <p className="text-xs text-muted-foreground mt-1">{m.user?.email}</p>

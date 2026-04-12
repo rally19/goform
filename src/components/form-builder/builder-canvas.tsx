@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { BuilderField, BuilderForm } from "@/lib/form-types";
 import { setFormStatus } from "@/lib/actions/forms";
 import { toast } from "sonner";
@@ -83,12 +84,15 @@ function CollaboratorAvatars({ others }: { others: readonly any[] }) {
         {others.slice(0, 4).map(({ connectionId, info, presence }) => (
           <Tooltip key={connectionId}>
             <TooltipTrigger asChild>
-              <div
-                className="h-7 w-7 rounded-full border-2 border-card flex items-center justify-center text-[10px] font-bold text-white shrink-0 cursor-default"
+              <Avatar 
+                className="h-7 w-7 border-2 border-card ring-offset-background shrink-0 cursor-default"
                 style={{ backgroundColor: info?.color ?? "#ccc" }}
               >
-                {getInitials(info?.name ?? "U")}
-              </div>
+                <AvatarImage src={info?.avatar || undefined} />
+                <AvatarFallback className="text-[10px] font-bold text-white bg-transparent">
+                  {getInitials(info?.name ?? "U")}
+                </AvatarFallback>
+              </Avatar>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">
               {info?.name}
@@ -208,12 +212,15 @@ export function BuilderCanvas({
           <header className="h-14 border-b border-border bg-card flex items-center justify-between px-4 shrink-0 z-20">
             <div className="flex items-center gap-3 min-w-0">
                <div className="hidden sm:flex items-center gap-1 bg-muted/50 rounded-lg p-1 border border-border">
-                  <div 
-                    className="h-7 w-7 rounded-full border-2 border-background flex items-center justify-center text-[10px] font-bold text-white bg-primary shadow-sm"
+                  <Avatar 
+                    className="h-7 w-7 border-2 border-background shadow-sm shrink-0"
                     style={{ backgroundColor: self?.info?.color }}
                   >
-                    {getInitials(self?.info?.name ?? "Me")}
-                  </div>
+                    <AvatarImage src={self?.info?.avatar || undefined} />
+                    <AvatarFallback className="text-[10px] font-bold text-white bg-transparent">
+                      {getInitials(self?.info?.name ?? "Me")}
+                    </AvatarFallback>
+                  </Avatar>
                   <CollaboratorAvatars others={others as any} />
                </div>
 

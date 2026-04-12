@@ -13,6 +13,7 @@ import {
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { motion, AnimatePresence } from "motion/react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const FIELD_ICONS: Record<string, React.ElementType> = {
   short_text: Type, long_text: AlignLeft, number: Hash, email: Mail,
@@ -217,6 +218,12 @@ export function FieldCard({
             className="absolute -top-6 left-0 px-2 py-0.5 rounded-t-md text-[10px] font-bold text-white shadow-sm flex items-center gap-1.5"
             style={{ backgroundColor: draggerColor }}
           >
+            <Avatar className="h-4 w-4 border border-white/20 ring-offset-background">
+              <AvatarImage src={dragger.info.avatar || undefined} />
+              <AvatarFallback className="bg-transparent text-[8px]">
+                {dragger.info.name.charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
             <GripVertical className="h-3 w-3 animate-bounce" />
             {dragger.info.name} is moving this
           </motion.div>
@@ -229,6 +236,12 @@ export function FieldCard({
             className="absolute -top-6 left-0 px-2 py-0.5 rounded-t-md text-[10px] font-bold text-white shadow-sm flex items-center gap-1.5"
             style={{ backgroundColor: editorColor }}
           >
+            <Avatar className="h-4 w-4 border border-white/20 ring-offset-background">
+              <AvatarImage src={editor.info.avatar || undefined} />
+              <AvatarFallback className="bg-transparent text-[8px]">
+                {editor.info.name.charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
             <div className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
             {editor.info.name} is editing
           </motion.div>
