@@ -48,8 +48,9 @@ export function WorkspaceSwitcher({
   const handleWorkspaceChange = async (id: string) => {
     setIsSwitching(true);
     await onWorkspaceChange(id);
-    // Hard refresh to trigger re-fetches with new cookie across app
-    window.location.reload();
+    // Hard refresh via browser-level navigation to ensure all state is reset 
+    // and the switching overlay is cleared.
+    window.location.href = "/forms";
   };
 
   return (

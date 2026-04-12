@@ -47,9 +47,6 @@ export async function setActiveWorkspace(workspaceId: string) {
   } else {
     cookieStore.set(WORKSPACE_COOKIE, PERSONAL_WORKSPACE_ID, { path: "/" });
   }
-
-  // Force a global re-evaluation of all routes to sync with the new workspace context
-  revalidatePath("/", "layout");
 }
 
 // ─── RBAC Helpers ─────────────────────────────────────────────────────────────

@@ -1,4 +1,5 @@
 import { getForm } from "@/lib/actions/forms";
+import { getActiveWorkspace } from "@/lib/actions/organizations";
 import { BuilderCanvas } from "@/components/form-builder/builder-canvas";
 import { Room } from "@/components/form-builder/room";
 import type { BuilderField, BuilderForm } from "@/lib/form-types";
@@ -13,6 +14,12 @@ export default async function FormBuilderPage({
   const result = await getForm(id);
 
   if (!result.success || !result.data) {
+    const activeWorkspaceId = await getActiveWorkspace();
+    console.error("Form redirect triggered!", {
+      error: result.error || "Form not found or access denied",
+      activeWorkspaceId,
+      formId: id
+    });
     redirect("/forms");
   }
 

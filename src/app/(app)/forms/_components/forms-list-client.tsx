@@ -184,7 +184,7 @@ function FormCard({
 
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <Button variant="ghost" size="sm" asChild className="h-8 px-2 hidden sm:flex">
-          <Link href={`/forms/${form.id}/results`}>
+          <Link href={`/forms/${form.id}/results`} prefetch={false}>
             <ClipboardList className="h-3.5 w-3.5 mr-1" />
             Results
           </Link>
@@ -205,25 +205,25 @@ function FormCard({
         <DropdownMenuContent align="end" className="w-48">
           <DropdownMenuLabel>Actions</DropdownMenuLabel>
           <DropdownMenuItem asChild disabled={isLocked}>
-            <Link href={`/forms/${form.id}/edit`}>
+            <Link href={`/forms/${form.id}/edit`} prefetch={false}>
               <SquarePen className="h-4 w-4 mr-2" />
               Edit Form
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link href={`/forms/${form.id}/results`}>
+            <Link href={`/forms/${form.id}/results`} prefetch={false}>
               <ClipboardList className="h-4 w-4 mr-2" />
               View Results
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link href={`/forms/${form.id}/analytics`}>
+            <Link href={`/forms/${form.id}/analytics`} prefetch={false}>
               <TrendingUp className="h-4 w-4 mr-2" />
               Analytics
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link href={`/forms/${form.id}/settings`}>
+            <Link href={`/forms/${form.id}/settings`} prefetch={false}>
               <Settings className="h-4 w-4 mr-2" />
               Settings
             </Link>

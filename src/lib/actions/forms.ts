@@ -275,7 +275,6 @@ export async function updateForm(
 
     if (shouldRevalidate) {
       revalidatePath(`/forms/${id}`);
-      revalidatePath("/forms");
     }
     return { success: true };
   } catch (err) {
