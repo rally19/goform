@@ -3,11 +3,14 @@ import { BuilderField, BuilderForm } from "@/lib/form-types";
 
 export type Presence = {
   cursor: { 
-    x: number; // For canvas: relative to form root. For panels: percentage.
+    x: number; // Fallback x
     y: number; // Fallback y
     area: "components" | "canvas" | "settings";
-    anchorId?: string; // Nearest component ID
-    relY?: number; // Y offset from anchor's top-edge
+    rowType: "header" | "field" | "gap" | "gutter-top" | "gutter-bottom";
+    rowId?: string; // fieldId
+    colType: "left" | "center" | "right";
+    relX: number; // 0..1 percentage within cell
+    relY: number; // 0..1 percentage within cell
   } | null;
   selectedFieldId: string | null;
   draggingFieldId: string | null;

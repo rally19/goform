@@ -293,7 +293,7 @@ export function BuilderCanvas({
           <ScrollArea className="flex-1 h-full min-h-0 bg-muted/30">
             <CursorArea id="canvas" className="min-h-full">
               <div data-cursor-area-root="true" className="max-w-2xl mx-auto p-4 md:p-8 space-y-8 pb-32">
-                <div data-cursor-id="header">
+                <div data-cursor-id="header" data-cursor-type="header">
                   <FormHeaderEditor 
                     accentColor={accentColor} 
                     title={form?.title}
@@ -313,6 +313,7 @@ export function BuilderCanvas({
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             data-cursor-id={field.id}
+                            data-cursor-type="field"
                           >
                             <FieldCard
                               field={field}
