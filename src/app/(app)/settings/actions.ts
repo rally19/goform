@@ -3,8 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/server'
 import { db } from '@/db'
-import { users } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { users, organizationMembers, organizations } from '@/db/schema'
+import { eq, and } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import type { UserIdentity } from '@supabase/supabase-js'
 
@@ -205,6 +205,40 @@ export async function deleteAccountAction() {
   const { data: { user } } = await supabase.auth.getUser()
   
   if (!user) return { error: 'Not authenticated' }
+  
+  // ─── OWNERSHIP SUCCESSION LOGIC ───
+  // Find all organizations where this user is the owner
+  const ownedOrgs = await db.query.organizationMembers.findMany({
+    where: and(
+      eq(organizationMembers.userId, user.id),
+      eq(organizationMembers.role, "owner")
+    )
+  });
+
+  for (const membership of ownedOrgs) {
+    const orgId = membership.organizationId;
+    
+    // Check for managers in this organization
+    const managers = await db.query.organizationMembers.findMany({
+      where: and(
+        eq(organizationMembers.organizationId, orgId),
+        eq(organizationMembers.role, "manager")
+      )
+    });
+
+    if (managers.length > 0) {
+      // Pick a random manager and promote them to owner
+      const randomManager = managers[Math.floor(Math.random() * managers.length)];
+      await db.update(organizationMembers)
+        .set({ role: "owner" })
+        .where(eq(organizationMembers.id, randomManager.id));
+    } else {
+      // No manager found, mark the organization for deletion by cron
+      await db.update(organizations)
+        .set({ ownerDeletedAt: new Date() })
+        .where(eq(organizations.id, orgId));
+    }
+  }
 
   // Delete from drizzle
   await db.delete(users).where(eq(users.id, user.id))

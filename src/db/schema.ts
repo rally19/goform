@@ -44,6 +44,7 @@ export const fieldTypeEnum = pgEnum("field_type", [
 
 export const organizationRoleEnum = pgEnum("organization_role", [
   "owner",
+  "manager",
   "administrator",
   "editor",
   "viewer",
@@ -86,6 +87,7 @@ export const organizations = pgTable("organizations", {
   name: text("name").notNull(),
   description: text("description"),
   avatarUrl: text("avatar_url"),
+  ownerDeletedAt: timestamp("owner_deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

@@ -18,7 +18,7 @@ export default async function FormsPage() {
   if (orgsResult.success && orgsResult.data) {
     orgsResult.data.forEach((org: any) => {
       // For moving, show any org where they are administrator or owner
-      if (org.role === "owner" || org.role === "administrator") {
+      if (org.role === "owner" || org.role === "manager" || org.role === "administrator") {
         workspaces.push({
           id: org.id,
           name: org.name,

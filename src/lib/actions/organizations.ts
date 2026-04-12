@@ -56,7 +56,7 @@ export async function setActiveWorkspace(workspaceId: string) {
 
 export const verifyWorkspaceAccess = cache(async (
   orgId: string | null, 
-  requiredRole: "owner" | "administrator" | "editor" | "viewer" = "viewer"
+  requiredRole: "owner" | "manager" | "administrator" | "editor" | "viewer" = "viewer"
 ): Promise<{ success: boolean; error?: string; role?: string }> => {
   try {
     const user = await getAuthUser();
@@ -76,7 +76,7 @@ export const verifyWorkspaceAccess = cache(async (
       return { success: false, error: "You are not a member of this workspace" };
     }
 
-    const rolesRank = { owner: 4, administrator: 3, editor: 2, viewer: 1 };
+    const rolesRank = { owner: 5, manager: 4, administrator: 3, editor: 2, viewer: 1 };
 
     if (rolesRank[member.role] < rolesRank[requiredRole]) {
       return { success: false, error: "Insufficient permissions" };
@@ -112,11 +112,12 @@ export async function getOrganization(id: string) {
     const access = await verifyWorkspaceAccess(id, "viewer");
     if (!access.success) throw new Error(access.error);
 
+    const user = await getAuthUser();
     const org = await db.query.organizations.findFirst({
       where: eq(organizations.id, id)
     });
 
-    return { success: true, data: { ...org, currentUserRole: access.role } };
+    return { success: true, data: { ...org, currentUserRole: access.role, currentUserId: user.id } };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
@@ -262,9 +263,10 @@ export async function deleteOrganization(id: string) {
 
 // ─── Member Management  ───────────────────────────────────────────────────
 
-export async function inviteMember(orgId: string, email: string, role: "administrator"|"editor"|"viewer") {
+export async function inviteMember(orgId: string, email: string, role: "manager"|"administrator"|"editor"|"viewer") {
   try {
-    const access = await verifyWorkspaceAccess(orgId, "administrator");
+    const requiredAccess = role === "manager" ? "manager" : "administrator";
+    const access = await verifyWorkspaceAccess(orgId, requiredAccess);
     if (!access.success) throw new Error(access.error);
 
     // Create a unguessable token
@@ -320,9 +322,10 @@ export async function acceptInvite(token: string) {
   }
 }
 
-export async function updateMemberRole(orgId: string, memberUserId: string, newRole: "administrator"|"editor"|"viewer") {
+export async function updateMemberRole(orgId: string, memberUserId: string, newRole: "manager"|"administrator"|"editor"|"viewer") {
   try {
-    const access = await verifyWorkspaceAccess(orgId, "administrator");
+    const requiredAccess = newRole === "manager" ? "manager" : "administrator";
+    const access = await verifyWorkspaceAccess(orgId, requiredAccess);
     if (!access.success) throw new Error(access.error);
 
     // Prevent changing owner role or acting on owners if not owner
@@ -372,6 +375,53 @@ export async function removeMember(orgId: string, memberUserId: string) {
 
     revalidatePath(`/organizations/${orgId}`);
     revalidatePath("/organizations");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+export async function transferOwnershipAction(orgId: string, targetEmail: string) {
+  try {
+    const user = await getAuthUser();
+    
+    // 1. Verify current user is owner
+    const currentMember = await db.query.organizationMembers.findFirst({
+      where: and(eq(organizationMembers.organizationId, orgId), eq(organizationMembers.userId, user.id))
+    });
+    
+    if (!currentMember || currentMember.role !== "owner") {
+      throw new Error("Only the owner can transfer ownership");
+    }
+
+    // 2. Resolve target user
+    const targetUser = await db.query.users.findFirst({
+      where: eq(users.email, targetEmail)
+    });
+
+    if (!targetUser) throw new Error("User with this email does not exist");
+
+    // 3. Verify target is a member
+    const targetMember = await db.query.organizationMembers.findFirst({
+      where: and(eq(organizationMembers.organizationId, orgId), eq(organizationMembers.userId, targetUser.id))
+    });
+
+    if (!targetMember) throw new Error("Target user is not a member of this organization");
+
+    // 4. Atomic swap
+    await db.transaction(async (tx) => {
+      // Current owner becomes manager
+      await tx.update(organizationMembers)
+        .set({ role: "manager" })
+        .where(and(eq(organizationMembers.organizationId, orgId), eq(organizationMembers.userId, user.id)));
+
+      // Target becomes owner
+      await tx.update(organizationMembers)
+        .set({ role: "owner" })
+        .where(and(eq(organizationMembers.organizationId, orgId), eq(organizationMembers.userId, targetUser.id)));
+    });
+
+    revalidatePath(`/organizations/${orgId}`);
     return { success: true };
   } catch (err) {
     return { success: false, error: (err as Error).message };

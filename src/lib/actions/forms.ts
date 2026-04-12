@@ -92,7 +92,7 @@ export async function getForms({ search }: { search?: string } = {}): Promise<
 export async function getForm(id: string): Promise<ActionResult<{
   form: typeof forms.$inferSelect;
   fields: typeof formFields.$inferSelect[];
-  currentUserRole: "owner" | "administrator" | "editor" | "viewer";
+  currentUserRole: "owner" | "manager" | "administrator" | "editor" | "viewer";
   currentUserId: string;
 }>> {
   try {
@@ -108,7 +108,7 @@ export async function getForm(id: string): Promise<ActionResult<{
 
     if (!form) return { success: false, error: "Form not found" };
 
-    let currentUserRole: "owner" | "administrator" | "editor" | "viewer" = "viewer";
+    let currentUserRole: "owner" | "manager" | "administrator" | "editor" | "viewer" = "viewer";
 
     // Check if personal owner, or member of the organization
     if (form.organizationId) {

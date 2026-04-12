@@ -49,9 +49,11 @@ export default async function FormBuilderPage({
     properties: f.properties ?? undefined,
   }));
 
-  // Admins & owners can toggle collaboration mode and are never blocked by it
+  // Admins, managers & owners can toggle collaboration mode and are never blocked by it
   const canManageCollab =
-    currentUserRole === "owner" || currentUserRole === "administrator";
+    currentUserRole === "owner" || 
+    currentUserRole === "manager" || 
+    currentUserRole === "administrator";
 
   return (
     <Room roomId={id} initialForm={builderForm} initialFields={builderFields}>

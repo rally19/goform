@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -51,7 +51,8 @@ import {
   updateMemberRole, 
   removeMember,
   uploadOrganizationAvatarAction,
-  removeOrganizationAvatarAction
+  removeOrganizationAvatarAction,
+  transferOwnershipAction
 } from "@/lib/actions/organizations";
 
 export function OrganizationManageClient({ 
@@ -66,7 +67,9 @@ export function OrganizationManageClient({
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("members");
   const isOwner = organization.currentUserRole === "owner";
-  const isAdminOrOwner = isOwner || organization.currentUserRole === "administrator";
+  const isManager = organization.currentUserRole === "manager";
+  const isManagerOrAbove = isOwner || isManager;
+  const isAdminOrOwner = isOwner || isManager || organization.currentUserRole === "administrator";
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -78,7 +81,7 @@ export function OrganizationManageClient({
 
   // Invite State
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<"administrator"|"editor"|"viewer">("viewer");
+  const [inviteRole, setInviteRole] = useState<"manager"|"administrator"|"editor"|"viewer">("viewer");
   const [isInviting, setIsInviting] = useState(false);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
 
@@ -86,6 +89,11 @@ export function OrganizationManageClient({
   const [orgDeleteConfirmOpen, setOrgDeleteConfirmOpen] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<{ id: string, name: string } | null>(null);
   const [avatarRemoveConfirmOpen, setAvatarRemoveConfirmOpen] = useState(false);
+
+  // Transfer Ownership State
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const [transferEmail, setTransferEmail] = useState("");
+  const [isTransferring, setIsTransferring] = useState(false);
 
   const handleUpdateSettings = async () => {
     setIsSaving(true);
@@ -141,7 +149,7 @@ export function OrganizationManageClient({
     if (!memberToRemove) return;
     const res = await removeMember(organization.id, memberToRemove.id);
     if (res.success) {
-      toast.success("Member removed");
+      toast.success(memberToRemove.id === organization.currentUserId ? "You have left the organization" : "Member removed");
     } else {
       toast.error(res.error || "Failed to remove member");
     }
@@ -177,6 +185,43 @@ export function OrganizationManageClient({
       else toast.success("Organization avatar removed");
     });
   };
+
+  const handleTransferOwnership = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!transferEmail) return;
+    setIsTransferring(true);
+    const res = await transferOwnershipAction(organization.id, transferEmail);
+    setIsTransferring(false);
+    if (res.success) {
+      toast.success("Ownership transferred successfully");
+      setTransferDialogOpen(false);
+      setTransferEmail("");
+      router.refresh();
+    } else {
+      toast.error(res.error || "Failed to transfer ownership");
+    }
+  };
+
+  const roleRanks: Record<string, number> = {
+    owner: 5,
+    manager: 4,
+    administrator: 3,
+    editor: 2,
+    viewer: 1
+  };
+
+  const sortedMembers = useMemo(() => {
+    return [...initialMembers].sort((a, b) => {
+      // Current user always on top
+      if (a.userId === organization.currentUserId) return -1;
+      if (b.userId === organization.currentUserId) return 1;
+      
+      // Sort by role rank
+      const rankA = roleRanks[a.role] || 0;
+      const rankB = roleRanks[b.role] || 0;
+      return rankB - rankA;
+    });
+  }, [initialMembers, organization.currentUserId]);
 
 
   return (
@@ -237,6 +282,7 @@ export function OrganizationManageClient({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        {isManagerOrAbove && <SelectItem value="manager">Manager</SelectItem>}
                         <SelectItem value="administrator">Administrator</SelectItem>
                         <SelectItem value="editor">Editor</SelectItem>
                         <SelectItem value="viewer">Viewer</SelectItem>
@@ -276,49 +322,58 @@ export function OrganizationManageClient({
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {initialMembers.map((m) => (
-                  <div key={m.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9">
-                        <AvatarImage src={m.user?.avatarUrl || undefined} />
-                        <AvatarFallback className="bg-primary/10 text-primary font-medium text-sm">
-                          {m.user?.name ? m.user.name.charAt(0).toUpperCase() : (m.user?.email?.charAt(0).toUpperCase() || "U")}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="text-sm font-medium leading-none">{m.user?.name || m.user?.email}</p>
-                        <p className="text-xs text-muted-foreground mt-1">{m.user?.email}</p>
+                {sortedMembers.map((m) => {
+                  const isSelf = m.userId === organization.currentUserId;
+                  const isTargetOwner = m.role === "owner";
+
+                  return (
+                    <div key={m.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-9 w-9">
+                          <AvatarImage src={m.user?.avatarUrl || undefined} />
+                          <AvatarFallback className="bg-primary/10 text-primary font-medium text-sm">
+                            {m.user?.name ? m.user.name.charAt(0).toUpperCase() : (m.user?.email?.charAt(0).toUpperCase() || "U")}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="text-sm font-medium leading-none">
+                            {m.user?.name || m.user?.email}
+                            {isSelf && <span className="ml-2 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full uppercase tracking-wider font-bold">You</span>}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">{m.user?.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {isAdminOrOwner && !isTargetOwner ? (
+                          <Select defaultValue={m.role} onValueChange={(val) => handleUpdateRole(m.userId, val)}>
+                            <SelectTrigger className="w-[130px] h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {isManagerOrAbove && <SelectItem value="manager">Manager</SelectItem>}
+                              <SelectItem value="administrator">Administrator</SelectItem>
+                              <SelectItem value="editor">Editor</SelectItem>
+                              <SelectItem value="viewer">Viewer</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Badge variant="secondary" className="capitalize">{m.role}</Badge>
+                        )}
+                        
+                        {(isAdminOrOwner || isSelf) && !isTargetOwner && (
+                           <Button 
+                             variant="ghost" 
+                             size={isSelf ? "default" : "icon"}
+                             className={isSelf ? "h-8 text-xs px-3 text-destructive hover:text-destructive hover:bg-destructive/10" : "h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"} 
+                             onClick={() => setMemberToRemove({ id: m.userId, name: isSelf ? "your account" : (m.user?.name || m.user?.email || "this member") })}
+                           >
+                             {isSelf ? "Quit" : <Trash2 className="h-4 w-4" />}
+                           </Button>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      {isAdminOrOwner && m.role !== "owner" ? (
-                        <Select defaultValue={m.role} onValueChange={(val) => handleUpdateRole(m.userId, val)}>
-                          <SelectTrigger className="w-[130px] h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="administrator">Administrator</SelectItem>
-                            <SelectItem value="editor">Editor</SelectItem>
-                            <SelectItem value="viewer">Viewer</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <Badge variant="secondary" className="capitalize">{m.role}</Badge>
-                      )}
-                      
-                      {isAdminOrOwner && m.role !== "owner" && (
-                         <Button 
-                           variant="ghost" 
-                           size="icon" 
-                           className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" 
-                           onClick={() => setMemberToRemove({ id: m.userId, name: m.user?.name || m.user?.email || "this member" })}
-                         >
-                           <Trash2 className="h-4 w-4" />
-                         </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
@@ -436,6 +491,18 @@ export function OrganizationManageClient({
                 <CardDescription>Irreversible actions requiring owner privileges.</CardDescription>
               </CardHeader>
               <CardContent>
+                <div className="flex items-center justify-between p-4 border border-destructive/20 rounded-md bg-destructive/5 mb-4">
+                  <div>
+                    <h4 className="font-medium text-sm">Transfer Ownership</h4>
+                    <p className="text-xs text-muted-foreground mt-1 text-balance">
+                      Promote another member to owner. You will stay in the organization with the Manager role.
+                    </p>
+                  </div>
+                  <Button variant="outline" className="border-destructive/30 text-destructive hover:bg-destructive/10" onClick={() => setTransferDialogOpen(true)}>
+                    Transfer Ownership
+                  </Button>
+                </div>
+
                 <div className="flex items-center justify-between p-4 border border-destructive/20 rounded-md bg-destructive/5">
                   <div>
                     <h4 className="font-medium text-sm">Delete Organization</h4>
@@ -475,15 +542,18 @@ export function OrganizationManageClient({
       <AlertDialog open={!!memberToRemove} onOpenChange={(open) => !open && setMemberToRemove(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove Member?</AlertDialogTitle>
+            <AlertDialogTitle>{memberToRemove?.id === organization.currentUserId ? "Quit Organization?" : "Remove Member?"}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove <strong>{memberToRemove?.name}</strong> from this organization? They will lose access to all collaborative forms in this workspace.
+              {memberToRemove?.id === organization.currentUserId 
+                ? "Are you sure you want to quit this organization? You will lose access to all collaborative forms in this workspace."
+                : `Are you sure you want to remove ${memberToRemove?.name} from this organization? They will lose access to all collaborative forms in this workspace.`
+              }
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleRemoveMember} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Remove Member
+              {memberToRemove?.id === organization.currentUserId ? "Quit Organization" : "Remove Member"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -505,6 +575,42 @@ export function OrganizationManageClient({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Transfer Ownership Dialog */}
+      <Dialog open={transferDialogOpen} onOpenChange={setTransferDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Transfer Ownership</DialogTitle>
+            <DialogDescription>
+              Enter the email of the member you want to transfer ownership to. 
+              They must already be a member of this organization. 
+              <strong> You will stay in the organization as a Manager.</strong>
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleTransferOwnership}>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="transfer-email">Member Email</Label>
+                <Input 
+                  id="transfer-email" 
+                  type="email" 
+                  placeholder="colleague@example.com" 
+                  required
+                  value={transferEmail}
+                  onChange={(e) => setTransferEmail(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setTransferDialogOpen(false)}>Cancel</Button>
+              <Button type="submit" variant="destructive" disabled={isTransferring}>
+                {isTransferring && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Confirm Transfer
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
