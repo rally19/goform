@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
-  Building2, Users, Settings, Plus, Loader2, Link as LinkIcon, Trash2, Mail
+  Building2, Users, Settings, Plus, Loader2, Link as LinkIcon, Trash2, Mail, Camera
 } from "lucide-react";
 import {
   Card,
@@ -39,7 +39,9 @@ import {
   deleteOrganization, 
   inviteMember, 
   updateMemberRole, 
-  removeMember 
+  removeMember,
+  uploadOrganizationAvatarAction,
+  removeOrganizationAvatarAction
 } from "@/lib/actions/organizations";
 
 export function OrganizationManageClient({ 
@@ -55,6 +57,8 @@ export function OrganizationManageClient({
   const [activeTab, setActiveTab] = useState("members");
   const isOwner = organization.currentUserRole === "owner";
   const isAdminOrOwner = isOwner || organization.currentUserRole === "administrator";
+  const [isPending, startTransition] = useTransition();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // State
   const [orgName, setOrgName] = useState(organization.name);
@@ -129,11 +133,46 @@ export function OrganizationManageClient({
     }
   };
 
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error("File size must be less than 2MB.");
+        e.target.value = "";
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+      e.target.value = "";
+      
+      startTransition(async () => {
+        const res = await uploadOrganizationAvatarAction(organization.id, formData);
+        if (res.error) toast.error(res.error);
+        else toast.success("Organization avatar updated");
+      });
+    }
+  };
+
+  const handleRemoveAvatar = () => {
+    startTransition(async () => {
+      const res = await removeOrganizationAvatarAction(organization.id);
+      if (res.error) toast.error(res.error);
+      else toast.success("Organization avatar removed");
+    });
+  };
+
+
   return (
     <div className="flex-1 space-y-4 p-4 pt-6 md:p-8 max-w-5xl mx-auto">
       <div className="flex items-center gap-4 border-b pb-6">
-        <div className="h-16 w-16 bg-primary/10 flex items-center justify-center rounded-lg border border-primary/20 shrink-0">
-          <Building2 className="h-8 w-8 text-primary" />
+        <div className="h-16 w-16 shrink-0">
+          <Avatar className="h-16 w-16 rounded-full border-2 border-border">
+            <AvatarImage src={organization.avatarUrl || undefined} alt="Organization Logo" />
+            <AvatarFallback className="bg-primary/10 text-primary rounded-full">
+              <Building2 className="h-8 w-8" />
+            </AvatarFallback>
+          </Avatar>
         </div>
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight">{organization.name}</h1>
@@ -291,8 +330,61 @@ export function OrganizationManageClient({
               <CardTitle>Organization Settings</CardTitle>
               <CardDescription>Update your workspace details.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
+            <CardContent className="space-y-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center pb-4 border-b">
+                <div className="relative group/avatar w-fit">
+                  <Avatar className="h-24 w-24 border-2 border-border transition-all duration-300 group-hover/avatar:border-primary">
+                    <AvatarImage src={organization.avatarUrl || undefined} alt={organization.name} />
+                    <AvatarFallback className="bg-muted text-2xl font-semibold">
+                      {organization.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div 
+                    className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover/avatar:opacity-100 transition-opacity cursor-pointer"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Camera className="h-6 w-6 text-white" />
+                  </div>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    accept="image/png, image/jpeg, image/gif"
+                    onChange={handleAvatarUpload} 
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <h3 className="text-lg font-medium leading-none">Organization Logo</h3>
+                  <p className="text-sm text-muted-foreground">
+                    PNG, JPG or GIF. Max size 2MB.
+                  </p>
+                  <div className="flex gap-2 pt-1">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-8"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isPending}
+                    >
+                      {isPending ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : null}
+                      Upload image
+                    </Button>
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={handleRemoveAvatar}
+                      disabled={isPending || !organization.avatarUrl}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-2">
                 <Label htmlFor="org-name">Organization Name</Label>
                 <Input 
                   id="org-name" 

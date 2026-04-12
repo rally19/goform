@@ -34,3 +34,24 @@ USING (
   bucket_id = 'embersatu' AND
   (SELECT auth.uid()) = owner
 );
+
+
+-- ORG UPDATE
+-- Allow authenticated users to upload to 'org_avatars/'
+-- Note: The server action already verifies if the user is an admin/owner.
+CREATE POLICY "Allow authenticated org avatar upload"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'embersatu' AND
+  (storage.foldername(name))[1] = 'org_avatars'
+);
+
+-- Allow users to update/delete avatars in 'org_avatars/' if they are the owner of the object
+CREATE POLICY "Allow users to manage org avatars"
+ON storage.objects FOR ALL
+TO authenticated
+USING (
+  bucket_id = 'embersatu' AND
+  (storage.foldername(name))[1] = 'org_avatars'
+);

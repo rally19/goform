@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { ChevronsUpDown, Plus, SquarePen, Building2, Check } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,12 +58,17 @@ export function WorkspaceSwitcher({
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <div className="flex aspect-square size-8 items-center justify-center rounded bg-primary text-primary-foreground">
-                {activeWorkspace?.type === "personal" ? (
-                  <SquarePen className="size-4" />
-                ) : (
-                  <Building2 className="size-4" />
-                )}
+              <div className="flex aspect-square size-8 items-center justify-center rounded-full bg-primary text-primary-foreground overflow-hidden">
+                <Avatar className="h-8 w-8 rounded-full">
+                  <AvatarImage src={activeWorkspace?.avatarUrl || undefined} alt="Workspace Logo" />
+                  <AvatarFallback className="rounded-full bg-primary text-primary-foreground">
+                    {activeWorkspace?.type === "personal" ? (
+                      <SquarePen className="size-4" />
+                    ) : (
+                      <Building2 className="size-4" />
+                    )}
+                  </AvatarFallback>
+                </Avatar>
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">
@@ -90,12 +96,17 @@ export function WorkspaceSwitcher({
                 onClick={() => handleWorkspaceChange(workspace.id)}
                 className="gap-2 p-2 cursor-pointer"
               >
-                <div className="flex size-6 items-center justify-center rounded-sm border bg-background">
-                  {workspace.type === "personal" ? (
-                    <SquarePen className="size-3 shrink-0" />
-                  ) : (
-                    <Building2 className="size-3 shrink-0 text-primary" />
-                  )}
+                <div className="flex size-6 items-center justify-center rounded-full border bg-background overflow-hidden">
+                  <Avatar className="size-6 rounded-full">
+                    <AvatarImage src={workspace.avatarUrl || undefined} />
+                    <AvatarFallback className="rounded-full">
+                      {workspace.type === "personal" ? (
+                        <SquarePen className="size-3 shrink-0" />
+                      ) : (
+                        <Building2 className="size-3 shrink-0 text-primary" />
+                      )}
+                    </AvatarFallback>
+                  </Avatar>
                 </div>
                 <span className="flex-1 truncate">{workspace.name}</span>
                 {workspace.id === activeWorkspaceId && (

@@ -1,5 +1,6 @@
 import { AppSidebar } from "@/components/app-sidebar";
 import { getActiveWorkspace, getUserOrganizations } from "@/lib/actions/organizations";
+import { getCurrentUserProfile } from "@/lib/actions/users";
 import { PERSONAL_WORKSPACE_ID } from "@/lib/constants";
 
 export default async function AppLayout({
@@ -9,12 +10,14 @@ export default async function AppLayout({
 }) {
   const activeWorkspaceId = await getActiveWorkspace();
   const orgsResult = await getUserOrganizations();
+  const userResult = await getCurrentUserProfile();
   
-  const workspaces: { id: string; name: string; type: string; avatarUrl?: string }[] = [
+  const workspaces: { id: string; name: string; type: "personal" | "organization"; avatarUrl?: string | null }[] = [
     {
       id: PERSONAL_WORKSPACE_ID,
       name: "Personal Workspace",
       type: "personal",
+      avatarUrl: userResult.success ? userResult.data.avatarUrl : null,
     }
   ];
 

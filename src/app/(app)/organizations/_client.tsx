@@ -25,10 +25,18 @@ import { createOrganization, setActiveWorkspace } from "@/lib/actions/organizati
 import { PERSONAL_WORKSPACE_ID } from "@/lib/constants";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-export function OrganizationsClient({ organizations, activeWorkspaceId }: { organizations: any[], activeWorkspaceId: string }) {
+export function OrganizationsClient({ 
+  organizations, 
+  activeWorkspaceId,
+  userAvatar
+}: { 
+  organizations: any[], 
+  activeWorkspaceId: string,
+  userAvatar: string | null
+}) {
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
   const [open, setOpen] = useState(false);
@@ -126,9 +134,14 @@ export function OrganizationsClient({ organizations, activeWorkspaceId }: { orga
           )}
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2 mb-2">
-               <div className="bg-muted flex items-center justify-center h-10 w-10 rounded-md">
-                 <SquarePen className="size-5 text-foreground" />
-               </div>
+                <div className="bg-muted flex items-center justify-center h-10 w-10 rounded-full">
+                  <Avatar className="h-10 w-10 rounded-full">
+                    <AvatarImage src={userAvatar || undefined} alt="Personal" />
+                    <AvatarFallback className="rounded-full">
+                      <SquarePen className="size-5 text-foreground" />
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
             </div>
             <CardTitle>Personal Workspace</CardTitle>
             <CardDescription>Your private forms and submissions.</CardDescription>
@@ -152,9 +165,14 @@ export function OrganizationsClient({ organizations, activeWorkspaceId }: { orga
             )}
             <CardHeader className="pb-4">
                <div className="flex items-center justify-between mb-2">
-                 <div className="bg-muted flex items-center justify-center h-10 w-10 rounded-md border border-border">
-                   <Building2 className="size-5 text-foreground" />
-                 </div>
+                  <div className="bg-muted flex items-center justify-center h-10 w-10 rounded-full border border-border overflow-hidden">
+                    <Avatar className="h-10 w-10 rounded-full">
+                      <AvatarImage src={org.avatarUrl || undefined} alt={org.name} />
+                      <AvatarFallback className="rounded-full">
+                        <Building2 className="size-5 text-foreground" />
+                      </AvatarFallback>
+                    </Avatar>
+                  </div>
               </div>
               <CardTitle className="flex items-center gap-2">
                 {org.name}

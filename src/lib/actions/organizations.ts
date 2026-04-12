@@ -180,6 +180,62 @@ export async function updateOrganization(id: string, input: { name?: string, des
   }
 }
 
+export async function uploadOrganizationAvatarAction(orgId: string, formData: FormData) {
+  try {
+    const access = await verifyWorkspaceAccess(orgId, "administrator");
+    if (!access.success) throw new Error(access.error);
+
+    const file = formData.get("file") as File;
+    if (!file) throw new Error("No file provided");
+    
+    if (file.size > 2 * 1024 * 1024) {
+      throw new Error("File size must be less than 2MB.");
+    }
+
+    const supabase = await createClient();
+    const fileExt = file.name.split(".").pop();
+    const fileName = `${orgId}-${Math.random()}.${fileExt}`;
+    
+    const { error } = await supabase.storage
+      .from("embersatu")
+      .upload(`org_avatars/${fileName}`, file, { upsert: true });
+
+    if (error) throw new Error(error.message);
+
+    const { data: publicUrlData } = supabase.storage
+      .from("embersatu")
+      .getPublicUrl(`org_avatars/${fileName}`);
+
+    await db.update(organizations)
+      .set({ avatarUrl: publicUrlData.publicUrl })
+      .where(eq(organizations.id, orgId));
+
+    revalidatePath(`/organizations/${orgId}`);
+    revalidatePath("/organizations");
+    return { success: true, avatarUrl: publicUrlData.publicUrl };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+export async function removeOrganizationAvatarAction(orgId: string) {
+  try {
+    const access = await verifyWorkspaceAccess(orgId, "administrator");
+    if (!access.success) throw new Error(access.error);
+
+    await db.update(organizations)
+      .set({ avatarUrl: null })
+      .where(eq(organizations.id, orgId));
+
+    revalidatePath(`/organizations/${orgId}`);
+    revalidatePath("/organizations");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+
 export async function deleteOrganization(id: string) {
   try {
     const access = await verifyWorkspaceAccess(id, "owner");
