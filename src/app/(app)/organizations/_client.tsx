@@ -27,6 +27,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { LoadingOverlay } from "@/components/loading-overlay";
 
 export function OrganizationsClient({ 
   organizations, 
@@ -41,6 +42,7 @@ export function OrganizationsClient({
   const [isCreating, setIsCreating] = useState(false);
   const [open, setOpen] = useState(false);
   const [orgName, setOrgName] = useState("");
+  const [isSwitching, setIsSwitching] = useState(false);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,8 +65,9 @@ export function OrganizationsClient({
 
   const switchWorkspace = async (id: string) => {
     if (activeWorkspaceId === id) return;
+    setIsSwitching(true);
     await setActiveWorkspace(id);
-    window.location.assign("/dashboard");
+    window.location.reload();
   };
 
   return (
@@ -198,6 +201,7 @@ export function OrganizationsClient({
           </Card>
         ))}
       </div>
+      {isSwitching && <LoadingOverlay message="Switching workspace..." />}
     </div>
   );
 }

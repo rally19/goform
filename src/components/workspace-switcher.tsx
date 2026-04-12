@@ -3,6 +3,7 @@
 import * as React from "react";
 import { ChevronsUpDown, Plus, SquarePen, Building2, Check } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { LoadingOverlay } from "@/components/loading-overlay";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,13 +41,15 @@ export function WorkspaceSwitcher({
 }: WorkspaceSwitcherProps) {
   const { isMobile } = useSidebar();
   const router = useRouter();
+  const [isSwitching, setIsSwitching] = React.useState(false);
   
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId) || workspaces[0];
 
   const handleWorkspaceChange = async (id: string) => {
+    setIsSwitching(true);
     await onWorkspaceChange(id);
     // Hard refresh to trigger re-fetches with new cookie across app
-    window.location.assign("/dashboard");
+    window.location.reload();
   };
 
   return (
@@ -127,6 +130,7 @@ export function WorkspaceSwitcher({
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
+      {isSwitching && <LoadingOverlay />}
     </SidebarMenu>
   );
 }
