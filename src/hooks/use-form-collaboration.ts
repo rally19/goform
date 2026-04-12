@@ -96,10 +96,19 @@ export function useFormCollaboration({
   const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const isSavingRef = useRef(false);
   const isDirtyRef = useRef(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, []);
 
   const persistToSupabase = useCallback(async (currentFields: BuilderField[], currentForm: BuilderForm) => {
     const payload = JSON.stringify({ currentFields, currentForm });
-    if (payload === lastSavedRef.current) return;
+    if (payload === lastSavedRef.current || !mountedRef.current) return;
 
     if (isSavingRef.current) {
       isDirtyRef.current = true;
@@ -121,7 +130,8 @@ export function useFormCollaboration({
       isSavingRef.current = false;
       
       // If changes happened while we were saving, trigger another save immediately
-      if (isDirtyRef.current) {
+      // BUT ONLY if we are still mounted!
+      if (isDirtyRef.current && mountedRef.current) {
         persistToSupabase(fields, form);
       }
     }
