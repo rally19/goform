@@ -17,6 +17,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { getCurrentUserProfile } from "@/lib/actions/users";
 
 export function UserAccountWidget() {
   const [user, setUser] = useState<{
@@ -24,22 +25,41 @@ export function UserAccountWidget() {
     email: string;
     avatarUrl: string | null;
   } | null>(null);
+
   useEffect(() => {
-    let isActive = true;
     const supabase = createClient();
     
-    supabase.auth.getUser().then(({ data: { user: authUser } }: { data: { user: import("@supabase/supabase-js").User | null } }) => {
-      if (authUser && isActive) {
+    // 1. Get profile from Database (Source of Truth)
+    getCurrentUserProfile().then((result) => {
+      if (result.success && result.data) {
         setUser({
-          name: authUser.user_metadata?.name || null,
-          email: authUser.email!,
-          avatarUrl: authUser.user_metadata?.avatar_url || null,
+          name: result.data.name,
+          email: result.data.email,
+          avatarUrl: result.data.avatarUrl,
         });
       }
     });
 
+    // 2. Listen for auth state changes (e.g., login, logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any | null) => {
+      if (session?.user) {
+        // Re-fetch from DB when session changes to ensure latest data
+        getCurrentUserProfile().then((result) => {
+          if (result.success && result.data) {
+            setUser({
+              name: result.data.name,
+              email: result.data.email,
+              avatarUrl: result.data.avatarUrl,
+            });
+          }
+        });
+      } else {
+        setUser(null);
+      }
+    });
+
     return () => {
-      isActive = false;
+      subscription.unsubscribe();
     };
   }, []);
 

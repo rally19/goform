@@ -2,7 +2,7 @@ import { Liveblocks } from "@liveblocks/node";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/server";
 import { db } from "@/db";
-import { forms } from "@/db/schema";
+import { forms, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyWorkspaceAccess } from "@/lib/actions/organizations";
 
@@ -30,16 +30,34 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
+      console.warn("Liveblocks Auth: Unauthorized", authError?.message);
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    // 2. Get the room ID (form ID) from the request
+    // console.log(`Liveblocks Auth: Authenticating user ${user.id} (${user.email})`);
+
+    const userId = user.id;
+
+    // 2. Fetch the latest user profile from the database (Source of Truth)
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+
+    const userInfo = {
+      name: dbUser?.name || user.user_metadata?.full_name || user.email?.split("@")[0] || "Anonymous",
+      avatar: dbUser?.avatarUrl || user.user_metadata?.avatar_url || null,
+      color: pickColor(userId),
+    };
+
+    // console.log(`Liveblocks Auth: User ${userId} (${userInfo.name}) authorized for room ${room}`);
+
+    // 3. Get the room ID (form ID) from the request
     const { room } = await request.json();
     if (!room) {
       return new NextResponse("Missing room ID", { status: 400 });
     }
 
-    // 3. Verify access to the form in the database
+    // 4. Verify access to the form in the database
     const form = await db.query.forms.findFirst({
       where: eq(forms.id, room),
     });
@@ -48,7 +66,6 @@ export async function POST(request: NextRequest) {
       return new NextResponse("Form not found", { status: 404 });
     }
 
-    const userId = user.id;
     let hasAccess = false;
 
     if (form.organizationId) {
@@ -64,13 +81,9 @@ export async function POST(request: NextRequest) {
       return new NextResponse("Forbidden", { status: 403 });
     }
 
-    // 4. Start a Liveblocks session
+    // 5. Start a Liveblocks session
     const session = liveblocks.prepareSession(userId, {
-      userInfo: {
-        name: user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "Anonymous",
-        avatar: user.user_metadata?.avatar_url ?? null,
-        color: pickColor(userId),
-      },
+      userInfo,
     });
 
     // 5. Authorize the user to the room

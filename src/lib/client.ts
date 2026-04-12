@@ -5,6 +5,7 @@ const globalForSupabase = globalThis as unknown as {
 }
 
 export function createClient() {
+  // Always return a fresh client on the server
   if (typeof window === 'undefined') {
     return createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,6 +13,7 @@ export function createClient() {
     )
   }
 
+  // Reuse the existing client on the browser
   if (!globalForSupabase.__supabase_browser_client__) {
     globalForSupabase.__supabase_browser_client__ = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,6 +23,8 @@ export function createClient() {
           autoRefreshToken: true,
           persistSession: true,
           detectSessionInUrl: true,
+          // We can optionally disable navigator.locks if the "stolen lock" error persists,
+          // but better to fix the concurrency at the call site (UserAccountWidget).
         }
       }
     )
