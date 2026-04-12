@@ -100,15 +100,32 @@ export function useFormCollaboration({
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => {
+    
+    const killSync = () => {
       mountedRef.current = false;
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+
+    window.addEventListener("beforeunload", killSync);
+    window.addEventListener("pagehide", killSync);
+
+    return () => {
+      killSync();
+      window.removeEventListener("beforeunload", killSync);
+      window.removeEventListener("pagehide", killSync);
     };
   }, []);
 
   const persistToSupabase = useCallback(async (currentFields: BuilderField[], currentForm: BuilderForm) => {
     const payload = JSON.stringify({ currentFields, currentForm });
-    if (payload === lastSavedRef.current || !mountedRef.current) return;
+    
+    // Strict Path Sequestration: Ensure we are actually on the edit page for this form.
+    // This prevents backgrounded tabs or transitioning states from firing syncs
+    // that would trigger a router refresh on the wrong path (e.g., the dashboard).
+    const isEditingThisForm = typeof window !== "undefined" && 
+      window.location.pathname === `/forms/${formId}/edit`;
+
+    if (payload === lastSavedRef.current || !mountedRef.current || !isEditingThisForm) return;
 
     if (isSavingRef.current) {
       isDirtyRef.current = true;

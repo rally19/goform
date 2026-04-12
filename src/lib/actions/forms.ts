@@ -376,7 +376,6 @@ export async function syncFormState(
 
     if (shouldRevalidate) {
       revalidatePath(`/forms/${id}/edit`);
-      revalidatePath("/forms");
     }
 
     return { success: true };

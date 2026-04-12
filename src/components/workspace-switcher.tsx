@@ -46,11 +46,16 @@ export function WorkspaceSwitcher({
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId) || workspaces[0];
 
   const handleWorkspaceChange = async (id: string) => {
-    setIsSwitching(true);
-    await onWorkspaceChange(id);
-    // Hard refresh via browser-level navigation to ensure all state is reset 
-    // and the switching overlay is cleared.
-    window.location.href = "/forms";
+    try {
+      setIsSwitching(true);
+      await onWorkspaceChange(id);
+      // Hard refresh via browser-level navigation to ensure all state is reset 
+      // and the switching overlay is cleared.
+      window.location.href = "/forms";
+    } catch (err) {
+      // Ignore errors that happen during navigation/unmount
+      console.log("Workspace switch initiated...");
+    }
   };
 
   return (
