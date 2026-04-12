@@ -299,55 +299,57 @@ export function BuilderCanvas({
           {/* Canvas */}
           <ScrollArea className="flex-1 h-full min-h-0 bg-muted/30">
             <CursorArea id="canvas" className="min-h-full">
-              <div data-cursor-area-root="true" className="max-w-2xl mx-auto p-4 md:p-8 space-y-8 pb-32">
-                <div data-cursor-id="header" data-cursor-type="header">
-                  <FormHeaderEditor 
-                    accentColor={accentColor} 
-                    title={form?.title}
-                    description={form?.description}
-                    onUpdate={(changes) => collabUpdateFormMeta(changes)}
-                  />
-                </div>
+              <div className="max-w-2xl mx-auto p-4 md:p-8 pb-32">
+                <div data-cursor-area-root="true" className="space-y-8">
+                  <div data-cursor-id="header" data-cursor-type="header">
+                    <FormHeaderEditor 
+                      accentColor={accentColor} 
+                      title={form?.title}
+                      description={form?.description}
+                      onUpdate={(changes) => collabUpdateFormMeta(changes)}
+                    />
+                  </div>
 
-                <div className="space-y-4">
-                  <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
-                    <div className="space-y-4">
-                      <AnimatePresence>
-                        {fields.map((field) => (
-                          <motion.div
-                            key={field.id}
-                            layout
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            data-cursor-id={field.id}
-                            data-cursor-type="field"
-                          >
-                            <FieldCard
-                              field={field}
-                              isSelected={selectedFieldId === field.id}
-                              accentColor={accentColor}
-                              currentUserId={currentUserId}
-                              onUpdate={(changes) => collabUpdateField(field.id, changes)}
-                              onRemove={() => collabRemoveField(field.id)}
-                              onDuplicate={() => {
-                                const copy = { ...field, id: crypto.randomUUID(), label: `${field.label} (Copy)`, isNew: true };
-                                const idx = fields.findIndex(f => f.id === field.id);
-                                collabAddField(copy, idx + 1);
-                              }}
-                              others={others}
-                            />
-                          </motion.div>
-                        ))}
-                      </AnimatePresence>
-                    </div>
-                  </SortableContext>
-                  {fields.length === 0 && (
-                    <div className="border-2 border-dashed border-muted-foreground/20 rounded-xl p-12 text-center">
-                      <PlusCircle className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
-                      <p className="text-sm font-medium">Start building your form</p>
-                      <p className="text-xs text-muted-foreground mt-1">Drag components here to begin</p>
-                    </div>
-                  )}
+                  <div className="space-y-4">
+                    <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
+                      <div className="space-y-4">
+                        <AnimatePresence>
+                          {fields.map((field) => (
+                            <motion.div
+                              key={field.id}
+                              layout
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              data-cursor-id={field.id}
+                              data-cursor-type="field"
+                            >
+                              <FieldCard
+                                field={field}
+                                isSelected={selectedFieldId === field.id}
+                                accentColor={accentColor}
+                                currentUserId={currentUserId}
+                                onUpdate={(changes) => collabUpdateField(field.id, changes)}
+                                onRemove={() => collabRemoveField(field.id)}
+                                onDuplicate={() => {
+                                  const copy = { ...field, id: crypto.randomUUID(), label: `${field.label} (Copy)`, isNew: true };
+                                  const idx = fields.findIndex(f => f.id === field.id);
+                                  collabAddField(copy, idx + 1);
+                                }}
+                                others={others}
+                              />
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
+                      </div>
+                    </SortableContext>
+                    {fields.length === 0 && (
+                      <div className="border-2 border-dashed border-muted-foreground/20 rounded-xl p-12 text-center">
+                        <PlusCircle className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+                        <p className="text-sm font-medium">Start building your form</p>
+                        <p className="text-xs text-muted-foreground mt-1">Drag components here to begin</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </CursorArea>

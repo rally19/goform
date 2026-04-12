@@ -35,17 +35,27 @@ export function CursorArea({ id, children, className }: CursorAreaProps) {
       if (rootEl) {
         const rootRect = rootEl.getBoundingClientRect();
         
-        // --- 1. Horizontal Column Detection ---
-        if (e.clientX < rootRect.left) {
+        // --- 1. Sub-Pixel Horizontal Detection ---
+        const rootOffsetLeft = rootRect.left - rect.left;
+        const rootOffsetRight = rootRect.right - rect.left;
+        const localX = e.clientX - rect.left;
+
+        if (localX < rootOffsetLeft) {
           colType = "left";
-          relX = Math.max(0, Math.min(1, (rootRect.left - e.clientX) / rootRect.left));
-        } else if (e.clientX > rootRect.right) {
+          const leftGutterWidth = rootOffsetLeft;
+          relX = leftGutterWidth > 0 
+            ? Math.max(0, Math.min(1, (rootOffsetLeft - localX) / leftGutterWidth))
+            : 0;
+        } else if (localX > rootOffsetRight) {
           colType = "right";
-          const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 2000;
-          relX = Math.max(0, Math.min(1, (e.clientX - rootRect.right) / (windowWidth - rootRect.right)));
+          const rightGutterWidth = rect.width - rootOffsetRight;
+          relX = rightGutterWidth > 0
+            ? Math.max(0, Math.min(1, (localX - rootOffsetRight) / rightGutterWidth))
+            : 0;
         } else {
           colType = "center";
-          relX = (e.clientX - rootRect.left) / rootRect.width;
+          // USE ABSOLUTE PIXELS for the form content to ensure 1:1 parity
+          relX = localX - rootOffsetLeft;
         }
 
         // --- 2. Vertical Row Detection ---
@@ -62,16 +72,14 @@ export function CursorArea({ id, children, className }: CursorAreaProps) {
 
           if (e.clientY < first.rect.top) {
             rowType = "gutter-top";
-            relY = (first.rect.top - e.clientY) / 200; // arbitrary gutter mapping
+            relY = (first.rect.top - e.clientY) / 200;
           } else if (e.clientY > last.rect.bottom) {
             rowType = "gutter-bottom";
             relY = (e.clientY - last.rect.bottom) / 200;
           } else {
-            // Check if inside a row or a gap
             let found = false;
             for (let i = 0; i < sortedAnchors.length; i++) {
               const current = sortedAnchors[i];
-              
               if (e.clientY >= current.rect.top && e.clientY <= current.rect.bottom) {
                 rowType = current.el.getAttribute("data-cursor-type") as any || "field";
                 rowId = current.id;
@@ -79,13 +87,11 @@ export function CursorArea({ id, children, className }: CursorAreaProps) {
                 found = true;
                 break;
               }
-
-              // Check gap between this and next
               if (i < sortedAnchors.length - 1) {
                 const next = sortedAnchors[i + 1];
                 if (e.clientY > current.rect.bottom && e.clientY < next.rect.top) {
                   rowType = "gap";
-                  rowId = next.id; // Anchor gap to the following element
+                  rowId = next.id;
                   relY = (e.clientY - current.rect.bottom) / (next.rect.top - current.rect.bottom);
                   found = true;
                   break;
@@ -96,12 +102,11 @@ export function CursorArea({ id, children, className }: CursorAreaProps) {
         }
       }
     } else {
-      // Sidebar tracking (standard percentage)
-      const target = e.target as HTMLElement;
+      // Sidebar tracking (fallback logic)
       rowType = "field";
-      rowId = target.closest("[data-cursor-id]")?.getAttribute("data-cursor-id") || undefined;
+      rowId = (e.target as HTMLElement).closest("[data-cursor-id]")?.getAttribute("data-cursor-id") || undefined;
       colType = "center";
-      relX = x / rect.width;
+      relX = x; // use pixels for stability
       relY = y / rect.height;
     }
 
@@ -164,47 +169,45 @@ function CursorFollower({ cursor, info, containerRef }: {
       if (!rootEl) return;
       
       const rootRect = rootEl.getBoundingClientRect();
-      const areaWidth = containerRect.width;
       const areaHeight = containerRect.height;
 
       let finalX = 0;
       let finalY = 0;
 
-      // --- 1. Horizontal Resolve ---
+      // --- 1. Sub-Pixel Horizontal Resolve ---
+      const rootOffsetLeft = rootRect.left - containerRect.left;
+      const rootOffsetRight = rootRect.right - containerRect.left;
+
       if (cursor.colType === "left") {
-        finalX = rootRect.left - containerRect.left - (cursor.relX * rootRect.left);
+        const localLeftGutterWidth = rootOffsetLeft;
+        finalX = rootOffsetLeft - (cursor.relX * localLeftGutterWidth);
       } else if (cursor.colType === "right") {
-        const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 2000;
-        const rightWidth = windowWidth - rootRect.right;
-        finalX = rootRect.right - containerRect.left + (cursor.relX * rightWidth);
+        const localRightGutterWidth = containerRect.width - rootOffsetRight;
+        finalX = rootOffsetRight + (cursor.relX * localRightGutterWidth);
       } else {
-        finalX = rootRect.left - containerRect.left + (cursor.relX * rootRect.width);
+        // PIXEL-TO-PIXEL mapping for the form center
+        finalX = rootOffsetLeft + cursor.relX;
       }
 
       // --- 2. Vertical Resolve ---
       if (cursor.rowType === "gutter-top" || cursor.rowType === "gutter-bottom") {
-        // Fallback for extreme gutters
         finalY = cursor.rowType === "gutter-top" ? 0 : areaHeight;
       } else {
         const targetEl = containerRef.current?.querySelector(`[data-cursor-id="${cursor.rowId}"]`);
         if (targetEl) {
           const targetRect = targetEl.getBoundingClientRect();
-          
           if (cursor.rowType === "gap") {
-            // Find element BEFORE this rowId to get the gap bound
             const allAnchors = Array.from(containerRef.current?.querySelectorAll("[data-cursor-id]") || []);
             const targetIdx = allAnchors.findIndex(el => el.getAttribute("data-cursor-id") === cursor.rowId);
             const prevEl = targetIdx > 0 ? allAnchors[targetIdx - 1] : null;
-            
             if (prevEl) {
               const prevRect = prevEl.getBoundingClientRect();
               const gapHeight = targetRect.top - prevRect.bottom;
               finalY = prevRect.bottom - containerRect.top + (cursor.relY * gapHeight);
             } else {
-              finalY = targetRect.top - containerRect.top - 20; // Fallback
+              finalY = targetRect.top - containerRect.top - 20;
             }
           } else {
-            // Directly over component
             finalY = targetRect.top - containerRect.top + (cursor.relY * targetRect.height);
           }
         }
