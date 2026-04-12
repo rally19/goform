@@ -67,7 +67,7 @@ export function UserAccountWidget() {
     <div className="flex w-full items-center justify-between overflow-hidden">
       <div className="flex items-center gap-2 text-sm font-medium">
         <Avatar className="h-8 w-8">
-          <AvatarImage src={user?.avatarUrl || ""} />
+          <AvatarImage src={user?.avatarUrl || undefined} />
           <AvatarFallback>
             {user?.name ? (
               user.name.charAt(0).toUpperCase()

@@ -88,6 +88,9 @@ export function SettingsClient({
     if (file) {
       const formData = new FormData();
       formData.append('file', file);
+      // Reset input value so the same file can be selected again
+      e.target.value = '';
+      
       startTransition(async () => {
         const res = await uploadAvatarAction(formData);
         if (res?.error) toast.error(res.error);
@@ -152,7 +155,7 @@ export function SettingsClient({
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                     <div className="relative group/avatar">
                       <Avatar className="h-24 w-24 border-2 border-border transition-all duration-300 group-hover/avatar:border-primary">
-                        <AvatarImage src={user.avatarUrl || ""} alt="User profile" />
+                        <AvatarImage src={user.avatarUrl || undefined} alt="User profile" />
                         <AvatarFallback className="bg-muted text-2xl font-semibold">
                           {user.name ? user.name.charAt(0).toUpperCase() : "U"}
                         </AvatarFallback>
