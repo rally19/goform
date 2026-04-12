@@ -100,6 +100,10 @@ export async function uploadAvatarAction(formData: FormData) {
   if (!user) return { error: 'Not authenticated' }
 
   if (!file) return { error: 'No file provided' }
+  
+  if (file.size > 2 * 1024 * 1024) {
+    return { error: 'File size must be less than 2MB.' }
+  }
 
   const fileExt = file.name.split('.').pop()
   const fileName = `${user.id}-${Math.random()}.${fileExt}`
