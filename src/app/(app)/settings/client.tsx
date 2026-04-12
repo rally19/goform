@@ -159,7 +159,7 @@ export function SettingsClient({
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                    <div className="relative group/avatar">
+                    <div className="relative group/avatar w-fit">
                       <Avatar className="h-24 w-24 border-2 border-border transition-all duration-300 group-hover/avatar:border-primary">
                         <AvatarImage src={user.avatarUrl || undefined} alt="User profile" />
                         <AvatarFallback className="bg-muted text-2xl font-semibold">
