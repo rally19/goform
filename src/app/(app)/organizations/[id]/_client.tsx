@@ -26,6 +26,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -72,6 +82,11 @@ export function OrganizationManageClient({
   const [isInviting, setIsInviting] = useState(false);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
 
+  // Dialog State
+  const [orgDeleteConfirmOpen, setOrgDeleteConfirmOpen] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState<{ id: string, name: string } | null>(null);
+  const [avatarRemoveConfirmOpen, setAvatarRemoveConfirmOpen] = useState(false);
+
   const handleUpdateSettings = async () => {
     setIsSaving(true);
     const res = await updateOrganization(organization.id, { 
@@ -87,7 +102,6 @@ export function OrganizationManageClient({
   };
 
   const handleDelete = async () => {
-    if (!confirm(`Are you sure you want to delete ${organization.name}? This cannot be undone.`)) return;
     setIsDeleting(true);
     const res = await deleteOrganization(organization.id);
     setIsDeleting(false);
@@ -123,14 +137,15 @@ export function OrganizationManageClient({
     });
   };
 
-  const handleRemoveMember = async (userId: string) => {
-    if (!confirm("Are you sure you want to remove this member?")) return;
-    const res = await removeMember(organization.id, userId);
+  const handleRemoveMember = async () => {
+    if (!memberToRemove) return;
+    const res = await removeMember(organization.id, memberToRemove.id);
     if (res.success) {
       toast.success("Member removed");
     } else {
       toast.error(res.error || "Failed to remove member");
     }
+    setMemberToRemove(null);
   };
 
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -155,6 +170,7 @@ export function OrganizationManageClient({
   };
 
   const handleRemoveAvatar = () => {
+    setAvatarRemoveConfirmOpen(false);
     startTransition(async () => {
       const res = await removeOrganizationAvatarAction(organization.id);
       if (res.error) toast.error(res.error);
@@ -291,7 +307,12 @@ export function OrganizationManageClient({
                       )}
                       
                       {isAdminOrOwner && m.role !== "owner" && (
-                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveMember(m.userId)}>
+                         <Button 
+                           variant="ghost" 
+                           size="icon" 
+                           className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" 
+                           onClick={() => setMemberToRemove({ id: m.userId, name: m.user?.name || m.user?.email || "this member" })}
+                         >
                            <Trash2 className="h-4 w-4" />
                          </Button>
                       )}
@@ -375,7 +396,7 @@ export function OrganizationManageClient({
                       variant="ghost" 
                       size="sm" 
                       className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={handleRemoveAvatar}
+                      onClick={() => setAvatarRemoveConfirmOpen(true)}
                       disabled={isPending || !organization.avatarUrl}
                     >
                       Remove
@@ -422,7 +443,7 @@ export function OrganizationManageClient({
                       Permanently delete this organization, its forms, and all associated responses data. This cannot be undone.
                     </p>
                   </div>
-                  <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+                  <Button variant="destructive" onClick={() => setOrgDeleteConfirmOpen(true)} disabled={isDeleting}>
                     {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
                     Delete Organization
                   </Button>
@@ -432,6 +453,58 @@ export function OrganizationManageClient({
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Confirmation Dialogs */}
+      <AlertDialog open={orgDeleteConfirmOpen} onOpenChange={setOrgDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">Delete Organization?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete <strong>{organization.name}</strong>, its forms, and all associated response data. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete Organization
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!memberToRemove} onOpenChange={(open) => !open && setMemberToRemove(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Member?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove <strong>{memberToRemove?.name}</strong> from this organization? They will lose access to all collaborative forms in this workspace.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRemoveMember} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Remove Member
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={avatarRemoveConfirmOpen} onOpenChange={setAvatarRemoveConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Logo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove the organization logo?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRemoveAvatar}>
+              Remove Logo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

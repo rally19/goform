@@ -53,6 +53,7 @@ export function SettingsClient({
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [signOutOthersOpen, setSignOutOthersOpen] = useState(false);
   const [emailChangeAlertOpen, setEmailChangeAlertOpen] = useState(false);
+  const [avatarRemoveOpen, setAvatarRemoveOpen] = useState(false);
 
 
   const handleProfileSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -106,6 +107,7 @@ export function SettingsClient({
   };
 
   const handleRemoveAvatar = () => {
+    setAvatarRemoveOpen(false);
     startTransition(async () => {
       const res = await removeAvatarAction();
       if (res?.error) toast.error(res.error);
@@ -201,7 +203,7 @@ export function SettingsClient({
                           variant="ghost" 
                           size="sm" 
                           className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={handleRemoveAvatar}
+                          onClick={() => setAvatarRemoveOpen(true)}
                           disabled={isPending || !user.avatarUrl}
                         >
                           Remove
@@ -353,8 +355,25 @@ export function SettingsClient({
           </TabsContent>
         </Tabs>
 
-        {/* Dialogs */}
-        <AlertDialog open={signOutOthersOpen} onOpenChange={setSignOutOthersOpen}>
+      {/* Dialogs */}
+      <AlertDialog open={avatarRemoveOpen} onOpenChange={setAvatarRemoveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Profile Picture?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove your profile picture?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRemoveAvatar}>
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={signOutOthersOpen} onOpenChange={setSignOutOthersOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Sign out of other sessions?</AlertDialogTitle>
