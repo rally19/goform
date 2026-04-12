@@ -11,7 +11,7 @@ import {
 import { LiveList, LiveObject } from "@liveblocks/client";
 import { useFormBuilder } from "./use-form-builder";
 import type { BuilderField, BuilderForm } from "@/lib/form-types";
-import { saveFormFields, updateForm } from "@/lib/actions/forms";
+import { syncFormState } from "@/lib/actions/forms";
 
 interface UseFormCollaborationOptions {
   formId: string;
@@ -94,25 +94,38 @@ export function useFormCollaboration({
   // ─── Persistence to Supabase ───────────────────────────────────────────────
   const lastSavedRef = useRef<string | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const isSavingRef = useRef(false);
+  const isDirtyRef = useRef(false);
 
   const persistToSupabase = useCallback(async (currentFields: BuilderField[], currentForm: BuilderForm) => {
     const payload = JSON.stringify({ currentFields, currentForm });
     if (payload === lastSavedRef.current) return;
 
-    try {
-      const [metaResult, fieldsResult] = await Promise.all([
-        updateForm(formId, currentForm),
-        saveFormFields(formId, currentFields),
-      ]);
+    if (isSavingRef.current) {
+      isDirtyRef.current = true;
+      return;
+    }
 
-      if (!metaResult.success) throw new Error(metaResult.error);
-      if (!fieldsResult.success) throw new Error(fieldsResult.error);
+    try {
+      isSavingRef.current = true;
+      isDirtyRef.current = false;
+
+      const result = await syncFormState(formId, currentFields, currentForm, false);
+
+      if (!result.success) throw new Error(result.error);
 
       lastSavedRef.current = payload;
     } catch (err) {
       console.error("Auto-save to Supabase failed:", err);
+    } finally {
+      isSavingRef.current = false;
+      
+      // If changes happened while we were saving, trigger another save immediately
+      if (isDirtyRef.current) {
+        persistToSupabase(fields, form);
+      }
     }
-  }, [formId]);
+  }, [formId, fields, form]);
 
   useEffect(() => {
     if (!fields || !form) return;
@@ -120,7 +133,7 @@ export function useFormCollaboration({
     clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
       persistToSupabase(fields, form);
-    }, 2000);
+    }, 3000);
 
     return () => clearTimeout(saveTimeoutRef.current);
   }, [fields, form, persistToSupabase]);

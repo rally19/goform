@@ -6,6 +6,7 @@ import { createClient } from "@/lib/server";
 import { eq, and } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { cache } from "react";
 import crypto from "crypto";
 
 import { WORKSPACE_COOKIE, PERSONAL_WORKSPACE_ID } from "../constants";
@@ -20,11 +21,11 @@ async function getAuthUser() {
 
 // ─── Workspace Cookie Management ──────────────────────────────────────────────
 
-export async function getActiveWorkspace(): Promise<string> {
+export const getActiveWorkspace = cache(async (): Promise<string> => {
   const cookieStore = await cookies();
   const workspaceId = cookieStore.get(WORKSPACE_COOKIE)?.value;
   return workspaceId || PERSONAL_WORKSPACE_ID;
-}
+});
 
 export async function setActiveWorkspace(workspaceId: string) {
   const cookieStore = await cookies();
@@ -53,10 +54,10 @@ export async function setActiveWorkspace(workspaceId: string) {
 
 // ─── RBAC Helpers ─────────────────────────────────────────────────────────────
 
-export async function verifyWorkspaceAccess(
+export const verifyWorkspaceAccess = cache(async (
   orgId: string | null, 
   requiredRole: "owner" | "administrator" | "editor" | "viewer" = "viewer"
-): Promise<{ success: boolean; error?: string; role?: string }> {
+): Promise<{ success: boolean; error?: string; role?: string }> => {
   try {
     const user = await getAuthUser();
     
@@ -85,7 +86,7 @@ export async function verifyWorkspaceAccess(
   } catch(err) {
     return { success: false, error: "Authentication required" };
   }
-}
+});
 
 // ─── Organization Readers ───────────────────────────────────────────────────
 

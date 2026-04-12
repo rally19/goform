@@ -251,7 +251,8 @@ export async function moveForms(formIds: string[], targetWorkspaceId: string): P
 
 export async function updateForm(
   id: string,
-  data: Partial<BuilderForm>
+  data: Partial<BuilderForm>,
+  shouldRevalidate = true
 ): Promise<ActionResult> {
   try {
     const user = await getAuthUser();
@@ -272,8 +273,10 @@ export async function updateForm(
       .set(updateData)
       .where(eq(forms.id, id));
 
-    revalidatePath(`/forms/${id}`);
-    revalidatePath("/forms");
+    if (shouldRevalidate) {
+      revalidatePath(`/forms/${id}`);
+      revalidatePath("/forms");
+    }
     return { success: true };
   } catch (err) {
     return { success: false, error: (err as Error).message };
@@ -284,7 +287,8 @@ export async function updateForm(
 
 export async function saveFormFields(
   formId: string,
-  fields: BuilderField[]
+  fields: BuilderField[],
+  shouldRevalidate = true
 ): Promise<ActionResult> {
   try {
     await db.transaction(async (tx) => {
@@ -315,10 +319,70 @@ export async function saveFormFields(
         .where(eq(forms.id, formId));
     });
 
-    revalidatePath(`/forms/${formId}/edit`);
+    if (shouldRevalidate) {
+      revalidatePath(`/forms/${formId}/edit`);
+    }
     return { success: true };
   } catch (err) {
     console.error("Failed to save form fields:", err);
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+/**
+ * ── SYNC FORM STATE (Performance Optimized) ──
+ * Combines updateForm and saveFormFields into a single action to reduce auth overhead.
+ * Used primarily for auto-save loops in the collaborative builder.
+ */
+export async function syncFormState(
+  id: string,
+  fields: BuilderField[],
+  metadata: Partial<BuilderForm>,
+  shouldRevalidate = false
+): Promise<ActionResult> {
+  try {
+    await enforceFormAccess(id, "editor");
+    const user = await getAuthUser();
+
+    await db.transaction(async (tx) => {
+      // 1. Update Metadata
+      const updateData: Record<string, any> = { 
+        ...metadata, 
+        updatedAt: new Date() 
+      };
+      if (metadata.collaborationEnabled !== undefined) {
+        updateData.lastToggledBy = user.id;
+      }
+      await tx.update(forms).set(updateData).where(eq(forms.id, id));
+
+      // 2. Update Fields (Delete & Insert)
+      await tx.delete(formFields).where(eq(formFields.formId, id));
+      if (fields.length > 0) {
+        const toInsert: NewFormField[] = fields.map((f, i) => ({
+          id: f.id,
+          formId: id,
+          type: f.type,
+          label: f.label,
+          description: f.description || null,
+          placeholder: f.placeholder || null,
+          required: f.required,
+          orderIndex: i,
+          options: f.options || [],
+          validation: f.validation || {},
+          properties: f.properties || {},
+        }));
+        await tx.insert(formFields).values(toInsert);
+      }
+    });
+
+    if (shouldRevalidate) {
+      revalidatePath(`/forms/${id}/edit`);
+      revalidatePath("/forms");
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error("syncFormState failed:", err);
     return { success: false, error: (err as Error).message };
   }
 }
