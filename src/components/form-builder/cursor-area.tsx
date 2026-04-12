@@ -15,123 +15,145 @@ export function CursorArea({ id, children, className }: CursorAreaProps) {
   const others = useOthers();
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!containerRef.current) return;
+  useEffect(() => {
+    const handlePointerMove = (e: PointerEvent) => {
+      if (!containerRef.current) return;
 
-    const rect = containerRef.current.getBoundingClientRect();
-    
-    // Default coordinates relative to container
-    let x = e.clientX - rect.left;
-    let y = e.clientY - rect.top;
+      const rect = containerRef.current.getBoundingClientRect();
+      
+      // Boundary check: Is the pointer within this specific CursorArea?
+      const isWithinBounds = (
+        e.clientX >= rect.left &&
+        e.clientX <= rect.right &&
+        e.clientY >= rect.top &&
+        e.clientY <= rect.bottom
+      );
 
-    let rowType: "header" | "field" | "gap" | "gutter-top" | "gutter-bottom" = "gutter-top";
-    let rowId: string | undefined;
-    let colType: "left" | "center" | "right" = "center";
-    let relX = 0;
-    let relY = 0;
+      if (!isWithinBounds) {
+        // Only clear if we were the ones who last set it
+        // (This prevents multiple CursorAreas fighting for the same presence)
+        // updateMyPresence({ cursor: null }); 
+        return;
+      }
 
-    if (id === "canvas") {
-      const rootEl = containerRef.current.querySelector('[data-cursor-area-root="true"]');
-      if (rootEl) {
-        const rootRect = rootEl.getBoundingClientRect();
-        
-        // --- 1. Sub-Pixel Horizontal Detection ---
-        const rootOffsetLeft = rootRect.left - rect.left;
-        const rootOffsetRight = rootRect.right - rect.left;
-        const localX = e.clientX - rect.left;
+      // Default coordinates relative to container
+      let x = e.clientX - rect.left;
+      let y = e.clientY - rect.top;
 
-        if (localX < rootOffsetLeft) {
-          colType = "left";
-          const leftGutterWidth = rootOffsetLeft;
-          relX = leftGutterWidth > 0 
-            ? Math.max(0, Math.min(1, (rootOffsetLeft - localX) / leftGutterWidth))
-            : 0;
-        } else if (localX > rootOffsetRight) {
-          colType = "right";
-          const rightGutterWidth = rect.width - rootOffsetRight;
-          relX = rightGutterWidth > 0
-            ? Math.max(0, Math.min(1, (localX - rootOffsetRight) / rightGutterWidth))
-            : 0;
-        } else {
-          colType = "center";
-          // USE ABSOLUTE PIXELS for the form content to ensure 1:1 parity
-          relX = localX - rootOffsetLeft;
-        }
+      let rowType: "header" | "field" | "gap" | "gutter-top" | "gutter-bottom" = "gutter-top";
+      let rowId: string | undefined;
+      let colType: "left" | "center" | "right" = "center";
+      let relX = 0;
+      let relY = 0;
 
-        // --- 2. Vertical Row Detection ---
-        const anchorEls = Array.from(containerRef.current.querySelectorAll("[data-cursor-id]"));
-        const sortedAnchors = anchorEls.map(el => ({
-          el,
-          rect: el.getBoundingClientRect(),
-          id: el.getAttribute("data-cursor-id")!
-        })).sort((a, b) => a.rect.top - b.rect.top);
+      if (id === "canvas") {
+        const rootEl = containerRef.current.querySelector('[data-cursor-area-root="true"]');
+        if (rootEl) {
+          const rootRect = rootEl.getBoundingClientRect();
+          
+          // --- Horizontal Detection (Container-Relative) ---
+          const rootOffsetLeft = rootRect.left - rect.left;
+          const rootOffsetRight = rootRect.right - rect.left;
+          const localX = e.clientX - rect.left;
 
-        if (sortedAnchors.length > 0) {
-          const first = sortedAnchors[0];
-          const last = sortedAnchors[sortedAnchors.length - 1];
-
-          if (e.clientY < first.rect.top) {
-            rowType = "gutter-top";
-            relY = (first.rect.top - e.clientY) / 200;
-          } else if (e.clientY > last.rect.bottom) {
-            rowType = "gutter-bottom";
-            relY = (e.clientY - last.rect.bottom) / 200;
+          if (localX < rootOffsetLeft) {
+            colType = "left";
+            const leftGutterWidth = rootOffsetLeft;
+            relX = leftGutterWidth > 0 
+              ? Math.max(0, Math.min(1, (rootOffsetLeft - localX) / leftGutterWidth))
+              : 0;
+          } else if (localX > rootOffsetRight) {
+            colType = "right";
+            const rightGutterWidth = rect.width - rootOffsetRight;
+            relX = rightGutterWidth > 0
+              ? Math.max(0, Math.min(1, (localX - rootOffsetRight) / rightGutterWidth))
+              : 0;
           } else {
-            let found = false;
-            for (let i = 0; i < sortedAnchors.length; i++) {
-              const current = sortedAnchors[i];
-              if (e.clientY >= current.rect.top && e.clientY <= current.rect.bottom) {
-                rowType = current.el.getAttribute("data-cursor-type") as any || "field";
-                rowId = current.id;
-                relY = (e.clientY - current.rect.top) / current.rect.height;
-                found = true;
-                break;
-              }
-              if (i < sortedAnchors.length - 1) {
-                const next = sortedAnchors[i + 1];
-                if (e.clientY > current.rect.bottom && e.clientY < next.rect.top) {
-                  rowType = "gap";
-                  rowId = next.id;
-                  relY = (e.clientY - current.rect.bottom) / (next.rect.top - current.rect.bottom);
-                  found = true;
+            colType = "center";
+            relX = localX - rootOffsetLeft; // Absolute pixel mapping
+          }
+
+          // --- Vertical Row Detection ---
+          const anchorEls = Array.from(containerRef.current.querySelectorAll("[data-cursor-id]"));
+          const sortedAnchors = anchorEls.map(el => ({
+            el,
+            rect: el.getBoundingClientRect(),
+            id: el.getAttribute("data-cursor-id")!
+          })).sort((a, b) => a.rect.top - b.rect.top);
+
+          if (sortedAnchors.length > 0) {
+            const first = sortedAnchors[0];
+            const last = sortedAnchors[sortedAnchors.length - 1];
+
+            if (e.clientY < first.rect.top) {
+              rowType = "gutter-top";
+              relY = (first.rect.top - e.clientY) / 200;
+            } else if (e.clientY > last.rect.bottom) {
+              rowType = "gutter-bottom";
+              relY = (e.clientY - last.rect.bottom) / 200;
+            } else {
+              for (let i = 0; i < sortedAnchors.length; i++) {
+                const current = sortedAnchors[i];
+                if (e.clientY >= current.rect.top && e.clientY <= current.rect.bottom) {
+                  rowType = current.el.getAttribute("data-cursor-type") as any || "field";
+                  rowId = current.id;
+                  relY = (e.clientY - current.rect.top) / current.rect.height;
                   break;
+                }
+                if (i < sortedAnchors.length - 1) {
+                  const next = sortedAnchors[i + 1];
+                  if (e.clientY > current.rect.bottom && e.clientY < next.rect.top) {
+                    rowType = "gap";
+                    rowId = next.id;
+                    relY = (e.clientY - current.rect.bottom) / (next.rect.top - current.rect.bottom);
+                    break;
+                  }
                 }
               }
             }
           }
         }
+      } else {
+        // Sidebar tracking
+        const target = document.elementFromPoint(e.clientX, e.clientY);
+        rowType = "field";
+        rowId = (target as HTMLElement)?.closest("[data-cursor-id]")?.getAttribute("data-cursor-id") || undefined;
+        colType = "center";
+        relX = x; 
+        relY = y / rect.height;
       }
-    } else {
-      // Sidebar tracking (fallback logic)
-      rowType = "field";
-      rowId = (e.target as HTMLElement).closest("[data-cursor-id]")?.getAttribute("data-cursor-id") || undefined;
-      colType = "center";
-      relX = x; // use pixels for stability
-      relY = y / rect.height;
-    }
 
-    updateMyPresence({
-      cursor: {
-        x, y,
-        area: id,
-        rowType,
-        rowId,
-        colType,
-        relX,
-        relY
-      },
-    });
+      updateMyPresence({
+        cursor: {
+          x, y,
+          area: id,
+          rowType,
+          rowId,
+          colType,
+          relX,
+          relY
+        },
+      });
+    };
+
+    const handlePointerLeave = (e: PointerEvent) => {
+      // If the pointer actually leaves the browser or the specific container
+      // (Simplified: let the bounds check in pointermove handle mostly everything)
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerleave", handlePointerLeave);
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerleave", handlePointerLeave);
+    };
   }, [id, updateMyPresence]);
-
-  const handleMouseLeave = useCallback(() => {
-    updateMyPresence({ cursor: null });
-  }, [updateMyPresence]);
 
   return (
     <div
       ref={containerRef}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
+      onMouseLeave={() => updateMyPresence({ cursor: null })}
       className={className}
       style={{ position: "relative" }}
     >
@@ -174,7 +196,7 @@ function CursorFollower({ cursor, info, containerRef }: {
       let finalX = 0;
       let finalY = 0;
 
-      // --- 1. Sub-Pixel Horizontal Resolve ---
+      // --- Horizontal Resolve ---
       const rootOffsetLeft = rootRect.left - containerRect.left;
       const rootOffsetRight = rootRect.right - containerRect.left;
 
@@ -185,11 +207,10 @@ function CursorFollower({ cursor, info, containerRef }: {
         const localRightGutterWidth = containerRect.width - rootOffsetRight;
         finalX = rootOffsetRight + (cursor.relX * localRightGutterWidth);
       } else {
-        // PIXEL-TO-PIXEL mapping for the form center
-        finalX = rootOffsetLeft + cursor.relX;
+        finalX = rootOffsetLeft + cursor.relX; // Pixel mapping
       }
 
-      // --- 2. Vertical Resolve ---
+      // --- Vertical Resolve ---
       if (cursor.rowType === "gutter-top" || cursor.rowType === "gutter-bottom") {
         finalY = cursor.rowType === "gutter-top" ? 0 : areaHeight;
       } else {
