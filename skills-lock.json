@@ -1,10 +1,20 @@
 {
   "version": 1,
   "skills": {
+    "agent-email-inbox": {
+      "source": "resend/resend-skills",
+      "sourceType": "github",
+      "computedHash": "29f6342d819e25515c7af5b9e82172b25cec7c73447274de8342920ae324657a"
+    },
     "drizzle-orm": {
       "source": "bobmatnyc/claude-mpm-skills",
       "sourceType": "github",
       "computedHash": "c5132317134698624d023cbbbb612b99d2b20f532f6d1417639607cf401f03cd"
+    },
+    "email-best-practices": {
+      "source": "resend/email-best-practices",
+      "sourceType": "github",
+      "computedHash": "8b4087c06e6da4ed57cd1e0a7160b802226b419c85cd3b4839486b87777f6684"
     },
     "framer-motion-animator": {
       "source": "patricio0312rev/skills",
@@ -20,6 +30,26 @@
       "source": "ihlamury/design-skills",
       "sourceType": "github",
       "computedHash": "8becae691f6f0c7efb8244c905f7c70e709c15f67c95ed9e4c6e36fa08ac7398"
+    },
+    "react-email": {
+      "source": "resend/react-email",
+      "sourceType": "github",
+      "computedHash": "bf880348ac7b1946bc52612ef73e4c745ffc7192d43783d363d3933cc0cde246"
+    },
+    "resend": {
+      "source": "vercel-labs/emulate",
+      "sourceType": "github",
+      "computedHash": "befe9541ba124f54974f2af5ef7bbbb35b1e2009d4870ab3cb5f7ba80a0ae8e6"
+    },
+    "resend-cli": {
+      "source": "resend/resend-skills",
+      "sourceType": "github",
+      "computedHash": "e5080ddcfd4c75e51b5ac6d5ced046e4075899adc9dc143d540dc7460892dec6"
+    },
+    "resend-design-skills": {
+      "source": "resend/design-skills",
+      "sourceType": "github",
+      "computedHash": "332dd7c0d36088b0edffa89b0d0609cbeb52a3f263823c56c7c12907d745d624"
     },
     "shadcn": {
       "source": "shadcn/ui",
