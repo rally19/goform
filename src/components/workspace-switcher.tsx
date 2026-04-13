@@ -49,9 +49,9 @@ export function WorkspaceSwitcher({
     try {
       setIsSwitching(true);
       await onWorkspaceChange(id);
-      // Hard refresh via browser-level navigation to ensure all state is reset 
-      // and the switching overlay is cleared.
-      window.location.href = "/forms";
+      // Hard refresh of the current page to ensure everything (sidebar, content, etc.)
+      // sees the new workspace cookie, without forcing a redirect to /forms.
+      window.location.reload();
     } catch (err) {
       // Ignore errors that happen during navigation/unmount
       console.log("Workspace switch initiated...");
