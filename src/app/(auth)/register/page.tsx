@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Suspense } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -28,7 +29,7 @@ const registerSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters."),
 });
 
-export default function RegisterPage() {
+function RegisterForm() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next");
   const [isPending, startTransition] = useTransition();
@@ -147,5 +148,15 @@ export default function RegisterPage() {
         </CardContent>
       </Card>
     </motion.div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={
+      <div className="w-[400px] h-[550px] bg-card/50 animate-pulse rounded-xl" />
+    }>
+      <RegisterForm />
+    </Suspense>
   );
 }
