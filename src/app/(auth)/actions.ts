@@ -7,13 +7,14 @@ import { db } from '@/db'
 import { users, organizationInvites, organizationMembers } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { headers } from 'next/headers'
+import { getSiteUrl } from '@/lib/utils'
 
 async function getRedirectUrl(next: string | null, userId?: string) {
   if (!next || !next.startsWith('/')) return '/dashboard';
 
   // If the next URL is an invitation acceptance link, check if we should skip it
   if (next.includes('/api/accept-invite') && userId) {
-    const url = new URL(next, 'http://localhost'); // Base doesn't matter for query params
+    const url = new URL(next, getSiteUrl());
     const token = url.searchParams.get('token');
     
     if (token) {
@@ -71,8 +72,11 @@ export async function signInAction(formData: FormData) {
 export async function resetPasswordAction(formData: FormData) {
   const email = formData.get('email') as string
   const supabase = await createClient()
+  const siteUrl = getSiteUrl();
 
-  const { error } = await supabase.auth.resetPasswordForEmail(email)
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${siteUrl}/verify?email=${encodeURIComponent(email)}&type=recovery`
+  })
 
   if (error) {
     return { error: error.message }
@@ -97,6 +101,7 @@ export async function signUpAction(formData: FormData) {
       data: {
         name,
       },
+      emailRedirectTo: getSiteUrl(),
     },
   })
 

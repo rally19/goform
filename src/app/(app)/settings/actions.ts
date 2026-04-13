@@ -7,6 +7,7 @@ import { users, organizationMembers, organizations } from '@/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import type { UserIdentity } from '@supabase/supabase-js'
+import { getSiteUrl } from '@/lib/utils'
 
 export async function updateProfileAction(formData: FormData) {
   const name = formData.get('name') as string
@@ -176,7 +177,7 @@ export async function resetPasswordFromSettingsAction() {
   if (!user || !user.email) return { error: 'Not authenticated or no email found' }
 
   const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/oauth/consent?next=/settings`,
+    redirectTo: `${getSiteUrl()}/oauth/consent?next=/settings`,
   })
 
   if (error) return { error: error.message }
