@@ -35,6 +35,7 @@ function VerifyForm() {
   const searchParams = useSearchParams();
   const email = searchParams.get("email");
   const type = searchParams.get("type") as "signup" | "recovery" | "magiclink" | null;
+  const next = searchParams.get("next");
 
   const [isPending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -116,6 +117,7 @@ function VerifyForm() {
     formData.append("email", email as string);
     formData.append("token", values.pin);
     formData.append("type", type as string);
+    if (next) formData.append("next", next);
 
     startTransition(() => {
       verifyOtpAction(formData).then((res) => {

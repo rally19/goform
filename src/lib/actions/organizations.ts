@@ -3,11 +3,12 @@
 import { db } from "@/db";
 import { organizations, organizationMembers, organizationInvites, users } from "@/db/schema";
 import { createClient } from "@/lib/server";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { cache } from "react";
 import crypto from "crypto";
+import { resend } from "@/lib/resend";
 
 import { WORKSPACE_COOKIE, PERSONAL_WORKSPACE_ID } from "../constants";
 
@@ -266,6 +267,23 @@ export async function inviteMember(orgId: string, email: string, role: "manager"
     const access = await verifyWorkspaceAccess(orgId, requiredAccess);
     if (!access.success) throw new Error(access.error);
 
+    // 1. Check if user is already a member
+    const existingMember = await db.query.organizationMembers.findFirst({
+      where: and(
+        eq(organizationMembers.organizationId, orgId),
+        sql`${organizationMembers.userId} IN (SELECT id FROM ${users} WHERE email = ${email})`
+      )
+    });
+
+    if (existingMember) {
+      throw new Error("This email is already a member of the organization");
+    }
+
+    // 2. Resolve organization name for the email
+    const org = await db.query.organizations.findFirst({
+      where: eq(organizations.id, orgId)
+    });
+
     // Create a unguessable token
     const token = crypto.randomBytes(32).toString("hex");
     // Expiration in 7 days
@@ -280,10 +298,65 @@ export async function inviteMember(orgId: string, email: string, role: "manager"
       expiresAt,
     }).returning();
 
+    // 3. Send email via Resend
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const inviteLink = `${appUrl}/api/accept-invite?token=${token}`;
+
+    const { error: emailError } = await resend.emails.send({
+      from: 'GoForm <no-reply@formto.link>',
+      to: [email],
+      subject: `Invitation to join ${org?.name || 'an organization'} on GoForm`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+          <h2 style="color: #111827;">You've been invited!</h2>
+          <p style="color: #4b5563; line-height: 1.5;">
+            You have been invited to join <strong>${org?.name || 'the organization'}</strong> as a <strong>${role}</strong> on GoForm.
+          </p>
+          <div style="margin: 32px 0;">
+            <a href="${inviteLink}" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500;">
+              Accept Invitation
+            </a>
+          </div>
+          <p style="color: #9ca3af; font-size: 14px;">
+            If the button doesn't work, copy and paste this link into your browser:
+            <br />
+            <a href="${inviteLink}" style="color: #4f46e5;">${inviteLink}</a>
+          </p>
+          <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+          <p style="color: #9ca3af; font-size: 12px;">
+            This invitation was intended for ${email}. If you were not expecting this invitation, you can safely ignore this email.
+          </p>
+        </div>
+      `
+    });
+
+    if (emailError) {
+      console.error("Resend error:", emailError);
+      // We don't throw here to ensure the invite is still created in DB, 
+      // but we return the link for manual sharing as fallback if needed.
+    }
+
     revalidatePath(`/organizations/${orgId}`);
     
-    // Typically you would send an email here. We return the token/url for UI testing.
     return { success: true, data: invite };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+export async function cancelInviteAction(orgId: string, inviteId: string) {
+  try {
+    const access = await verifyWorkspaceAccess(orgId, "administrator");
+    if (!access.success) throw new Error(access.error);
+
+    await db.delete(organizationInvites)
+      .where(and(
+        eq(organizationInvites.id, inviteId),
+        eq(organizationInvites.organizationId, orgId)
+      ));
+
+    revalidatePath(`/organizations/${orgId}`);
+    return { success: true };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
@@ -299,6 +372,11 @@ export async function acceptInvite(token: string) {
 
     if (!invite) throw new Error("Invalid or expired invite");
     if (invite.expiresAt < new Date()) throw new Error("Invite expired");
+
+    // Ensure email matches
+    if (user.email !== invite.email) {
+      throw new Error(`This invitation was sent to ${invite.email}, but you are logged in as ${user.email}. Please log in with the correct account.`);
+    }
 
     // add to members
     const { users: usersTable } = await import("@/db/schema");

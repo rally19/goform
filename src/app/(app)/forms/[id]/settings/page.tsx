@@ -11,6 +11,13 @@ export default async function FormSettingsPage({
   const result = await getForm(id);
   if (!result.success || !result.data) redirect("/forms");
 
+  const { currentUserRole } = result.data;
+  
+  // Viewers are redirected to analytics
+  if (currentUserRole === "viewer") {
+    redirect(`/forms/${id}/analytics`);
+  }
+
   return (
     <SettingsClient formId={id} initialForm={result.data.form} />
   );

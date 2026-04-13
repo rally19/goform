@@ -24,6 +24,11 @@ export default async function FormBuilderPage({
   }
 
   const { form, fields, currentUserRole, currentUserId } = result.data;
+  
+  // Viewers are redirected to results
+  if (currentUserRole === "viewer") {
+    redirect(`/forms/${id}/results`);
+  }
 
   const builderForm: BuilderForm = {
     id: form.id,

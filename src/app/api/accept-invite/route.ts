@@ -1,4 +1,5 @@
 import { acceptInvite } from "@/lib/actions/organizations";
+import { createClient } from "@/lib/server";
 import { type NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -7,6 +8,18 @@ export async function GET(request: NextRequest) {
 
   if (!token) {
     return new NextResponse("Invalid token", { status: 400 });
+  }
+
+  // Check if authenticated
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    // Redirect to login with the next parameter pointing back to this route
+    const currentUrl = request.nextUrl;
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("next", `${currentUrl.pathname}${currentUrl.search}`);
+    return NextResponse.redirect(loginUrl);
   }
 
   const result = await acceptInvite(token);

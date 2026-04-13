@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { motion } from "motion/react";
 import { useTransition, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { signUpAction } from "../actions";
 
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,8 @@ const registerSchema = z.object({
 });
 
 export default function RegisterPage() {
+  const searchParams = useSearchParams();
+  const next = searchParams.get("next");
   const [isPending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -46,6 +49,7 @@ export default function RegisterPage() {
     formData.append("name", values.name);
     formData.append("email", values.email);
     formData.append("password", values.password);
+    if (next) formData.append("next", next);
 
     startTransition(() => {
       signUpAction(formData).then((res) => {
@@ -133,7 +137,10 @@ export default function RegisterPage() {
 
           <div className="mt-6 text-center text-sm">
             Already have an account?{" "}
-            <Link href="/login" className="font-semibold text-primary hover:underline">
+            <Link 
+              href={`/login${next ? `?next=${encodeURIComponent(next)}` : ""}`} 
+              className="font-semibold text-primary hover:underline"
+            >
               Sign in
             </Link>
           </div>

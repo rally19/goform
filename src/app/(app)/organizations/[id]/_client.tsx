@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition, useRef, useMemo } from "react";
+import { useState, useTransition, useRef, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { createClient } from "@/lib/client";
 import { 
   Building2, Users, Settings, Plus, Loader2, Link as LinkIcon, Trash2, Mail, Camera
 } from "lucide-react";
@@ -52,7 +53,8 @@ import {
   removeMember,
   uploadOrganizationAvatarAction,
   removeOrganizationAvatarAction,
-  transferOwnershipAction
+  transferOwnershipAction,
+  cancelInviteAction
 } from "@/lib/actions/organizations";
 
 export function OrganizationManageClient({ 
@@ -66,10 +68,14 @@ export function OrganizationManageClient({
 }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("members");
-  const isOwner = organization.currentUserRole === "owner";
-  const isManager = organization.currentUserRole === "manager";
+  
+  // Role State (for immediate UI updates)
+  const [currentRole, setCurrentRole] = useState(organization.currentUserRole);
+  
+  const isOwner = currentRole === "owner";
+  const isManager = currentRole === "manager";
   const isManagerOrAbove = isOwner || isManager;
-  const isAdminOrOwner = isOwner || isManager || organization.currentUserRole === "administrator";
+  const isAdminOrOwner = isOwner || isManager || currentRole === "administrator";
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -78,6 +84,147 @@ export function OrganizationManageClient({
   const [orgDesc, setOrgDesc] = useState(organization.description || "");
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [invites, setInvites] = useState(initialInvites);
+  const [members, setMembers] = useState(initialMembers);
+
+  // Sync state if initial data changes
+  useEffect(() => {
+    setInvites(initialInvites);
+  }, [initialInvites]);
+
+  useEffect(() => {
+    setMembers(initialMembers);
+  }, [initialMembers]);
+
+  useEffect(() => {
+    setCurrentRole(organization.currentUserRole);
+  }, [organization.currentUserRole]);
+
+  const refreshInvites = useCallback(async () => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('organization_invites')
+      .select('*')
+      .eq('organization_id', organization.id);
+    
+    if (error) {
+      console.error('Failed to refresh invites:', error);
+    } else if (data) {
+      const mapped = data.map((i: any) => ({
+        id: i.id,
+        organizationId: i.organization_id,
+        email: i.email,
+        role: i.role,
+        token: i.token,
+        expiresAt: new Date(i.expires_at),
+        createdAt: new Date(i.created_at)
+      }));
+      setInvites(mapped as any);
+    }
+  }, [organization.id]);
+
+  const refreshMembers = useCallback(async () => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('organization_members')
+      .select('*, user:users(*)')
+      .eq('organization_id', organization.id);
+    
+    if (error) {
+      console.error('Failed to refresh members:', error);
+    } else if (data) {
+      const mapped = data.map((m: any) => ({
+        id: m.id,
+        organizationId: m.organization_id,
+        userId: m.user_id,
+        role: m.role,
+        createdAt: new Date(m.created_at),
+        user: m.user ? {
+          id: m.user.id,
+          name: m.user.name,
+          email: m.user.email,
+          avatarUrl: m.user.avatar_url
+        } : null
+      }));
+      setMembers(mapped as any);
+    }
+  }, [organization.id]);
+
+  // Realtime Subscription
+  useEffect(() => {
+    const supabase = createClient();
+    
+    // 1. Invitations Subscription
+    const invitesChannel = supabase
+      .channel(`org-invites-${organization.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'organization_invites',
+          filter: `organization_id=eq.${organization.id}`,
+        },
+        (payload: any) => {
+          console.log('Realtime invite change detected:', payload.eventType);
+          refreshInvites();
+        }
+      )
+      .subscribe();
+
+    // 2. Members Subscription (with Boot & Role Update Logic)
+    const membersChannel = supabase
+      .channel(`org-members-${organization.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'organization_members',
+          filter: `organization_id=eq.${organization.id}`,
+        },
+        (payload: any) => {
+          console.log('Realtime member change detected:', payload.eventType);
+          
+          // Handle "Boot" (Deletion)
+          if (payload.eventType === 'DELETE') {
+            const deletedId = payload.old.id;
+            const wasMe = members.some(m => m.id === deletedId && m.userId === organization.currentUserId);
+            
+            if (wasMe) {
+              toast.error("You have been removed from this organization", { duration: 5000 });
+              router.push("/forms");
+              return;
+            }
+          }
+
+          // Handle Role Update for Self
+          if (payload.eventType === 'UPDATE') {
+             const updated = payload.new;
+             if (updated.user_id === organization.currentUserId) {
+               const newRole = updated.role;
+               if (newRole !== currentRole) {
+                 toast.success(`Your role has been updated to ${newRole}`);
+                 setCurrentRole(newRole);
+                 router.refresh();
+               }
+             }
+          }
+
+          refreshMembers();
+        }
+      )
+      .subscribe((status: any) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('Successfully subscribed to members realtime channel');
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(invitesChannel);
+      supabase.removeChannel(membersChannel);
+    };
+  }, [organization.id, organization.currentUserId, members, currentRole, refreshInvites, refreshMembers, router]);
 
   // Invite State
   const [inviteEmail, setInviteEmail] = useState("");
@@ -128,13 +275,20 @@ export function OrganizationManageClient({
     const res = await inviteMember(organization.id, inviteEmail, inviteRole);
     setIsInviting(false);
     if (res.success && res.data) {
-      toast.success("Invite created successfully");
-      // For local testing, we immediately expose the token so the user can accept it
-      setInviteLink(`${window.location.origin}/api/accept-invite?token=${res.data.token}`);
+      toast.success("Invite sent successfully");
       setInviteEmail("");
+      router.refresh(); // Refresh to see the new pending invite
     } else {
-      toast.error(res.error || "Failed to create invite");
+      toast.error(res.error || "Failed to send invite");
     }
+  };
+
+  const handleCancelInvite = async (inviteId: string) => {
+    toast.promise(cancelInviteAction(organization.id, inviteId), {
+      loading: "Cancelling invite...",
+      success: "Invite cancelled",
+      error: "Failed to cancel invite"
+    });
   };
 
   const handleUpdateRole = async (userId: string, newRole: string) => {
@@ -211,7 +365,7 @@ export function OrganizationManageClient({
   };
 
   const sortedMembers = useMemo(() => {
-    return [...initialMembers].sort((a, b) => {
+    return [...members].sort((a, b) => {
       // Current user always on top
       if (a.userId === organization.currentUserId) return -1;
       if (b.userId === organization.currentUserId) return 1;
@@ -221,7 +375,7 @@ export function OrganizationManageClient({
       const rankB = roleRanks[b.role] || 0;
       return rankB - rankA;
     });
-  }, [initialMembers, organization.currentUserId]);
+  }, [members, organization.currentUserId]);
 
 
   return (
@@ -248,73 +402,14 @@ export function OrganizationManageClient({
         <TabsList>
           <TabsTrigger value="members" className="gap-2"><Users className="h-4 w-4" /> Members</TabsTrigger>
           {isAdminOrOwner && (
+            <TabsTrigger value="invites" className="gap-2"><Mail className="h-4 w-4" /> Invites</TabsTrigger>
+          )}
+          {isAdminOrOwner && (
             <TabsTrigger value="settings" className="gap-2"><Settings className="h-4 w-4" /> Settings</TabsTrigger>
           )}
         </TabsList>
 
         <TabsContent value="members" className="space-y-4">
-          {isAdminOrOwner && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Invite New Member</CardTitle>
-                <CardDescription>Invite team members to collaborate on forms.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleInvite} className="flex gap-4 items-end">
-                  <div className="space-y-2 flex-1">
-                    <Label>Email address</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        type="email" 
-                        placeholder="colleague@example.com" 
-                        required
-                        className="pl-9"
-                        value={inviteEmail}
-                        onChange={(e) => setInviteEmail(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2 w-48">
-                    <Label>Role</Label>
-                    <Select value={inviteRole} onValueChange={(v: any) => setInviteRole(v)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {isManagerOrAbove && <SelectItem value="manager">Manager</SelectItem>}
-                        <SelectItem value="administrator">Administrator</SelectItem>
-                        <SelectItem value="editor">Editor</SelectItem>
-                        <SelectItem value="viewer">Viewer</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button type="submit" disabled={isInviting}>
-                    {isInviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
-                    Send Invite
-                  </Button>
-                </form>
-
-                {inviteLink && (
-                  <div className="mt-4 p-4 rounded-md bg-muted/50 border flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">Testing Mode: Invite generated</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Normally an email is sent. For local testing, copy this link in an incognito window:
-                      </p>
-                      <code className="text-xs bg-muted mt-2 block p-2 rounded truncate max-w-xl">
-                        {inviteLink}
-                      </code>
-                    </div>
-                    <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(inviteLink)}>
-                      <LinkIcon className="h-4 w-4 mr-2" /> Copy
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
           <Card>
             <CardHeader>
               <CardTitle>Organization Members</CardTitle>
@@ -377,28 +472,96 @@ export function OrganizationManageClient({
               </div>
             </CardContent>
           </Card>
-          
-          {initialInvites.length > 0 && isAdminOrOwner && (
+        </TabsContent>
+
+        {isAdminOrOwner && (
+          <TabsContent value="invites" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Invite New Member</CardTitle>
+                <CardDescription>Invite team members to collaborate on forms. An email will be sent to them with a link to join.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleInvite} className="flex gap-4 items-end">
+                  <div className="space-y-2 flex-1">
+                    <Label>Email address</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input 
+                        type="email" 
+                        placeholder="colleague@example.com" 
+                        required
+                        className="pl-9"
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2 w-48">
+                    <Label>Role</Label>
+                    <Select value={inviteRole} onValueChange={(v: any) => setInviteRole(v)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {isManagerOrAbove && <SelectItem value="manager">Manager</SelectItem>}
+                        <SelectItem value="administrator">Administrator</SelectItem>
+                        <SelectItem value="editor">Editor</SelectItem>
+                        <SelectItem value="viewer">Viewer</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button type="submit" disabled={isInviting}>
+                    {isInviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+                    Send Invite
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle>Pending Invites</CardTitle>
+                <CardDescription>Invitations that haven&apos;t been accepted yet.</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {initialInvites.map((inv) => (
-                    <div key={inv.id} className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium">{inv.email}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">Expires soon</p>
+                {invites.length > 0 ? (
+                  <div className="space-y-4">
+                    {invites.map((inv) => (
+                      <div key={inv.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
+                        <div className="flex items-center gap-3">
+                           <div className="bg-primary/5 p-2 rounded-full text-primary">
+                             <Mail className="h-4 w-4" />
+                           </div>
+                           <div>
+                            <p className="text-sm font-medium">{inv.email}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">Expires {new Date(inv.expiresAt).toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                           <Badge variant="secondary" className="capitalize">{inv.role}</Badge>
+                           <Button 
+                             variant="ghost" 
+                             size="icon" 
+                             className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                             onClick={() => handleCancelInvite(inv.id)}
+                           >
+                             <Trash2 className="h-4 w-4" />
+                           </Button>
+                        </div>
                       </div>
-                       <Badge variant="outline" className="capitalize">{inv.role}</Badge>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <Mail className="h-8 w-8 text-muted-foreground mx-auto mb-2 opacity-20" />
+                    <p className="text-sm text-muted-foreground">No pending invitations.</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
-          )}
-        </TabsContent>
+          </TabsContent>
+        )}
 
         <TabsContent value="settings" className="space-y-4">
           <Card>

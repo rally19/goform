@@ -4,11 +4,54 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/server'
 import { db } from '@/db'
-import { users } from '@/db/schema'
+import { users, organizationInvites, organizationMembers } from '@/db/schema'
+import { eq } from 'drizzle-orm'
+import { headers } from 'next/headers'
+
+async function getRedirectUrl(next: string | null, userId?: string) {
+  if (!next || !next.startsWith('/')) return '/dashboard';
+
+  // If the next URL is an invitation acceptance link, check if we should skip it
+  if (next.includes('/api/accept-invite') && userId) {
+    const url = new URL(next, 'http://localhost'); // Base doesn't matter for query params
+    const token = url.searchParams.get('token');
+    
+    if (token) {
+      // Find the invite to see which org it belongs to
+      const invite = await db.query.organizationInvites.findFirst({
+        where: eq(organizationInvites.token, token)
+      });
+
+      if (invite) {
+        // Check if user is already a member
+        const member = await db.query.organizationMembers.findFirst({
+          where: (items, { and, eq }) => and(
+            eq(items.organizationId, invite.organizationId),
+            eq(items.userId, userId)
+          )
+        });
+
+        if (member) {
+          return `/organizations/${invite.organizationId}`;
+        }
+      } else {
+        // If invite is gone, maybe they were JUST auto-joined?
+        // Let's check if they are a member of ANY org instead of showing an error
+        const member = await db.query.organizationMembers.findFirst({
+          where: eq(organizationMembers.userId, userId)
+        });
+        if (member) return `/organizations/${member.organizationId}`;
+      }
+    }
+  }
+
+  return next;
+}
 
 export async function signInAction(formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
+  const next = formData.get('next') as string | null
   const supabase = await createClient()
 
   const { error } = await supabase.auth.signInWithPassword({
@@ -21,7 +64,8 @@ export async function signInAction(formData: FormData) {
   }
 
   revalidatePath('/', 'layout')
-  redirect('/dashboard')
+  const { data: { user } } = await supabase.auth.getUser();
+  redirect(await getRedirectUrl(next, user?.id))
 }
 
 export async function resetPasswordAction(formData: FormData) {
@@ -41,6 +85,7 @@ export async function signUpAction(formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
   const name = formData.get('name') as string
+  const next = formData.get('next') as string | null
   
   const supabase = await createClient()
 
@@ -57,7 +102,7 @@ export async function signUpAction(formData: FormData) {
 
   if (error) {
     if (error.message.toLowerCase().includes('already registered')) {
-      redirect(`/verify?email=${encodeURIComponent(email)}&type=signup`)
+      redirect(`/verify?email=${encodeURIComponent(email)}&type=signup${next ? `&next=${encodeURIComponent(next)}` : ''}`)
     }
     return { error: error.message }
   }
@@ -69,21 +114,37 @@ export async function signUpAction(formData: FormData) {
       email: data.user.email!,
       name: name,
     }).onConflictDoNothing() 
+
+    // Auto-join organizations if there's a pending invite
+    const invites = await db.query.organizationInvites.findMany({
+      where: eq(organizationInvites.email, email)
+    });
+
+    for (const invite of invites) {
+      await db.insert(organizationMembers).values({
+        organizationId: invite.organizationId,
+        userId: data.user.id,
+        role: invite.role,
+      }).onConflictDoNothing();
+
+      await db.delete(organizationInvites).where(eq(organizationInvites.id, invite.id));
+    }
   }
 
   if (!data.session) {
     // If Supabase confirms email is needed, session will be null
-    redirect(`/verify?email=${encodeURIComponent(email)}&type=signup`)
+    redirect(`/verify?email=${encodeURIComponent(email)}&type=signup${next ? `&next=${encodeURIComponent(next)}` : ''}`)
   }
 
   revalidatePath('/', 'layout')
-  redirect('/dashboard')
+  redirect(await getRedirectUrl(next, data.user?.id))
 }
 
 export async function verifyOtpAction(formData: FormData) {
   const email = formData.get('email') as string
   const token = formData.get('token') as string
   const type = formData.get('type') as any
+  const next = formData.get('next') as string | null
 
   const supabase = await createClient()
 
@@ -100,7 +161,8 @@ export async function verifyOtpAction(formData: FormData) {
   if (type === 'recovery') {
     redirect('/settings')
   } else {
-    redirect('/dashboard')
+    const { data: { user } } = await supabase.auth.getUser();
+    redirect(await getRedirectUrl(next, user?.id))
   }
 }
 
