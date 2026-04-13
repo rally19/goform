@@ -1,3 +1,5 @@
+import { getActiveWorkspace, getOrganization } from "@/lib/actions/organizations";
+import { PERSONAL_WORKSPACE_ID } from "@/lib/constants";
 import { getDashboardStats, getForms } from "@/lib/actions/forms";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,17 +10,23 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   ArrowUpRight, BarChart3, Plus, SquarePen, Users,
-  CheckCircle2, Clock, TrendingUp, FileText,
+  CheckCircle2, Clock, TrendingUp, FileText, Building2,
 } from "lucide-react";
 import Link from "next/link";
 
 export default async function DashboardPage() {
-  const [statsResult, formsResult] = await Promise.all([
+  const [statsResult, formsResult, workspaceId] = await Promise.all([
     getDashboardStats(),
     getForms(),
+    getActiveWorkspace(),
   ]);
+
+  const isPersonal = workspaceId === PERSONAL_WORKSPACE_ID;
+  const workspaceResult = !isPersonal ? await getOrganization(workspaceId) : null;
+  const workspace = workspaceResult?.success ? workspaceResult.data : null;
 
   const stats = statsResult.success && statsResult.data
     ? statsResult.data
@@ -53,10 +61,38 @@ export default async function DashboardPage() {
     <div className="flex-1 space-y-6 p-4 pt-6 md:p-8 overflow-y-auto h-full">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            Welcome back! Here&apos;s what&apos;s happening.
-          </p>
+          <div className="flex items-center gap-2 mb-1">
+            <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
+            <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/80">
+              Overview
+            </Badge>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            {isPersonal ? (
+              <div className="flex items-center gap-2">
+                <Avatar className="h-5 w-5">
+                  <AvatarFallback className="bg-primary/10 text-primary text-[10px]">
+                    <SquarePen className="h-3 w-3" />
+                  </AvatarFallback>
+                </Avatar>
+                <span>Personal Workspace</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Avatar className="h-5 w-5">
+                  <AvatarImage src={workspace?.avatarUrl || undefined} />
+                  <AvatarFallback className="bg-primary/10 text-primary text-[10px]">
+                    <Building2 className="h-3 w-3" />
+                  </AvatarFallback>
+                </Avatar>
+                <span className="font-semibold text-foreground">{workspace?.name}</span>
+                <span className="text-muted-foreground/60">•</span>
+                <Badge variant="secondary" className="h-4 px-1 text-[9px] uppercase font-bold">
+                  {workspace?.currentUserRole}
+                </Badge>
+              </div>
+            )}
+          </div>
         </div>
         <Button asChild>
           <Link href="/forms">
