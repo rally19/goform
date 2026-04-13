@@ -11,6 +11,7 @@ import crypto from "crypto";
 import { resend } from "@/lib/resend";
 
 import { WORKSPACE_COOKIE, PERSONAL_WORKSPACE_ID } from "../constants";
+import { getBaseUrl } from "../utils/url";
 
 // Helper to reliably get auth user
 async function getAuthUser() {
@@ -299,8 +300,8 @@ export async function inviteMember(orgId: string, email: string, role: "manager"
     }).returning();
 
     // 3. Send email via Resend
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const inviteLink = `${appUrl}/api/accept-invite?token=${token}`;
+    const baseUrl = await getBaseUrl();
+    const inviteLink = `${baseUrl}/api/accept-invite?token=${token}`;
 
     const { error: emailError } = await resend.emails.send({
       from: 'GoForm <no-reply@formto.link>',
