@@ -8,9 +8,10 @@ interface CursorAreaProps {
   id: "components" | "canvas" | "settings";
   children: ReactNode;
   className?: string;
+  onClick?: () => void;
 }
 
-export function CursorArea({ id, children, className }: CursorAreaProps) {
+export function CursorArea({ id, children, className, onClick }: CursorAreaProps) {
   const [, updateMyPresence] = useMyPresence();
   const others = useOthers();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -156,6 +157,7 @@ export function CursorArea({ id, children, className }: CursorAreaProps) {
       onMouseLeave={() => updateMyPresence({ cursor: null })}
       className={className}
       style={{ position: "relative" }}
+      onClick={onClick}
     >
       {children}
       

@@ -45,6 +45,7 @@ interface FieldCardProps {
   onUpdate?: (changes: Partial<BuilderField>) => void;
   onRemove?: () => void;
   onDuplicate?: () => void;
+  onClick?: (e: React.MouseEvent) => void;
   others?: readonly any[];
 }
 
@@ -57,8 +58,10 @@ export function FieldCard({
   onUpdate,
   onRemove,
   onDuplicate,
+  onClick,
   others = [],
 }: FieldCardProps) {
+// ... trimmed for space in thought, I'll generate the full replacement for the range ...
   const Icon = FIELD_ICONS[field.type] ?? Type;
   
   // Find if anyone else is editing or dragging this field
@@ -199,8 +202,9 @@ export function FieldCard({
   return (
     <div
       ref={setNodeRef}
+      onClick={onClick}
       className={cn(
-        "group relative rounded-xl border bg-card transition-all duration-300",
+        "group relative rounded-xl border bg-card transition-all duration-300 cursor-pointer select-none",
         isLocalDragging ? "opacity-0" : "opacity-100",
         isOverlay && "z-50 cursor-grabbing shadow-xl border-primary/50",
         isBeingEditedByOther && "ring-2 ring-offset-2",
@@ -267,7 +271,7 @@ export function FieldCard({
         <div
           {...attributes}
           {...listeners}
-          className="pt-0.5 outline-none touch-none shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
+          className="p-2 -m-2 outline-none touch-none shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors"
           onClick={(e) => e.stopPropagation()}
         >
           <GripVertical className="h-4 w-4" />
