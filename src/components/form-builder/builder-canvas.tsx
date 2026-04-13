@@ -434,9 +434,37 @@ export function BuilderCanvas({
             currentUserId={currentUserId} 
             field={fields.find(f => f.id === selectedFieldId)}
             onUpdate={(changes) => selectedFieldId && collabUpdateField(selectedFieldId, changes)}
-            onAddOption={() => {}}
-            onRemoveOption={() => {}}
-            onUpdateOption={() => {}}
+            onAddOption={() => {
+              if (selectedFieldId) {
+                const field = fields.find(f => f.id === selectedFieldId);
+                if (field) {
+                  const options = [...(field.options || [])];
+                  const idx = options.length + 1;
+                  options.push({ label: `Option ${idx}`, value: `option_${idx}` });
+                  collabUpdateField(selectedFieldId, { options });
+                }
+              }
+            }}
+            onRemoveOption={(idx) => {
+              if (selectedFieldId) {
+                const field = fields.find(f => f.id === selectedFieldId);
+                if (field?.options) {
+                  const options = [...field.options];
+                  options.splice(idx, 1);
+                  collabUpdateField(selectedFieldId, { options });
+                }
+              }
+            }}
+            onUpdateOption={(idx, label) => {
+              if (selectedFieldId) {
+                const field = fields.find(f => f.id === selectedFieldId);
+                if (field?.options) {
+                  const options = [...field.options];
+                  options[idx] = { ...options[idx], label };
+                  collabUpdateField(selectedFieldId, { options });
+                }
+              }
+            }}
             onMobileClose={() => setIsSettingsOpen(false)}
           />
         </SheetContent>
