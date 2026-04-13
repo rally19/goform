@@ -143,10 +143,12 @@ export function CursorArea({ id, children, className, onClick }: CursorAreaProps
     };
 
     window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerdown", handlePointerMove);
     window.addEventListener("pointerleave", handlePointerLeave);
 
     return () => {
       window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerdown", handlePointerMove);
       window.removeEventListener("pointerleave", handlePointerLeave);
     };
   }, [id, updateMyPresence]);
