@@ -30,6 +30,7 @@ import {
 import {
   SortableContext,
   verticalListSortingStrategy,
+  arrayMove,
 } from "@dnd-kit/sortable";
 import {
   PlusCircle, Globe, Settings2, Palette, Check,
@@ -409,6 +410,15 @@ export function BuilderCanvas({
                 }
               }
             }}
+            onReorderOptions={(from, to) => {
+              if (selectedFieldId) {
+                const field = fields.find(f => f.id === selectedFieldId);
+                if (field?.options) {
+                  const options = arrayMove(field.options, from, to);
+                  collabUpdateField(selectedFieldId, { options });
+                }
+              }
+            }}
             onMobileClose={() => {}}
           />
         </CursorArea>
@@ -461,6 +471,15 @@ export function BuilderCanvas({
                 if (field?.options) {
                   const options = [...field.options];
                   options[idx] = { ...options[idx], label };
+                  collabUpdateField(selectedFieldId, { options });
+                }
+              }
+            }}
+            onReorderOptions={(from, to) => {
+              if (selectedFieldId) {
+                const field = fields.find(f => f.id === selectedFieldId);
+                if (field?.options) {
+                  const options = arrayMove(field.options, from, to);
                   collabUpdateField(selectedFieldId, { options });
                 }
               }
