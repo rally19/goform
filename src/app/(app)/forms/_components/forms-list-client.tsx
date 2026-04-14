@@ -182,19 +182,6 @@ function FormCard({
         </div>
       )}
 
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <Button variant="ghost" size="sm" asChild className="h-8 px-2 hidden sm:flex">
-          <Link href={`/forms/${form.id}/results`} prefetch={false}>
-            <ClipboardList className="h-3.5 w-3.5 mr-1" />
-            Results
-          </Link>
-        </Button>
-        <Button variant="ghost" size="icon" asChild className="h-8 w-8">
-          <Link href={`/f/${form.slug}`} target="_blank" title="Open public form">
-            <ExternalLink className="h-3.5 w-3.5" />
-          </Link>
-        </Button>
-      </div>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -43,6 +43,12 @@ export function OrganizationsClient({
   const [open, setOpen] = useState(false);
   const [orgName, setOrgName] = useState("");
   const [isSwitching, setIsSwitching] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [pendingOrgId, setPendingOrgId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPendingOrgId(null);
+  }, [router]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -191,10 +197,18 @@ export function OrganizationsClient({
                     className="h-8 gap-1"
                     onClick={(e) => {
                       e.stopPropagation();
-                      router.push(`/organizations/${org.id}`);
+                      setPendingOrgId(org.id);
+                      startTransition(() => {
+                        router.push(`/organizations/${org.id}`);
+                      });
                     }}
                   >
-                   <Settings className="size-3.5" /> Manage
+                   {isPending && pendingOrgId === org.id ? (
+                     <Loader2 className="size-3.5 animate-spin" />
+                   ) : (
+                     <Settings className="size-3.5" />
+                   )}
+                   Manage
                  </Button>
                </div>
             </CardContent>
