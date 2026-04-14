@@ -7,6 +7,10 @@ import { eq, desc, and, count, sql, gte } from "drizzle-orm";
 import { enforceFormAccess } from "./forms";
 import type { ActionResult, FormAnswer, FormAnalytics, ResponseRow, FieldType } from "@/lib/form-types";
 
+type FormWithFields = typeof forms.$inferSelect & {
+  fields: (typeof formFields.$inferSelect)[];
+};
+
 // ─── Submit Form Response ─────────────────────────────────────────────────────
 
 export async function submitFormResponse(
@@ -123,7 +127,7 @@ export async function deleteResponse(
 export async function getFormAnalytics(formId: string): Promise<ActionResult<FormAnalytics>> {
   try {
     // Verify access (viewer role required for analytics)
-    const form = await enforceFormAccess(formId, "viewer") as any;
+    const form = await enforceFormAccess(formId, "viewer") as FormWithFields;
     if (!form) return { success: false, error: "Form not found" };
 
     // Fetch fields separately as enforceFormAccess only returns base form data
@@ -266,7 +270,7 @@ export async function getFormAnalytics(formId: string): Promise<ActionResult<For
 export async function exportResponsesCSV(formId: string): Promise<ActionResult<string>> {
   try {
     // Verify access (viewer role required for export)
-    const form = await enforceFormAccess(formId, "viewer") as any;
+    const form = await enforceFormAccess(formId, "viewer") as FormWithFields;
     if (!form) return { success: false, error: "Form not found" };
 
     // Fetch fields for headers
