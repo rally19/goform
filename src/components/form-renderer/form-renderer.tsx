@@ -224,8 +224,26 @@ function FieldRenderer({
         >
           {options.map((opt) => (
             <div key={opt.value} className="flex items-center gap-3">
-              <RadioGroupItem value={opt.value} id={`${field.id}-${opt.value}`} />
-              <Label htmlFor={`${field.id}-${opt.value}`} className="cursor-pointer font-normal">
+              <RadioGroupItem 
+                value={opt.value} 
+                id={`${field.id}-${opt.value}`}
+                onClick={(e) => {
+                  if (!field.required && value === opt.value) {
+                    onChange("");
+                  }
+                }}
+              />
+              <Label 
+                htmlFor={`${field.id}-${opt.value}`} 
+                className="cursor-pointer font-normal"
+                onClick={(e) => {
+                  // Standard behavior selects it; if already selected and not required, unselect it.
+                  if (!field.required && value === opt.value) {
+                    e.preventDefault();
+                    onChange("");
+                  }
+                }}
+              >
                 {opt.label}
               </Label>
             </div>

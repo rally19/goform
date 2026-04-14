@@ -12,7 +12,7 @@ interface CursorAreaProps {
 }
 
 export function CursorArea({ id, children, className, onClick }: CursorAreaProps) {
-  const [, updateMyPresence] = useMyPresence();
+  const [myPresence, updateMyPresence] = useMyPresence();
   const others = useOthers();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -25,7 +25,11 @@ export function CursorArea({ id, children, className, onClick }: CursorAreaProps
       const isOccluded = targetAtPoint && !containerRef.current.contains(targetAtPoint);
 
       if (isOccluded) {
-        updateMyPresence({ cursor: null });
+        // Only clear if THIS specific area is the one currently holding the cursor
+        // This prevents multiple CursorAreas (sidebar vs canvas) from fighting
+        if (myPresence?.cursor?.area === id) {
+          updateMyPresence({ cursor: null });
+        }
         return;
       }
 

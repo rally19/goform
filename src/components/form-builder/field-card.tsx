@@ -114,7 +114,7 @@ export function FieldCard({
             <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
               <div className={cn(
                 "h-3.5 w-3.5 border border-muted-foreground/40 pointer-events-none shrink-0",
-                field.type === "radio" ? "rounded-full" : "rounded-sm"
+                field.type === "radio" ? "rounded-full" : "rounded-[3px]"
               )} />
               <span>{opt.label}</span>
             </div>

@@ -43,6 +43,7 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
 } from "@/components/ui/sheet";
 import {
   DropdownMenu,
@@ -429,6 +430,9 @@ export function BuilderCanvas({
         <SheetContent side="left" className="p-0 w-80">
           <SheetHeader className="p-4 border-b">
             <SheetTitle>Components</SheetTitle>
+            <SheetDescription className="sr-only">
+              Add new components to your form
+            </SheetDescription>
           </SheetHeader>
           <ComponentPanel />
         </SheetContent>
@@ -439,6 +443,9 @@ export function BuilderCanvas({
         <SheetContent side="right" className="p-0 w-full sm:w-80">
           <SheetHeader className="p-4 border-b">
             <SheetTitle>Field Properties</SheetTitle>
+            <SheetDescription className="sr-only">
+              Edit the properties of the selected field
+            </SheetDescription>
           </SheetHeader>
           <FieldSettings 
             currentUserId={currentUserId} 
