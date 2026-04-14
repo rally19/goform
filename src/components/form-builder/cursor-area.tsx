@@ -134,7 +134,7 @@ export function CursorArea({ id, children, className, onClick }: CursorAreaProps
           colType,
           relX,
           relY,
-          hidden: !!isOccluded // Track in background but hide visually
+          hidden: myPresence?.draggingFieldId ? false : !!isOccluded // Always show if dragging
         },
       });
     };
