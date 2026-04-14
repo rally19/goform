@@ -17,12 +17,15 @@ export async function updateProfileAction(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  // Update Supabase Auth Email (will send confirmation depending on settings)
+  // Update Supabase Auth (Email and Name Metadata)
   let authError;
+  const updateParams: any = { data: { full_name: name, name: name } }
   if (user.email !== email) {
-    const { error } = await supabase.auth.updateUser({ email })
-    authError = error
+    updateParams.email = email
   }
+
+  const { error } = await supabase.auth.updateUser(updateParams)
+  authError = error
 
   // Update Drizzle Profile
   try {
