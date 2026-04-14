@@ -301,7 +301,7 @@ export function BuilderCanvas({
           {/* Canvas */}
           <ScrollArea className="flex-1 h-full min-h-0 bg-muted/30" onClick={() => selectField(null)}>
             <CursorArea id="canvas" className="min-h-full" onClick={() => selectField(null)}>
-              <div className="max-w-2xl mx-auto p-4 md:p-8 pb-32" onClick={(e) => e.stopPropagation()}>
+              <div className="max-w-2xl mx-auto p-4 md:p-8 pb-32">
                 <div data-cursor-area-root="true" className="space-y-8">
                   <div data-cursor-id="header" data-cursor-type="header">
                     <FormHeaderEditor 
@@ -339,7 +339,11 @@ export function BuilderCanvas({
                                 }}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  selectField(field.id);
+                                  if (selectedFieldId === field.id) {
+                                    selectField(null);
+                                  } else {
+                                    selectField(field.id);
+                                  }
                                 }}
                                 others={others}
                               />
