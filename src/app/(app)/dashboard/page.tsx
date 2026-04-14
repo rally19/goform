@@ -1,6 +1,7 @@
 import { getActiveWorkspace, getOrganization } from "@/lib/actions/organizations";
 import { PERSONAL_WORKSPACE_ID } from "@/lib/constants";
 import { getDashboardStats, getForms } from "@/lib/actions/forms";
+import { getCurrentUserProfile } from "@/lib/actions/users";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -18,11 +19,15 @@ import {
 import Link from "next/link";
 
 export default async function DashboardPage() {
-  const [statsResult, formsResult, workspaceId] = await Promise.all([
+  const [statsResult, formsResult, workspaceId, userResult] = await Promise.all([
     getDashboardStats(),
     getForms(),
     getActiveWorkspace(),
+    getCurrentUserProfile(),
   ]);
+
+  const user = userResult.success ? userResult.data : null;
+  const firstName = user?.name?.split(" ")[0] || "there";
 
   const isPersonal = workspaceId === PERSONAL_WORKSPACE_ID;
   const workspaceResult = !isPersonal ? await getOrganization(workspaceId) : null;
@@ -62,10 +67,9 @@ export default async function DashboardPage() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
-            <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/80">
-              Overview
-            </Badge>
+            <h2 className="text-2xl font-bold tracking-tight">
+              Welcome back to GoForm, {user?.name || "User"}!
+            </h2>
           </div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             {isPersonal ? (
@@ -94,12 +98,6 @@ export default async function DashboardPage() {
             )}
           </div>
         </div>
-        <Button asChild>
-          <Link href="/forms">
-            <Plus data-icon="inline-start" />
-            New Form
-          </Link>
-        </Button>
       </div>
 
       {/* Stats */}
@@ -122,9 +120,9 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+      <div className="grid gap-4">
         {/* Recent Forms */}
-        <Card className="col-span-full lg:col-span-4">
+        <Card className="col-span-full">
           <CardHeader>
             <CardTitle>Recent Forms</CardTitle>
             <CardDescription>
@@ -176,50 +174,6 @@ export default async function DashboardPage() {
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
-
-        {/* Quick Actions */}
-        <Card className="col-span-full lg:col-span-3">
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Common tasks</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {[
-              {
-                label: "Create a new form",
-                href: "/forms",
-                icon: Plus,
-                desc: "Start from scratch",
-              },
-              {
-                label: "View all responses",
-                href: "/forms",
-                icon: Users,
-                desc: "See what people said",
-              },
-              {
-                label: "Check analytics",
-                href: "/forms",
-                icon: TrendingUp,
-                desc: "Understand your data",
-              },
-            ].map((action) => (
-              <Link
-                key={action.label}
-                href={action.href}
-                className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted transition-colors"
-              >
-                <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                  <action.icon className="h-4 w-4 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium">{action.label}</p>
-                  <p className="text-xs text-muted-foreground">{action.desc}</p>
-                </div>
-              </Link>
-            ))}
           </CardContent>
         </Card>
       </div>
