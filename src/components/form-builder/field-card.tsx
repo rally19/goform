@@ -25,6 +25,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useState } from "react";
 
 const FIELD_ICONS: Record<string, React.ElementType> = {
@@ -61,14 +67,13 @@ export function FieldCard({
   onClick,
   others = [],
 }: FieldCardProps) {
-// ... trimmed for space in thought, I'll generate the full replacement for the range ...
   const Icon = FIELD_ICONS[field.type] ?? Type;
   
-  // Find if anyone else is editing or dragging this field
-  const editor = others.find(o => o.presence?.selectedFieldId === field.id);
+  // Find everyone else editing or dragging this field
+  const editors = others.filter(o => o.presence?.selectedFieldId === field.id);
   const dragger = others.find(o => o.presence?.draggingFieldId === field.id);
   
-  const isBeingEditedByOther = !!editor;
+  const isBeingEditedByOther = editors.length > 0;
   const isBeingDraggedByOther = !!dragger;
   
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
@@ -204,7 +209,8 @@ export function FieldCard({
     );
   };
 
-  const editorColor = editor?.info?.color;
+  const primaryEditor = editors[0];
+  const editorColor = primaryEditor?.info?.color;
   const draggerColor = dragger?.info?.color;
 
   return (
@@ -237,7 +243,7 @@ export function FieldCard({
       {/* Collaborator Presence Glow/Indicator */}
       <AnimatePresence>
         {isBeingDraggedByOther && (
-           <motion.div
+            <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -256,20 +262,42 @@ export function FieldCard({
         )}
         {isBeingEditedByOther && !isBeingDraggedByOther && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute -top-6 left-0 px-2 py-0.5 rounded-t-md text-[10px] font-bold text-white shadow-sm flex items-center gap-1.5"
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 5 }}
+            className="absolute -top-7 left-0 px-2 py-1 rounded-t-lg text-[10px] font-bold text-white shadow-md flex items-center gap-2"
             style={{ backgroundColor: editorColor }}
           >
-            <Avatar className="h-4 w-4 border border-white/20 ring-offset-background">
-              <AvatarImage src={editor.info.avatar || undefined} />
-              <AvatarFallback className="bg-transparent text-[8px]">
-                {editor.info.name.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
-            {editor.info.name} is editing
+            <TooltipProvider delayDuration={0}>
+              <div className="flex -space-x-1.5">
+                {editors.map((ed) => (
+                  <Tooltip key={ed.connectionId}>
+                    <TooltipTrigger asChild>
+                      <motion.div
+                        layout
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className="relative z-0 hover:z-10 transition-all"
+                      >
+                        <Avatar className="h-5 w-5 border-2 border-white/20 ring-offset-background shadow-sm bg-background/20 backdrop-blur-sm">
+                          <AvatarImage src={ed.info.avatar || undefined} />
+                          <AvatarFallback className="bg-transparent text-[7px] text-white">
+                            {ed.info.name.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                      </motion.div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-[11px] py-1 px-2 font-medium">
+                      {ed.info.name}
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
+            </TooltipProvider>
+            <div className="h-1 w-1 rounded-full bg-white animate-pulse" />
+            <span className="max-w-[120px] truncate">
+              {editors.length === 1 ? `${editors[0].info.name} is editing` : `${editors.length} people editing`}
+            </span>
           </motion.div>
         )}
       </AnimatePresence>
