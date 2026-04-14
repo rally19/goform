@@ -189,7 +189,7 @@ export async function createForm(
     const [form] = await db
       .insert(forms)
       .values({
-        userId: user.id,
+        userId: isPersonal ? user.id : null,
         organizationId: isPersonal ? null : workspaceId,
         title,
         slug,
@@ -204,7 +204,7 @@ export async function createForm(
 }
 
 // ─── Check Form Access Helper ─────────────────────────────────────────────────
-async function enforceFormAccess(formId: string, requiredRole: "owner" | "administrator" | "editor" | "viewer") {
+export async function enforceFormAccess(formId: string, requiredRole: "owner" | "administrator" | "editor" | "viewer") {
   const user = await getAuthUser();
   const form = await db.query.forms.findFirst({ where: eq(forms.id, formId) });
   if (!form) throw new Error("Form not found");
@@ -240,8 +240,8 @@ export async function moveForms(formIds: string[], targetWorkspaceId: string): P
         .set({ 
           organizationId: targetIsPersonal ? null : targetWorkspaceId,
           // When moving to personal workspace, the current user becomes the owner.
-          // When moving to an organization, we keep the original creator (userId).
-          ...(targetIsPersonal ? { userId: user.id } : {})
+          // When moving to an organization, we clear the creator (userId) for true org ownership.
+          userId: targetIsPersonal ? user.id : null
         })
         .where(eq(forms.id, id));
     }
@@ -453,7 +453,7 @@ export async function duplicateForm(id: string): Promise<ActionResult<{ id: stri
     const [newForm] = await db
       .insert(forms)
       .values({
-        userId: user.id,
+        userId: isPersonal ? user.id : null,
         organizationId: isPersonal ? null : workspaceId,
         title: `${form.title} (Copy)`,
         description: form.description,

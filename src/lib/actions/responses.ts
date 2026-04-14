@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { forms, formFields, formResponses } from "@/db/schema";
 import { createClient } from "@/lib/server";
 import { eq, desc, and, count, sql, gte } from "drizzle-orm";
+import { enforceFormAccess } from "./forms";
 import type { ActionResult, FormAnswer, FormAnalytics, ResponseRow, FieldType } from "@/lib/form-types";
 
 // ─── Submit Form Response ─────────────────────────────────────────────────────
@@ -64,14 +65,8 @@ export async function getFormResponses(
   pageSize = 20
 ): Promise<ActionResult<{ responses: ResponseRow[]; total: number }>> {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Unauthorized" };
-
-    // Verify ownership
-    const form = await db.query.forms.findFirst({
-      where: and(eq(forms.id, formId), eq(forms.userId, user.id)),
-    });
+    // Verify access via unified helper (viewer role required for results)
+    const form = await enforceFormAccess(formId, "viewer");
     if (!form) return { success: false, error: "Form not found" };
 
     const [totalRow] = await db
@@ -109,14 +104,8 @@ export async function deleteResponse(
   formId: string
 ): Promise<ActionResult> {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Unauthorized" };
-
-    // Verify form ownership
-    const form = await db.query.forms.findFirst({
-      where: and(eq(forms.id, formId), eq(forms.userId, user.id)),
-    });
+    // Verify access (editor role required to delete responses)
+    const form = await enforceFormAccess(formId, "editor");
     if (!form) return { success: false, error: "Form not found" };
 
     await db
@@ -133,15 +122,15 @@ export async function deleteResponse(
 
 export async function getFormAnalytics(formId: string): Promise<ActionResult<FormAnalytics>> {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Unauthorized" };
-
-    const form = await db.query.forms.findFirst({
-      where: and(eq(forms.id, formId), eq(forms.userId, user.id)),
-      with: { fields: { orderBy: [formFields.orderIndex] } },
-    });
+    // Verify access (viewer role required for analytics)
+    const form = await enforceFormAccess(formId, "viewer") as any;
     if (!form) return { success: false, error: "Form not found" };
+
+    // Fetch fields separately as enforceFormAccess only returns base form data
+    form.fields = await db.query.formFields.findMany({
+      where: eq(formFields.formId, formId),
+      orderBy: [formFields.orderIndex],
+    });
 
     const allResponses = await db
       .select()
@@ -276,15 +265,15 @@ export async function getFormAnalytics(formId: string): Promise<ActionResult<For
 
 export async function exportResponsesCSV(formId: string): Promise<ActionResult<string>> {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Unauthorized" };
-
-    const form = await db.query.forms.findFirst({
-      where: and(eq(forms.id, formId), eq(forms.userId, user.id)),
-      with: { fields: { orderBy: [formFields.orderIndex] } },
-    });
+    // Verify access (viewer role required for export)
+    const form = await enforceFormAccess(formId, "viewer") as any;
     if (!form) return { success: false, error: "Form not found" };
+
+    // Fetch fields for headers
+    form.fields = await db.query.formFields.findMany({
+      where: eq(formFields.formId, formId),
+      orderBy: [formFields.orderIndex],
+    });
 
     const responses = await db
       .select()

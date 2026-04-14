@@ -143,7 +143,6 @@ export const forms = pgTable(
       .primaryKey()
       .default(sql`gen_random_uuid()`),
     userId: varchar("user_id")
-      .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     organizationId: uuid("organization_id")
       .references(() => organizations.id, { onDelete: "cascade" }),
