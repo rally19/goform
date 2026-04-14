@@ -1,11 +1,11 @@
 "use client";
 
-import { use, useRef, useState, useEffect, useCallback } from "react";
-import { usePathname } from "next/navigation";
+import { use, useRef, useState, useEffect, useCallback, useTransition } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, BarChart2, Settings, SquarePen, ClipboardList,
-  ExternalLink, ChevronLeft, ChevronRight,
+  ExternalLink, ChevronLeft, ChevronRight, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -16,11 +16,25 @@ export default function FormLayout({
   children: React.ReactNode;
   params: Promise<{ id: string }>;
 }) {
-  const pathname = usePathname();
   const { id: formId } = use(params);
+  const pathname = usePathname();
+  const router = useRouter();
   const scrollRef = useRef<HTMLElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPendingHref(null);
+  }, [pathname]);
+
+  const handleNavigation = (href: string) => {
+    setPendingHref(href);
+    startTransition(() => {
+      router.push(href);
+    });
+  };
 
   const tabs = [
     { name: "Builder", href: `/forms/${formId}/edit`, icon: SquarePen },
@@ -56,9 +70,22 @@ export default function FormLayout({
       <div className="border-b border-border bg-card">
         <div className="flex flex-col">
           <div className="flex items-center h-12 px-2 sm:px-4 gap-2 sm:gap-3 relative">
-            <Button variant="ghost" size="icon" asChild className="shrink-0 h-8 w-8">
+            <Button 
+                variant="ghost" 
+                size="icon" 
+                asChild 
+                className="shrink-0 h-8 w-8"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleNavigation("/forms");
+                }}
+              >
               <Link href="/forms">
-                <ArrowLeft className="h-4 w-4" />
+                {isPending && pendingHref === "/forms" ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                ) : (
+                  <ArrowLeft className="h-4 w-4" />
+                )}
               </Link>
             </Button>
             <div className="h-4 w-px bg-border shrink-0" />
@@ -85,21 +112,32 @@ export default function FormLayout({
               >
                 <style dangerouslySetInnerHTML={{ __html: `.no-scrollbar::-webkit-scrollbar { display: none; }` }} />
                 {tabs.map((tab) => {
-                  const isActive =
-                    tab.href === `/forms/${formId}/edit`
-                      ? pathname.endsWith("/edit")
-                      : pathname.includes(tab.href.split("/").pop()!);
+                  const isLoading = isPending && pendingHref === tab.href;
+                  const isActive = isPending 
+                    ? pendingHref === tab.href 
+                    : (tab.href === `/forms/${formId}/edit`
+                        ? pathname.endsWith("/edit")
+                        : pathname.includes(tab.href.split("/").pop()!));
+
                   return (
                     <Link
                       key={tab.name}
                       href={tab.href}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleNavigation(tab.href);
+                      }}
                       className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors rounded-md whitespace-nowrap ${
                         isActive
                           ? "bg-primary/10 text-primary"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground"
                       }`}
                     >
-                      <tab.icon className="h-3.5 w-3.5" />
+                      {isLoading ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                      ) : (
+                        <tab.icon className="h-3.5 w-3.5" />
+                      )}
                       {tab.name}
                     </Link>
                   );

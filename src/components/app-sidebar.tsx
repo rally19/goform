@@ -1,6 +1,7 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useState, useTransition, useEffect } from "react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
@@ -22,6 +23,7 @@ import {
   LayoutDashboard,
   Settings,
   SquarePen,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserAccountWidget } from "@/components/user-account-widget";
@@ -44,11 +46,6 @@ const navigation = [
     href: "/organizations",
     icon: Building2,
   },
-  {
-    name: "Settings",
-    href: "/settings",
-    icon: Settings,
-  },
 ];
 
 export function AppSidebar({
@@ -61,6 +58,20 @@ export function AppSidebar({
   activeWorkspaceId: string;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPendingHref(null);
+  }, [pathname]);
+
+  const handleNavigation = (href: string) => {
+    setPendingHref(href);
+    startTransition(() => {
+      router.push(href);
+    });
+  };
 
   const hideNav = pathname.includes('/forms/') && (
     pathname.endsWith('/edit') || 
@@ -86,22 +97,47 @@ export function AppSidebar({
                 <SidebarGroupLabel>Menu</SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
-                    {navigation.map((item) => (
-                      <SidebarMenuItem key={item.name}>
-                        <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)}>
-                          <Link href={item.href}>
-                            <item.icon />
-                            <span>{item.name}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    ))}
+                    {navigation.map((item) => {
+                      const isLoading = isPending && pendingHref === item.href;
+                      const isActive = isPending 
+                        ? pendingHref === item.href 
+                        : pathname.startsWith(item.href);
+
+                      return (
+                        <SidebarMenuItem key={item.name}>
+                          <SidebarMenuButton 
+                            asChild 
+                            isActive={isActive}
+                          >
+                            <Link 
+                              href={item.href}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleNavigation(item.href);
+                              }}
+                            >
+                              {isLoading ? (
+                                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                              ) : (
+                                <item.icon />
+                              )}
+                              <span>{item.name}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      );
+                    })}
                   </SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
             </SidebarContent>
-             <SidebarFooter className="border-t border-sidebar-border p-4 flex flex-row items-center justify-between">
-              <UserAccountWidget />
+             <SidebarFooter className="border-t border-sidebar-border p-3">
+              <UserAccountWidget 
+                handleNavigation={handleNavigation}
+                isPending={isPending}
+                pendingHref={pendingHref}
+                pathname={pathname}
+              />
             </SidebarFooter>
           </Sidebar>
         )}
