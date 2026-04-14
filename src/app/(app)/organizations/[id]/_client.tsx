@@ -422,26 +422,26 @@ export function OrganizationManageClient({
                   const isTargetOwner = m.role === "owner";
 
                   return (
-                    <div key={m.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9">
+                    <div key={m.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 last:border-0 last:pb-0">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Avatar className="h-9 w-9 shrink-0">
                           <AvatarImage src={m.user?.avatarUrl || undefined} />
                           <AvatarFallback className="bg-primary/10 text-primary font-medium text-sm">
                             {m.user?.name ? m.user.name.charAt(0).toUpperCase() : (m.user?.email?.charAt(0).toUpperCase() || "U")}
                           </AvatarFallback>
                         </Avatar>
-                        <div>
-                          <p className="text-sm font-medium leading-none">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium leading-none truncate">
                             {m.user?.name || m.user?.email}
                             {isSelf && <span className="ml-2 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full uppercase tracking-wider font-bold">You</span>}
                           </p>
-                          <p className="text-xs text-muted-foreground mt-1">{m.user?.email}</p>
+                          <p className="text-xs text-muted-foreground mt-1 truncate">{m.user?.email}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 sm:gap-3 self-end sm:self-auto w-full sm:w-auto justify-end">
                         {isAdminOrOwner && !isTargetOwner ? (
                           <Select defaultValue={m.role} onValueChange={(val) => handleUpdateRole(m.userId, val)}>
-                            <SelectTrigger className="w-[130px] h-8 text-xs">
+                            <SelectTrigger className="w-[110px] sm:w-[130px] h-8 text-[10px] sm:text-xs">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -452,14 +452,14 @@ export function OrganizationManageClient({
                             </SelectContent>
                           </Select>
                         ) : (
-                          <Badge variant="secondary" className="capitalize">{m.role}</Badge>
+                          <Badge variant="secondary" className="capitalize text-[10px] sm:text-xs">{m.role}</Badge>
                         )}
                         
                         {(isAdminOrOwner || isSelf) && !isTargetOwner && (
                            <Button 
                              variant="ghost" 
                              size={isSelf ? "default" : "icon"}
-                             className={isSelf ? "h-8 text-xs px-3 text-destructive hover:text-destructive hover:bg-destructive/10" : "h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"} 
+                             className={isSelf ? "h-8 text-[10px] sm:text-xs px-2 sm:px-3 text-destructive hover:text-destructive hover:bg-destructive/10" : "h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"} 
                              onClick={() => setMemberToRemove({ id: m.userId, name: isSelf ? "your account" : (m.user?.name || m.user?.email || "this member") })}
                            >
                              {isSelf ? "Quit" : <Trash2 className="h-4 w-4" />}
@@ -482,25 +482,25 @@ export function OrganizationManageClient({
                 <CardDescription>Invite team members to collaborate on forms. An email will be sent to them with a link to join.</CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleInvite} className="flex gap-4 items-end">
+                <form onSubmit={handleInvite} className="flex flex-col gap-4 sm:flex-row">
                   <div className="space-y-2 flex-1">
                     <Label>Email address</Label>
                     <div className="relative">
-                      <Mail className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Mail className="absolute left-2.5 top-1.5 h-4 w-4 text-muted-foreground" />
                       <Input 
                         type="email" 
                         placeholder="colleague@example.com" 
                         required
-                        className="pl-9"
+                        className="pl-9 h-9"
                         value={inviteEmail}
                         onChange={(e) => setInviteEmail(e.target.value)}
                       />
                     </div>
                   </div>
-                  <div className="space-y-2 w-48">
+                  <div className="space-y-2 w-full sm:w-48">
                     <Label>Role</Label>
                     <Select value={inviteRole} onValueChange={(v: any) => setInviteRole(v)}>
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full h-9">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -511,10 +511,13 @@ export function OrganizationManageClient({
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button type="submit" disabled={isInviting}>
-                    {isInviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
-                    Send Invite
-                  </Button>
+                  <div className="space-y-2">
+                    <Label className="hidden sm:block opacity-0">Action</Label>
+                    <Button type="submit" disabled={isInviting} className="w-full sm:w-auto h-9">
+                      {isInviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+                      Send Invite
+                    </Button>
+                  </div>
                 </form>
               </CardContent>
             </Card>
@@ -528,17 +531,17 @@ export function OrganizationManageClient({
                 {invites.length > 0 ? (
                   <div className="space-y-4">
                     {invites.map((inv) => (
-                      <div key={inv.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
+                      <div key={inv.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 last:border-0 last:pb-0">
                         <div className="flex items-center gap-3">
-                           <div className="bg-primary/5 p-2 rounded-full text-primary">
+                           <div className="bg-primary/5 p-2 rounded-full text-primary shrink-0">
                              <Mail className="h-4 w-4" />
                            </div>
-                           <div>
-                            <p className="text-sm font-medium">{inv.email}</p>
+                           <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">{inv.email}</p>
                             <p className="text-xs text-muted-foreground mt-0.5">Expires {new Date(inv.expiresAt).toLocaleDateString()}</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 self-end sm:self-auto">
                            <Badge variant="secondary" className="capitalize">{inv.role}</Badge>
                            <Button 
                              variant="ghost" 
