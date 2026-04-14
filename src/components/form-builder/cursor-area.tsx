@@ -20,6 +20,15 @@ export function CursorArea({ id, children, className, onClick }: CursorAreaProps
     const handlePointerMove = (e: PointerEvent) => {
       if (!containerRef.current) return;
 
+      // Occlusion check: Is there something (like a Sheet or Sidebar) physically over the canvas?
+      const targetAtPoint = document.elementFromPoint(e.clientX, e.clientY);
+      const isOccluded = targetAtPoint && !containerRef.current.contains(targetAtPoint);
+
+      if (isOccluded) {
+        updateMyPresence({ cursor: null });
+        return;
+      }
+
       const rect = containerRef.current.getBoundingClientRect();
       
       // Boundary check: Is the pointer within this specific CursorArea?
@@ -31,9 +40,6 @@ export function CursorArea({ id, children, className, onClick }: CursorAreaProps
       );
 
       if (!isWithinBounds) {
-        // Only clear if we were the ones who last set it
-        // (This prevents multiple CursorAreas fighting for the same presence)
-        // updateMyPresence({ cursor: null }); 
         return;
       }
 
