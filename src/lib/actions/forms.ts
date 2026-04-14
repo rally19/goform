@@ -223,6 +223,7 @@ async function enforceFormAccess(formId: string, requiredRole: "owner" | "admini
 
 export async function moveForms(formIds: string[], targetWorkspaceId: string): Promise<ActionResult> {
   try {
+    const user = await getAuthUser();
     const targetIsPersonal = targetWorkspaceId === PERSONAL_WORKSPACE_ID;
     
     // Check access to target workspace
@@ -236,7 +237,12 @@ export async function moveForms(formIds: string[], targetWorkspaceId: string): P
        await enforceFormAccess(id, "administrator");
        
        await db.update(forms)
-        .set({ organizationId: targetIsPersonal ? null : targetWorkspaceId })
+        .set({ 
+          organizationId: targetIsPersonal ? null : targetWorkspaceId,
+          // When moving to personal workspace, the current user becomes the owner.
+          // When moving to an organization, we keep the original creator (userId).
+          ...(targetIsPersonal ? { userId: user.id } : {})
+        })
         .where(eq(forms.id, id));
     }
     

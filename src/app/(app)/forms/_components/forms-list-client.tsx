@@ -94,7 +94,11 @@ function FormCard({
   activeUsers = [],
   onToggleSelect, 
   onDelete, 
-  onDuplicate 
+  onDuplicate,
+  onNavigate,
+  isPending,
+  pendingAction,
+  pendingFormId
 }: {
   form: FormRow;
   isSelected: boolean;
@@ -102,10 +106,27 @@ function FormCard({
   onToggleSelect: (id: string, selected: boolean) => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
+  onNavigate: (id: string, action: string, href: string) => void;
+  isPending: boolean;
+  pendingAction: string | null;
+  pendingFormId: string | null;
 }) {
   const status = STATUS_CONFIG[form.status];
   const StatusIcon = status.icon;
   const isLocked = !form.collaborationEnabled && activeUsers.length > 0;
+
+  const isThisFormPending = isPending && pendingFormId === form.id;
+  const isEntering = isThisFormPending && pendingAction === "enter";
+  const isDuplicating = isThisFormPending && pendingAction === "duplicate";
+  const isDeleting = isThisFormPending && pendingAction === "delete";
+  const anyCriticalAction = isDuplicating || isDeleting;
+
+  const renderActionIcon = (action: string, DefaultIcon: any) => {
+    if (isThisFormPending && pendingAction === action) {
+      return <Loader2 className="h-4 w-4 mr-2 animate-spin" />;
+    }
+    return <DefaultIcon className="h-4 w-4 mr-2" />;
+  };
 
   return (
     <div className={cn(
@@ -124,7 +145,11 @@ function FormCard({
         className="h-9 w-9 rounded-lg shrink-0 flex items-center justify-center shadow-sm"
         style={{ backgroundColor: `${form.accentColor}20`, border: `1.5px solid ${form.accentColor}40` }}
       >
-        <SquarePen className="h-4 w-4" style={{ color: form.accentColor }} />
+        {isEntering ? (
+          <Loader2 className="h-4 w-4 animate-spin" style={{ color: form.accentColor }} />
+        ) : (
+          <SquarePen className="h-4 w-4" style={{ color: form.accentColor }} />
+        )}
       </div>
 
       <div className="flex-1 min-w-0">
@@ -132,6 +157,11 @@ function FormCard({
           <Link
             href={isLocked ? `/forms/${form.id}/results` : `/forms/${form.id}/edit`}
             className="font-medium text-sm text-foreground hover:underline truncate flex items-center gap-2"
+            onClick={(e) => {
+              if (isLocked) return;
+              e.preventDefault();
+              onNavigate(form.id, "enter", `/forms/${form.id}/edit`);
+            }}
           >
             {form.title}
           </Link>
@@ -191,47 +221,92 @@ function FormCard({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-          <DropdownMenuItem asChild disabled={isLocked}>
+          <DropdownMenuItem 
+            asChild 
+            disabled={isLocked || anyCriticalAction}
+            onSelect={(e) => {
+              e.preventDefault();
+              onNavigate(form.id, "edit", `/forms/${form.id}/edit`);
+            }}
+          >
             <Link href={`/forms/${form.id}/edit`} prefetch={false}>
-              <SquarePen className="h-4 w-4 mr-2" />
+              {renderActionIcon("edit", SquarePen)}
               Edit Form
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem asChild>
+          <DropdownMenuItem 
+            asChild
+            disabled={anyCriticalAction}
+            onSelect={(e) => {
+              e.preventDefault();
+              onNavigate(form.id, "results", `/forms/${form.id}/results`);
+            }}
+          >
             <Link href={`/forms/${form.id}/results`} prefetch={false}>
-              <ClipboardList className="h-4 w-4 mr-2" />
+              {renderActionIcon("results", ClipboardList)}
               View Results
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem asChild>
+          <DropdownMenuItem 
+            asChild
+            disabled={anyCriticalAction}
+            onSelect={(e) => {
+              e.preventDefault();
+              onNavigate(form.id, "analytics", `/forms/${form.id}/analytics`);
+            }}
+          >
             <Link href={`/forms/${form.id}/analytics`} prefetch={false}>
-              <TrendingUp className="h-4 w-4 mr-2" />
+              {renderActionIcon("analytics", TrendingUp)}
               Analytics
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem asChild>
+          <DropdownMenuItem 
+            asChild
+            disabled={anyCriticalAction}
+            onSelect={(e) => {
+              e.preventDefault();
+              onNavigate(form.id, "settings", `/forms/${form.id}/settings`);
+            }}
+          >
             <Link href={`/forms/${form.id}/settings`} prefetch={false}>
-              <Settings className="h-4 w-4 mr-2" />
+              {renderActionIcon("settings", Settings)}
               Settings
             </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
+          <DropdownMenuItem 
+            asChild
+            disabled={anyCriticalAction}
+            onSelect={(e) => {
+              e.preventDefault();
+              window.open(`/f/${form.slug}`, "_blank");
+            }}
+          >
             <Link href={`/f/${form.slug}`} target="_blank">
               <Globe className="h-4 w-4 mr-2" />
               Open Public Link
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onDuplicate(form.id)}>
-            <Copy className="h-4 w-4 mr-2" />
+          <DropdownMenuItem 
+            disabled={anyCriticalAction}
+            onSelect={(e) => {
+              e.preventDefault();
+              onDuplicate(form.id);
+            }}
+          >
+            {renderActionIcon("duplicate", Copy)}
             Duplicate
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             className="text-destructive focus:text-destructive focus:bg-destructive/10"
-            onClick={() => onDelete(form.id)}
+            disabled={anyCriticalAction}
+            onSelect={(e) => {
+              e.preventDefault();
+              onDelete(form.id);
+            }}
           >
-            <Trash className="h-4 w-4 mr-2" />
+            {renderActionIcon("delete", Trash)}
             Delete
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -330,10 +405,19 @@ export function FormsListClient({
   const [moveOpen, setMoveOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [duplicateId, setDuplicateId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isMoving, setIsMoving] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [pendingFormId, setPendingFormId] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPendingFormId(null);
+    setPendingAction(null);
+  }, [router, forms]);
 
   const filtered = forms.filter((f) => {
     const matchSearch = f.title.toLowerCase().includes(search.toLowerCase());
@@ -360,19 +444,41 @@ export function FormsListClient({
     }
   };
 
-  const handleCreate = async () => {
-    if (!newTitle.trim()) return;
+  const handleNavigate = (id: string, action: string, href: string) => {
+    setPendingFormId(id);
+    setPendingAction(action);
+    startTransition(() => {
+      router.push(href);
+    });
+  };
+
+  const handleCreate = async (shouldOpen: boolean = true) => {
+    if (!newTitle.trim() || isCreating) return;
+    setIsCreating(true);
+    setPendingAction(shouldOpen ? "create_open" : "create_only");
+    
     const result = await createForm({ title: newTitle.trim() });
     if (result.success && result.data) {
-      setCreateOpen(false);
-      setNewTitle("");
-      router.push(`/forms/${result.data.id}/edit`);
+      if (shouldOpen) {
+        router.push(`/forms/${result.data.id}/edit`);
+      } else {
+        setCreateOpen(false);
+        setNewTitle("");
+        router.refresh();
+        toast.success("Form created!");
+        setIsCreating(false);
+        setPendingAction(null);
+      }
     } else {
       toast.error(result.error ?? "Failed to create form");
+      setIsCreating(false);
+      setPendingAction(null);
     }
   };
 
   const handleDelete = async (id: string) => {
+    setPendingFormId(id);
+    setPendingAction("delete");
     startTransition(async () => {
       const result = await deleteForm(id);
       if (result.success) {
@@ -382,18 +488,33 @@ export function FormsListClient({
       } else {
         toast.error(result.error ?? "Failed to delete");
       }
+      setPendingFormId(null);
+      setPendingAction(null);
     });
     setDeleteId(null);
   };
 
-  const handleDuplicate = async (id: string) => {
-    const result = await duplicateForm(id);
-    if (result.success && result.data) {
-      router.push(`/forms/${result.data.id}/edit`);
-      toast.success("Form duplicated!");
-    } else {
-      toast.error(result.error ?? "Failed to duplicate");
-    }
+  const handleDuplicate = async (id: string, shouldOpen: boolean = true) => {
+    setPendingFormId(id);
+    setPendingAction(shouldOpen ? "duplicate_open" : "duplicate_only");
+    startTransition(async () => {
+      const result = await duplicateForm(id);
+      if (result.success && result.data) {
+        if (shouldOpen) {
+          router.push(`/forms/${result.data.id}/edit`);
+        } else {
+          router.refresh();
+          toast.success("Form duplicated!");
+          setPendingFormId(null);
+          setPendingAction(null);
+        }
+      } else {
+        toast.error(result.error ?? "Failed to duplicate");
+        setPendingFormId(null);
+        setPendingAction(null);
+      }
+    });
+    setDuplicateId(null);
   };
 
   const handleMoveSelection = async (targetOrganizationId: string) => {
@@ -521,7 +642,11 @@ export function FormsListClient({
                   activeUsers={activeSessionsMap[form.id]}
                   onToggleSelect={handleToggleSelect}
                   onDelete={setDeleteId}
-                  onDuplicate={handleDuplicate}
+                  onDuplicate={setDuplicateId}
+                  onNavigate={handleNavigate}
+                  isPending={isPending}
+                  pendingAction={pendingAction}
+                  pendingFormId={pendingFormId}
                 />
               ))}
             </div>
@@ -577,10 +702,25 @@ export function FormsListClient({
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={!newTitle.trim()}>
-              Create & Open
-            </Button>
+            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={isCreating}>Cancel</Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => handleCreate(false)} disabled={!newTitle.trim() || isCreating}>
+                {isCreating && pendingAction === "create_only" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="mr-2 h-4 w-4" />
+                )}
+                Create
+              </Button>
+              <Button onClick={() => handleCreate(true)} disabled={!newTitle.trim() || isCreating}>
+                {isCreating && pendingAction === "create_open" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <MoveRight className="mr-2 h-4 w-4" />
+                )}
+                Create & Open
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -603,6 +743,48 @@ export function FormsListClient({
             >
               Delete
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Duplicate Confirm */}
+      <AlertDialog open={!!duplicateId} onOpenChange={() => setDuplicateId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Duplicate Form?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will create a new form with the same fields and settings as the original.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending && (pendingAction === "duplicate_only" || pendingAction === "duplicate_open")}>
+              Cancel
+            </AlertDialogCancel>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline"
+                onClick={() => duplicateId && handleDuplicate(duplicateId, false)}
+                disabled={isPending && (pendingAction === "duplicate_only" || pendingAction === "duplicate_open")}
+              >
+                {isPending && pendingAction === "duplicate_only" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Copy className="mr-2 h-4 w-4" />
+                )}
+                Duplicate
+              </Button>
+              <Button 
+                onClick={() => duplicateId && handleDuplicate(duplicateId, true)}
+                disabled={isPending && (pendingAction === "duplicate_only" || pendingAction === "duplicate_open")}
+              >
+                {isPending && pendingAction === "duplicate_open" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <MoveRight className="mr-2 h-4 w-4" />
+                )}
+                Duplicate & Open
+              </Button>
+            </div>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
