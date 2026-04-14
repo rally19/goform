@@ -20,19 +20,6 @@ export function CursorArea({ id, children, className, onClick }: CursorAreaProps
     const handlePointerMove = (e: PointerEvent) => {
       if (!containerRef.current) return;
 
-      // Occlusion check: Is there something (like a Sheet or Sidebar) physically over the canvas?
-      const targetAtPoint = document.elementFromPoint(e.clientX, e.clientY);
-      const isOccluded = targetAtPoint && !containerRef.current.contains(targetAtPoint);
-
-      if (isOccluded) {
-        // Only clear if THIS specific area is the one currently holding the cursor
-        // This prevents multiple CursorAreas (sidebar vs canvas) from fighting
-        if (myPresence?.cursor?.area === id) {
-          updateMyPresence({ cursor: null });
-        }
-        return;
-      }
-
       const rect = containerRef.current.getBoundingClientRect();
       
       // Boundary check: Is the pointer within this specific CursorArea?
@@ -47,7 +34,11 @@ export function CursorArea({ id, children, className, onClick }: CursorAreaProps
         return;
       }
 
-      // Default coordinates relative to container
+      // Occlusion check: Is there something (like a Sheet or Sidebar) physically over the canvas?
+      const targetAtPoint = document.elementFromPoint(e.clientX, e.clientY);
+      const isOccluded = targetAtPoint && !containerRef.current.contains(targetAtPoint);
+
+      // Coordinates relative to container
       let x = e.clientX - rect.left;
       let y = e.clientY - rect.top;
 
@@ -81,7 +72,7 @@ export function CursorArea({ id, children, className, onClick }: CursorAreaProps
               : 0;
           } else {
             colType = "center";
-            relX = localX - rootOffsetLeft; // Absolute pixel mapping
+            relX = localX - rootOffsetLeft;
           }
 
           // --- Vertical Row Detection ---
@@ -142,14 +133,14 @@ export function CursorArea({ id, children, className, onClick }: CursorAreaProps
           rowId,
           colType,
           relX,
-          relY
+          relY,
+          hidden: !!isOccluded // Track in background but hide visually
         },
       });
     };
 
     const handlePointerLeave = (e: PointerEvent) => {
-      // If the pointer actually leaves the browser or the specific container
-      // (Simplified: let the bounds check in pointermove handle mostly everything)
+      // Clear if moving completely out of bounds (handled by window listeners)
     };
 
     window.addEventListener("pointermove", handlePointerMove);
@@ -161,7 +152,7 @@ export function CursorArea({ id, children, className, onClick }: CursorAreaProps
       window.removeEventListener("pointerdown", handlePointerMove);
       window.removeEventListener("pointerleave", handlePointerLeave);
     };
-  }, [id, updateMyPresence]);
+  }, [id, updateMyPresence, myPresence?.cursor?.area]);
 
   return (
     <div
@@ -221,7 +212,7 @@ function CursorFollower({ cursor, info, containerRef }: {
         const localRightGutterWidth = containerRect.width - rootOffsetRight;
         finalX = rootOffsetRight + (cursor.relX * localRightGutterWidth);
       } else {
-        finalX = rootOffsetLeft + cursor.relX; // Pixel mapping
+        finalX = rootOffsetLeft + cursor.relX;
       }
 
       // --- Vertical Resolve ---
@@ -248,7 +239,11 @@ function CursorFollower({ cursor, info, containerRef }: {
         }
       }
 
-      setPos({ left: `${finalX}px`, top: `${finalY}px`, opacity: 1 });
+      setPos({ 
+        left: `${finalX}px`, 
+        top: `${finalY}px`, 
+        opacity: cursor.hidden ? 0 : 1 
+      });
     };
 
     updatePosition();

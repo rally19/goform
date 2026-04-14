@@ -11,6 +11,7 @@ export type Presence = {
     colType: "left" | "center" | "right";
     relX: number; // 0..1 percentage within cell
     relY: number; // 0..1 percentage within cell
+    hidden?: boolean;
   } | null;
   selectedFieldId: string | null;
   draggingFieldId: string | null;
