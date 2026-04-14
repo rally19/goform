@@ -127,10 +127,18 @@ export function FieldCard({
         </div>
       );
     }
-    if (["select", "multi_select"].includes(field.type)) {
+    if (field.type === "select") {
       return (
         <div className="h-9 w-full rounded-md border border-input bg-muted/50 px-3 text-sm text-muted-foreground flex items-center justify-between pointer-events-none">
           <span>{field.placeholder || "Select an option..."}</span>
+          <ChevronDown className="h-4 w-4 shrink-0" />
+        </div>
+      );
+    }
+    if (field.type === "multi_select") {
+      return (
+        <div className="min-h-9 w-full rounded-md border border-input bg-muted/50 px-3 py-1.5 text-sm text-muted-foreground flex items-center justify-between pointer-events-none">
+          <span>{field.placeholder || "Select options..."}</span>
           <ChevronDown className="h-4 w-4 shrink-0" />
         </div>
       );

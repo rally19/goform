@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MultiSelect } from "@/components/ui/multi-select";
 
 interface FormRendererProps {
   form: Form;
@@ -274,23 +275,13 @@ function FieldRenderer({
     case "multi_select": {
       const selected = (value as string[]) ?? [];
       return (
-        <div className="space-y-2">
-          {options.map((opt) => (
-            <div key={opt.value} className="flex items-center gap-3">
-              <Checkbox
-                id={`${field.id}-${opt.value}`}
-                checked={selected.includes(opt.value)}
-                onCheckedChange={(ch) => {
-                  if (ch) onChange([...selected, opt.value]);
-                  else onChange(selected.filter((v) => v !== opt.value));
-                }}
-              />
-              <Label htmlFor={`${field.id}-${opt.value}`} className="cursor-pointer font-normal">
-                {opt.label}
-              </Label>
-            </div>
-          ))}
-        </div>
+        <MultiSelect
+          options={options}
+          selected={selected}
+          onChange={onChange}
+          placeholder={field.placeholder ?? "Select options..."}
+          accentColor={accentColor}
+        />
       );
     }
 

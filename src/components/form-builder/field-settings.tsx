@@ -154,6 +154,18 @@ export function FieldSettings({
             </div>
           </div>
 
+          {!isLayout && !["radio", "checkbox", "rating", "scale"].includes(field.type) && (
+            <div className="space-y-1.5 pt-1.5">
+              <Label className="text-xs font-medium">Placeholder</Label>
+              <Input
+                value={field.placeholder ?? ""}
+                onChange={(e) => onUpdate?.({ placeholder: e.target.value })}
+                className="h-8 text-sm"
+                placeholder="e.g., Select an option..."
+              />
+            </div>
+          )}
+
           {!isLayout && (
             <>
               <Separator />
@@ -369,7 +381,7 @@ function SortableOption({
       <Button
         variant="ghost"
         size="icon"
-        className="h-7 w-7 text-muted-foreground opacity-0 group-hover/opt:opacity-100 hover:text-destructive shrink-0 transition-opacity"
+        className="h-7 w-7 text-muted-foreground opacity-100 md:opacity-0 md:group-hover/opt:opacity-100 hover:text-destructive shrink-0 transition-opacity"
         onClick={() => onRemove?.(idx)}
         disabled={disabled}
       >
