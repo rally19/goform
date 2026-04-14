@@ -211,7 +211,10 @@ export function OrganizationManageClient({
              }
           }
 
+          // Any member change (Join/Leave/Role) should also refresh the invite list
+          // because accepting an invite creates a member and deletes an invite.
           refreshMembers();
+          refreshInvites();
         }
       )
       .subscribe((status: any) => {
