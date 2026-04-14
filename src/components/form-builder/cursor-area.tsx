@@ -253,11 +253,15 @@ function CursorFollower({ cursor, info, containerRef }: {
 
   return (
     <div 
-      className="absolute pointer-events-none z-50 transition-all duration-75"
+      className="absolute pointer-events-none z-50"
       style={{
         left: pos.left,
         top: pos.top,
         opacity: pos.opacity,
+        // Smooth position tracking (75ms) but SLOW fade-in (500ms) to prevent snaps
+        transition: cursor.hidden 
+          ? "opacity 150ms ease-out, left 75ms linear, top 75ms linear" 
+          : "opacity 500ms ease-in, left 75ms linear, top 75ms linear"
       }}
     >
       <Cursor color={info.color} name={info.name} />
