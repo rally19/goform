@@ -10,7 +10,9 @@ import {
 import { LiveList, LiveObject } from "@liveblocks/client";
 import { Loader2 } from "lucide-react";
 import type { BuilderField, BuilderForm } from "@/lib/form-types";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { RoomErrorBoundary } from "./room-error-boundary";
+import { SyncErrorFallback } from "./error-fallback";
 
 interface RoomProps {
   children: ReactNode;
@@ -42,24 +44,55 @@ export function Room({ children, roomId, initialForm, initialFields }: RoomProps
     };
   }, [initialFields, initialForm]);
 
+  const resolveAuth = useCallback(async (room?: string) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
+
+    try {
+      const response = await fetch("/api/liveblocks-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ room }),
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Auth failed (${response.status}): ${errorText || "Unknown error"}`);
+      }
+
+      return await response.json();
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err instanceof Error && err.name === "AbortError") {
+        throw new Error("Authentication timed out during auth. This often happens on slow networks or cold-start functions.");
+      }
+      throw err;
+    }
+  }, []);
+
   return (
-    <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
-      <RoomProvider 
-        id={roomId} 
-        initialPresence={{ 
-          cursor: null, 
-          selectedFieldId: null,
-          draggingFieldId: null 
-        }}
-        initialStorage={initialStorage}
-      >
-        <ClientSideSuspense fallback={<Loading />}>
-          <ReadyBoundary>
-            {children}
-          </ReadyBoundary>
-        </ClientSideSuspense>
-      </RoomProvider>
-    </LiveblocksProvider>
+    <RoomErrorBoundary fallback={SyncErrorFallback}>
+      <LiveblocksProvider authEndpoint={resolveAuth}>
+        <RoomProvider 
+          id={roomId} 
+          initialPresence={{ 
+            cursor: null, 
+            selectedFieldId: null,
+            draggingFieldId: null 
+          }}
+          initialStorage={initialStorage}
+        >
+          <ClientSideSuspense fallback={<Loading />}>
+            <ReadyBoundary>
+              {children}
+            </ReadyBoundary>
+          </ClientSideSuspense>
+        </RoomProvider>
+      </LiveblocksProvider>
+    </RoomErrorBoundary>
   );
 }
 
