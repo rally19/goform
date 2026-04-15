@@ -573,7 +573,7 @@ export function FormsListClient({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="cursor-not-allowed">
-                        <Button size="sm" disabled className="opacity-50 pointer-events-none">
+                        <Button size="sm" disabled className="opacity-50 pointer-events-none h-8">
                           <MoveRight className="h-4 w-4 mr-2" /> Move To...
                         </Button>
                       </div>
@@ -584,17 +584,18 @@ export function FormsListClient({
                   </Tooltip>
                 </TooltipProvider>
               ) : (
-                <Button size="sm" onClick={() => setMoveOpen(true)}>
+                <Button size="sm" className="h-8" onClick={() => setMoveOpen(true)}>
                   <MoveRight className="h-4 w-4 mr-2" /> Move To...
                 </Button>
               )}
+
               <Button 
-                variant="ghost" 
+                variant="destructive" 
                 size="sm" 
-                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                className="h-8 w-8 p-0"
                 onClick={() => setMultiDeleteOpen(true)}
               >
-                <Trash className="h-4 w-4 mr-2" /> Trash
+                <Trash className="h-4 w-4" />
               </Button>
             </div>
           </div>
