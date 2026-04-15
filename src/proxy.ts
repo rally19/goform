@@ -33,21 +33,48 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Protect /(app) routes — /f/ and /preview/ are public
-  const isAppRoute = request.nextUrl.pathname.startsWith('/dashboard') ||
-    request.nextUrl.pathname.startsWith('/forms') ||
-    request.nextUrl.pathname.startsWith('/organizations') ||
-    request.nextUrl.pathname.startsWith('/settings');
-    
-  if (isAppRoute && !user) {
-    return NextResponse.redirect(new URL('/login', request.url))
+  const { pathname } = request.nextUrl
+
+  // Define public routes that don't require auth or verification
+  const isPublicRoute = 
+    pathname === '/' ||
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/register') ||
+    pathname.startsWith('/verify') ||
+    pathname.startsWith('/reset-password') ||
+    pathname.startsWith('/oauth') ||
+    pathname.startsWith('/f/') ||
+    pathname.startsWith('/api/') ||
+    pathname.startsWith('/_next') ||
+    pathname.includes('/favicon.ico')
+
+  if (!isPublicRoute) {
+    // 1. If no user, redirect to login
+    if (!user) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      // Keep next param for redirect back after login
+      url.searchParams.set('next', pathname)
+      return NextResponse.redirect(url)
+    }
+
+    // 2. If user exists but email is not confirmed, redirect to verify
+    if (!user.email_confirmed_at) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/verify'
+      url.searchParams.set('email', user.email!)
+      url.searchParams.set('type', 'signup')
+      return NextResponse.redirect(url)
+    }
   }
 
-  // Redirect away from auth routes if already authenticated
-  const isAuthRoute = request.nextUrl.pathname.startsWith('/login') ||
-    request.nextUrl.pathname.startsWith('/register');
-    
-  if (isAuthRoute && user) {
+  // 3. If user is on /verify but is already confirmed, redirect to dashboard
+  if (pathname.startsWith('/verify') && user?.email_confirmed_at) {
+    return NextResponse.redirect(new URL('/dashboard', request.url))
+  }
+
+  // Redirect away from auth routes if already authenticated and verified
+  if ((pathname.startsWith('/login') || pathname.startsWith('/register')) && user?.email_confirmed_at) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 

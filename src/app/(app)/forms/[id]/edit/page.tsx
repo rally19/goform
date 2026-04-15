@@ -1,15 +1,24 @@
 import { getForm } from "@/lib/actions/forms";
-import { getActiveWorkspace } from "@/lib/actions/organizations";
 import { BuilderCanvas } from "@/components/form-builder/builder-canvas";
 import { Room } from "@/components/form-builder/room";
 import type { BuilderField, BuilderForm } from "@/lib/form-types";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
+import { Loader2 } from "lucide-react";
 
 export default async function FormBuilderPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  return (
+    <Suspense fallback={<BuilderSkeleton />}>
+      <BuilderData params={params} />
+    </Suspense>
+  );
+}
+
+async function BuilderData({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const result = await getForm(id);
 
@@ -19,7 +28,6 @@ export default async function FormBuilderPage({
 
   const { form, fields, currentUserRole, currentUserId } = result.data;
   
-  // Viewers are redirected to results
   if (currentUserRole === "viewer") {
     redirect(`/forms/${id}/results`);
   }
@@ -55,7 +63,6 @@ export default async function FormBuilderPage({
     properties: f.properties ?? undefined,
   }));
 
-  // Admins, managers & owners can toggle collaboration mode and are never blocked by it
   const canManageCollab =
     currentUserRole === "owner" || 
     currentUserRole === "manager" || 
@@ -71,5 +78,17 @@ export default async function FormBuilderPage({
         canManageCollab={canManageCollab}
       />
     </Room>
+  );
+}
+
+function BuilderSkeleton() {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center bg-muted/30 gap-3">
+      <Loader2 className="h-10 w-10 animate-spin text-primary/20" />
+      <div className="space-y-2 text-center">
+        <p className="text-sm font-medium text-muted-foreground animate-pulse">Loading builder...</p>
+        <p className="text-xs text-muted-foreground/60">Connecting to realtime collaboration</p>
+      </div>
+    </div>
   );
 }

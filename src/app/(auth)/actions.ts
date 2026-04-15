@@ -66,6 +66,14 @@ export async function signInAction(formData: FormData) {
 
   revalidatePath('/', 'layout')
   const { data: { user } } = await supabase.auth.getUser();
+
+  // Sync email verified status if confirmed in Supabase
+  if (user?.email_confirmed_at) {
+    await db.update(users)
+      .set({ emailVerifiedAt: new Date(user.email_confirmed_at) })
+      .where(eq(users.id, user.id))
+  }
+
   redirect(await getRedirectUrl(next, user?.id))
 }
 
@@ -73,6 +81,15 @@ export async function resetPasswordAction(formData: FormData) {
   const email = formData.get('email') as string
   const supabase = await createClient()
   const siteUrl = getSiteUrl();
+
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.email, email),
+    columns: { emailVerifiedAt: true }
+  });
+
+  if (!dbUser?.emailVerifiedAt) {
+    return { error: 'Your email address must be verified before you can reset your password.' }
+  }
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${siteUrl}/verify?email=${encodeURIComponent(email)}&type=recovery`
@@ -167,6 +184,14 @@ export async function verifyOtpAction(formData: FormData) {
     return { success: true, redirect: '/reset-password' }
   } else {
     const { data: { user } } = await supabase.auth.getUser();
+    
+    // Sync email verified status upon verification success
+    if (user && type === 'signup') {
+      await db.update(users)
+        .set({ emailVerifiedAt: new Date() })
+        .where(eq(users.id, user.id))
+    }
+
     return { success: true, redirect: await getRedirectUrl(next, user?.id) }
   }
 }

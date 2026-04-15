@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useRef, useState, useEffect, useCallback, useTransition } from "react";
+import { use, useRef, useState, useEffect, useCallback, useTransition, Suspense } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -10,6 +10,22 @@ import {
 import { Button } from "@/components/ui/button";
 
 export default function FormLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ id: string }>;
+}) {
+  return (
+    <Suspense fallback={<FormLayoutSkeleton>{children}</FormLayoutSkeleton>}>
+      <FormLayoutContent params={params}>
+        {children}
+      </FormLayoutContent>
+    </Suspense>
+  );
+}
+
+function FormLayoutContent({
   children,
   params,
 }: {
@@ -170,6 +186,21 @@ export default function FormLayout({
       </div>
 
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function FormLayoutSkeleton({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col h-full animate-pulse">
+      <div className="h-12 border-b border-border bg-card/50 px-4 flex items-center gap-4">
+        <div className="h-8 w-8 rounded bg-primary/5" />
+        <div className="h-4 w-px bg-border" />
+        <div className="h-8 w-64 rounded bg-primary/5" />
+      </div>
+      <div className="flex-1 overflow-hidden opacity-50 grayscale pointer-events-none">
         {children}
       </div>
     </div>

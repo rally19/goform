@@ -57,6 +57,7 @@ export const users = pgTable("users", {
   email: text("email").notNull(),
   name: text("name"),
   avatarUrl: text("avatar_url"),
+  emailVerifiedAt: timestamp("email_verified_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
