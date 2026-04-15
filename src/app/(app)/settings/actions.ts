@@ -178,8 +178,8 @@ export async function updatePasswordAction(formData: FormData) {
     if (updateError) return { error: updateError.message }
   }
 
-  // Requires re-login
-  await supabase.auth.signOut()
+  // Store global sign out for security, especially for recovery flows
+  await supabase.auth.signOut({ scope: 'global' })
   return { success: true }
 }
 
