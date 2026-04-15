@@ -16,6 +16,7 @@ import {
   ArrowUpRight, BarChart3, Plus, SquarePen, Users,
   CheckCircle2, Clock, TrendingUp, FileText, Building2,
 } from "lucide-react";
+import { formatDistanceToNow } from "../forms/_components/date-utils";
 import Link from "next/link";
 
 export default async function DashboardPage() {
@@ -126,7 +127,7 @@ export default async function DashboardPage() {
           <CardHeader>
             <CardTitle>Recent Forms</CardTitle>
             <CardDescription>
-              Your most recently updated forms
+              Your most recently opened forms
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -161,6 +162,11 @@ export default async function DashboardPage() {
                           </Badge>
                           <span className="text-xs text-muted-foreground">
                             {form.responseCount} responses
+                          </span>
+                          <span className="text-muted-foreground/40 text-[10px]">•</span>
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            Opened {formatDistanceToNow(new Date(form.updatedAt))}
                           </span>
                         </div>
                       </div>

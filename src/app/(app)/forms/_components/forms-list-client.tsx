@@ -188,7 +188,7 @@ function FormCard({
              {form.responseCount} {form.responseCount === 1 ? "response" : "responses"}
           </span>
           <span className="text-xs text-muted-foreground hidden sm:block" suppressHydrationWarning>
-            Updated {formatDistanceToNow(new Date(form.updatedAt))}
+            Opened {formatDistanceToNow(new Date(form.updatedAt))}
           </span>
         </div>
       </div>
