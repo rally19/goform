@@ -14,12 +14,6 @@ export default async function FormBuilderPage({
   const result = await getForm(id);
 
   if (!result.success || !result.data) {
-    const activeWorkspaceId = await getActiveWorkspace();
-    console.error("Form redirect triggered!", {
-      error: result.error || "Form not found or access denied",
-      activeWorkspaceId,
-      formId: id
-    });
     redirect("/forms");
   }
 

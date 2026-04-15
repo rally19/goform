@@ -33,7 +33,11 @@ export default async function AppLayout({
   }
 
   return (
-    <AppSidebar workspaces={workspaces} activeWorkspaceId={activeWorkspaceId}>
+    <AppSidebar 
+      workspaces={workspaces} 
+      activeWorkspaceId={activeWorkspaceId}
+      currentUserId={userResult.success && userResult.data ? userResult.data.id : ""}
+    >
       {children}
     </AppSidebar>
   );

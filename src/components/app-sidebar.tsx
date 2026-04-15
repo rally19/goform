@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { UserAccountWidget } from "@/components/user-account-widget";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { setActiveWorkspace } from "@/lib/actions/organizations";
+import { OrganizationObserver } from "./organization-observer";
 
 const navigation = [
   {
@@ -52,10 +53,12 @@ export function AppSidebar({
   children,
   workspaces,
   activeWorkspaceId,
+  currentUserId,
 }: {
   children: React.ReactNode;
   workspaces: any[];
   activeWorkspaceId: string;
+  currentUserId: string;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -82,6 +85,7 @@ export function AppSidebar({
 
   return (
     <SidebarProvider>
+      <OrganizationObserver currentUserId={currentUserId} activeWorkspaceId={activeWorkspaceId} />
       <div className="flex h-svh w-full overflow-hidden bg-background">
         {!hideNav && (
           <Sidebar>
