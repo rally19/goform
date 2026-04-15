@@ -121,7 +121,18 @@ function VerifyForm() {
 
     startTransition(() => {
       verifyOtpAction(formData).then((res) => {
-        if (res?.error) setErrorMsg(res.error);
+        if (res?.error) {
+          setErrorMsg(res.error);
+        } else if (res?.success) {
+          // Clear OTP persistence
+          localStorage.removeItem(`otp_expiry_${email}_${type}`);
+          localStorage.removeItem(`otp_resend_${email}_${type}`);
+          
+          // Perform the redirect provided by the server
+          if (res.redirect) {
+            window.location.href = res.redirect;
+          }
+        }
       });
     });
   }

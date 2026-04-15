@@ -164,10 +164,10 @@ export async function verifyOtpAction(formData: FormData) {
   revalidatePath('/', 'layout')
   
   if (type === 'recovery') {
-    redirect('/settings')
+    return { success: true, redirect: '/settings' }
   } else {
     const { data: { user } } = await supabase.auth.getUser();
-    redirect(await getRedirectUrl(next, user?.id))
+    return { success: true, redirect: await getRedirectUrl(next, user?.id) }
   }
 }
 

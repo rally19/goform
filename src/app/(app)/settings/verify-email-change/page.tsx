@@ -117,7 +117,15 @@ function VerifyEmailChangeForm() {
 
     startTransition(() => {
       verifyEmailChangeAction(formData).then((res) => {
-        if (res?.error) setErrorMsg(res.error);
+        if (res?.error) {
+          setErrorMsg(res.error);
+        } else if (res?.success) {
+          // Clear OTP persistence
+          localStorage.removeItem(`email_change_expiry_${oldEmail}_${newEmail}`);
+          localStorage.removeItem(`email_change_resend_${oldEmail}_${newEmail}`);
+          
+          window.location.href = '/settings';
+        }
       });
     });
   }

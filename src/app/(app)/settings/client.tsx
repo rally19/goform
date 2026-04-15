@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition, useState, useRef } from "react";
+import { useTransition, useState, useRef, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +15,13 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSeparator,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
+import { motion, AnimatePresence } from "motion/react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,6 +61,61 @@ export function SettingsClient({
   const [signOutOthersOpen, setSignOutOthersOpen] = useState(false);
   const [emailChangeAlertOpen, setEmailChangeAlertOpen] = useState(false);
   const [avatarRemoveOpen, setAvatarRemoveOpen] = useState(false);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  
+  // OTP Reset Flow State
+  const [showOtpInput, setShowOtpInput] = useState(false);
+  const [otpCountdown, setOtpCountdown] = useState(0);
+  const [resendCountdown, setResendCountdown] = useState(0);
+  const [isResending, setIsResending] = useState(false);
+  const [otpValue, setOtpValue] = useState("");
+
+  // Initialize and persist countdowns from localStorage
+  useEffect(() => {
+    const expiryKey = `settings_otp_expiry_${user.id}`;
+    const resendKey = `settings_otp_resend_${user.id}`;
+    const now = Date.now();
+
+    const storedExpiry = localStorage.getItem(expiryKey);
+    if (storedExpiry) {
+      const elapsed = Math.floor((now - parseInt(storedExpiry, 10)) / 1000);
+      const remaining = Math.max(0, 15 * 60 - elapsed);
+      if (remaining > 0) {
+        setOtpCountdown(remaining);
+        setShowOtpInput(true);
+      } else {
+        localStorage.removeItem(expiryKey);
+      }
+    }
+
+    const storedResend = localStorage.getItem(resendKey);
+    if (storedResend) {
+      const elapsed = Math.floor((now - parseInt(storedResend, 10)) / 1000);
+      const remaining = Math.max(0, 30 - elapsed);
+      setResendCountdown(remaining);
+    }
+  }, [user.id]);
+
+  // Main tick for both timers
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setOtpCountdown((prev) => {
+        if (prev <= 1 && showOtpInput) {
+          setShowOtpInput(false);
+          localStorage.removeItem(`settings_otp_expiry_${user.id}`);
+        }
+        return prev > 0 ? prev - 1 : 0;
+      });
+      setResendCountdown((prev) => prev > 0 ? prev - 1 : 0);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [showOtpInput, user.id]);
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
 
 
   const handleProfileSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -79,8 +141,60 @@ export function SettingsClient({
     const formData = new FormData(e.currentTarget);
     startTransition(async () => {
       const res = await updatePasswordAction(formData);
-      if (res?.error) toast.error(res.error);
-      else toast.success('Password updated. You may be logged out.');
+      if (res?.error) {
+        toast.error(res.error);
+      } else {
+        // Clear OTP state and storage on success
+        localStorage.removeItem(`settings_otp_expiry_${user.id}`);
+        localStorage.removeItem(`settings_otp_resend_${user.id}`);
+        setShowOtpInput(false);
+        setOtpValue("");
+        setOtpCountdown(0);
+        
+        toast.success('Password updated. Redirecting to login...');
+        
+        // Manual redirect after cleanup
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 1500);
+      }
+    });
+  };
+
+  const handleResetPasswordRequest = () => {
+    setResetConfirmOpen(false);
+    startTransition(async () => {
+      const res = await resetPasswordFromSettingsAction();
+      if (res?.error) {
+        toast.error(res.error);
+      } else {
+        toast.success("Reset code sent! Please check your email.");
+        const now = Date.now();
+        localStorage.setItem(`settings_otp_expiry_${user.id}`, now.toString());
+        localStorage.setItem(`settings_otp_resend_${user.id}`, now.toString());
+        setOtpCountdown(15 * 60);
+        setResendCountdown(30);
+        setShowOtpInput(true);
+      }
+    });
+  };
+
+  const handleResendOtp = () => {
+    if (resendCountdown > 0 || isResending) return;
+    setIsResending(true);
+    startTransition(async () => {
+      const res = await resetPasswordFromSettingsAction();
+      setIsResending(false);
+      if (res?.error) {
+        toast.error(res.error);
+      } else {
+        toast.success("A new code has been sent.");
+        const now = Date.now();
+        localStorage.setItem(`settings_otp_resend_${user.id}`, now.toString());
+        localStorage.setItem(`settings_otp_expiry_${user.id}`, now.toString());
+        setResendCountdown(30);
+        setOtpCountdown(15 * 60);
+      }
     });
   };
 
@@ -263,24 +377,76 @@ export function SettingsClient({
                     <div className="space-y-1">
                       <div className="flex justify-between items-center">
                         <Label htmlFor="current">Current password</Label>
-                        <Button
-                          variant="link"
-                          type="button"
-                          className="px-0 h-auto font-normal text-xs text-muted-foreground hover:text-primary"
-                          onClick={() => {
-                            startTransition(async () => {
-                              const res = await resetPasswordFromSettingsAction();
-                              if (res?.error) toast.error(res.error);
-                              else toast.success("Reset link sent! Please check your email.");
-                            });
-                          }}
-                        >
-                          Forgot your current password?
-                        </Button>
+                        {!showOtpInput && (
+                          <Button
+                            variant="link"
+                            type="button"
+                            className="px-0 h-auto font-normal text-xs text-muted-foreground hover:text-primary"
+                            onClick={() => setResetConfirmOpen(true)}
+                          >
+                            Forgot your current password?
+                          </Button>
+                        )}
                       </div>
-                      <PasswordInput id="current" name="current" required placeholder="Enter current password" />
+                      <PasswordInput 
+                        id="current" 
+                        name="current" 
+                        required={!showOtpInput} 
+                        disabled={showOtpInput}
+                        placeholder={showOtpInput ? "Using reset code instead" : "Enter current password"} 
+                      />
                     </div>
                   )}
+
+                  <AnimatePresence>
+                    {hasPassword && showOtpInput && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="space-y-3 pt-2 border-t border-border/50"
+                      >
+                        <div className="flex flex-col items-center space-y-4">
+                          <Label htmlFor="token" className="text-sm font-medium">Reset Verification Code</Label>
+                          <InputOTP
+                            maxLength={6}
+                            value={otpValue}
+                            onChange={(val) => setOtpValue(val)}
+                            disabled={isPending}
+                          >
+                            <InputOTPGroup>
+                              <InputOTPSlot index={0} />
+                              <InputOTPSlot index={1} />
+                              <InputOTPSlot index={2} />
+                            </InputOTPGroup>
+                            <InputOTPSeparator />
+                            <InputOTPGroup>
+                              <InputOTPSlot index={3} />
+                              <InputOTPSlot index={4} />
+                              <InputOTPSlot index={5} />
+                            </InputOTPGroup>
+                          </InputOTP>
+                          <input type="hidden" name="token" value={otpValue} />
+                          
+                          <div className="text-center space-y-2">
+                            <p className="text-xs text-muted-foreground">
+                              Code expires in <span className="font-medium text-foreground">{formatTime(otpCountdown)}</span>
+                            </p>
+                            <Button
+                              type="button"
+                              variant="link"
+                              size="sm"
+                              className="h-auto p-0 text-xs"
+                              disabled={resendCountdown > 0 || isResending}
+                              onClick={handleResendOtp}
+                            >
+                              {isResending ? "Sending..." : resendCountdown > 0 ? `Resend in ${resendCountdown}s` : "Resend code"}
+                            </Button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                   <div className="space-y-1">
                     <Label htmlFor="new">{hasPassword ? "New password" : "Password"}</Label>
                     <PasswordInput id="new" name="new" required minLength={6} placeholder="Min. 6 characters" />
@@ -421,6 +587,23 @@ export function SettingsClient({
                 variant="destructive"
               >
                 Delete Account
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={resetConfirmOpen} onOpenChange={setResetConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Reset your password?</AlertDialogTitle>
+              <AlertDialogDescription>
+                We will send a 6-digit verification code to your email address. You will be able to set a new password using this code instead of your current password.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleResetPasswordRequest}>
+                Send code
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

@@ -80,7 +80,7 @@ export async function verifyEmailChangeAction(formData: FormData) {
   }).where(eq(users.email, oldEmail))
 
   revalidatePath('/settings')
-  redirect('/settings')
+  return { success: true }
 }
 
 export async function resendEmailChangeOtpAction(newEmail: string) {
@@ -145,23 +145,42 @@ export async function updatePasswordAction(formData: FormData) {
   const currentPassword = formData.get('current') as string
   const newPassword = formData.get('new') as string
   const confirmPassword = formData.get('confirm') as string
+  const token = formData.get('token') as string
   
   if (newPassword !== confirmPassword) {
     return { error: 'Passwords do not match' }
   }
 
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
 
-  const { error } = await supabase.auth.updateUser({
-    password: newPassword,
-    current_password: currentPassword || undefined
-  })
-
-  if (error) return { error: error.message }
+  // If a token is provided, verify it first (inline OTP flow)
+  if (token) {
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      email: user.email!,
+      token,
+      type: 'recovery'
+    })
+    if (verifyError) return { error: 'Invalid or expired code: ' + verifyError.message }
+    
+    // Once verified, we can update the password without current_password
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: newPassword,
+    })
+    if (updateError) return { error: updateError.message }
+  } else {
+    // Regular flow requires current_password if present
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: newPassword,
+      current_password: currentPassword || undefined
+    })
+    if (updateError) return { error: updateError.message }
+  }
 
   // Requires re-login
   await supabase.auth.signOut()
-  redirect('/login')
+  return { success: true }
 }
 
 export async function signOutOthersAction() {
