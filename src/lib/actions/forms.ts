@@ -3,7 +3,7 @@
 import { db } from "@/db";
 import { forms, formFields, formResponses, type NewForm, type NewFormField } from "@/db/schema";
 import { createClient } from "@/lib/server";
-import { eq, desc, ilike, and, count, sql, isNull } from "drizzle-orm";
+import { eq, desc, ilike, and, count, sql, isNull, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import type { ActionResult, BuilderField, BuilderForm } from "@/lib/form-types";
 import { z } from "zod";
@@ -422,6 +422,24 @@ export async function deleteForm(id: string): Promise<ActionResult> {
     await db
       .delete(forms)
       .where(eq(forms.id, id));
+
+    revalidatePath("/forms");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+export async function deleteForms(ids: string[]): Promise<ActionResult> {
+  try {
+    // Verify access for all forms first
+    for (const id of ids) {
+      await enforceFormAccess(id, "editor");
+    }
+
+    await db
+      .delete(forms)
+      .where(inArray(forms.id, ids));
 
     revalidatePath("/forms");
     return { success: true };

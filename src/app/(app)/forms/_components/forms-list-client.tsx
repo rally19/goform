@@ -49,6 +49,7 @@ import {
   deleteForm,
   duplicateForm,
   moveForms,
+  deleteForms,
 } from "@/lib/actions/forms";
 import { getActiveSessions } from "@/lib/actions/collaboration";
 import { createClient } from "@/lib/client";
@@ -405,6 +406,7 @@ export function FormsListClient({
   const [moveOpen, setMoveOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [multiDeleteOpen, setMultiDeleteOpen] = useState(false);
   const [duplicateId, setDuplicateId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -531,6 +533,24 @@ export function FormsListClient({
     }
   };
 
+  const [isDeletingSelection, setIsDeletingSelection] = useState(false);
+
+  const handleDeleteSelection = async () => {
+    setIsDeletingSelection(true);
+    const count = selectedIds.length;
+    const res = await deleteForms(selectedIds);
+    setIsDeletingSelection(false);
+    
+    if (res.success) {
+      toast.success(`Successfully deleted ${count} form(s)`);
+      setForms(f => f.filter(form => !selectedIds.includes(form.id)));
+      setSelectedIds([]);
+      setMultiDeleteOpen(false);
+    } else {
+      toast.error(res.error || "Failed to delete forms");
+    }
+  };
+
   return (
     <>
       <div className="flex-1 p-4 pt-6 md:p-8 space-y-6 overflow-y-auto h-full relative">
@@ -568,6 +588,14 @@ export function FormsListClient({
                   <MoveRight className="h-4 w-4 mr-2" /> Move To...
                 </Button>
               )}
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => setMultiDeleteOpen(true)}
+              >
+                <Trash className="h-4 w-4 mr-2" /> Trash
+              </Button>
             </div>
           </div>
         )}
@@ -785,6 +813,32 @@ export function FormsListClient({
                 Duplicate & Open
               </Button>
             </div>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {/* Bulk Delete Confirm */}
+      <AlertDialog open={multiDeleteOpen} onOpenChange={setMultiDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.length} forms?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the selected forms and all of their responses. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingSelection}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteSelection}
+              variant="destructive"
+              disabled={isDeletingSelection}
+            >
+              {isDeletingSelection ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash className="mr-2 h-4 w-4" />
+              )}
+              Delete {selectedIds.length} Forms
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
