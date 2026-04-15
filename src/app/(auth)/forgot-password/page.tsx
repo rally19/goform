@@ -59,20 +59,20 @@ export default function ForgotPasswordPage() {
       <Card className="border-border shadow-md">
         <CardHeader className="space-y-1 text-center sm:text-left">
           <div className="flex justify-center sm:hidden mb-4">
-              <div className="flex h-7 w-7 items-center justify-center rounded bg-primary text-primary-foreground">
-                <SquarePen className="size-4" />
-              </div>
+            <div className="flex h-7 w-7 items-center justify-center rounded bg-primary text-primary-foreground">
+              <SquarePen className="size-4" />
+            </div>
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight">Reset password</CardTitle>
           <CardDescription>
-            Enter your email to receive a password reset link
+            Enter your email to receive a password reset OTP
           </CardDescription>
         </CardHeader>
         <CardContent>
           {isSubmitted ? (
             <div className="space-y-4">
               <div className="p-4 bg-primary/10 text-primary rounded-md text-sm font-medium text-center">
-                Check your email for a link to reset your password. If it doesn't appear within a few minutes, check your spam folder.
+                Check your email for a OTP to reset your password. If it doesn't appear within a few minutes, check your spam folder.
               </div>
               <Button asChild className="w-full">
                 <Link href="/login">Return to login</Link>
@@ -95,13 +95,13 @@ export default function ForgotPasswordPage() {
                   </p>
                 )}
               </div>
-              
+
               <Button
                 type="submit"
                 className="w-full transition-transform active:scale-[0.98]"
                 disabled={isPending || form.formState.isSubmitting}
               >
-                {isPending ? "Sending link..." : "Send Reset Link"}
+                {isPending ? "Sending OTP..." : "Send Reset OTP"}
               </Button>
             </form>
           )}

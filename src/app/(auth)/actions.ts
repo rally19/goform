@@ -164,7 +164,7 @@ export async function verifyOtpAction(formData: FormData) {
   revalidatePath('/', 'layout')
   
   if (type === 'recovery') {
-    return { success: true, redirect: '/settings' }
+    return { success: true, redirect: '/reset-password' }
   } else {
     const { data: { user } } = await supabase.auth.getUser();
     return { success: true, redirect: await getRedirectUrl(next, user?.id) }
@@ -187,6 +187,24 @@ export async function resendOtpAction(email: string, type: 'signup' | 'recovery'
     })
     if (error) return { error: error.message }
   }
+
+  return { success: true }
+}
+
+export async function updatePasswordWithSessionAction(formData: FormData) {
+  const password = formData.get('password') as string
+  const supabase = await createClient()
+
+  const { error } = await supabase.auth.updateUser({
+    password,
+  })
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  // Optional: Global sign out after password reset for security
+  await supabase.auth.signOut({ scope: 'global' })
 
   return { success: true }
 }
