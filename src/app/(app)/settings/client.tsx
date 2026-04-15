@@ -42,11 +42,11 @@ import {
 } from "@/components/ui/dialog";
 import { Camera, Monitor, ShieldCheck, LogOut, Mail } from "lucide-react";
 import { toast } from "sonner";
-import { 
-  updateProfileAction, 
-  updatePasswordAction, 
-  signOutOthersAction, 
-  resetPasswordFromSettingsAction, 
+import {
+  updateProfileAction,
+  updatePasswordAction,
+  signOutOthersAction,
+  resetPasswordFromSettingsAction,
   deleteAccountAction,
   uploadAvatarAction,
   removeAvatarAction,
@@ -56,11 +56,11 @@ import {
 } from "./actions";
 import type { UserIdentity } from "@supabase/supabase-js";
 
-export function SettingsClient({ 
-  user, 
+export function SettingsClient({
+  user,
   identities,
   hasPassword
-}: { 
+}: {
   user: { id: string, name: string | null, email: string, avatarUrl: string | null },
   identities: UserIdentity[],
   hasPassword: boolean
@@ -73,7 +73,7 @@ export function SettingsClient({
   const [emailChangeAlertOpen, setEmailChangeAlertOpen] = useState(false);
   const [avatarRemoveOpen, setAvatarRemoveOpen] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
-  
+
   // OTP Reset Flow State
   const [showOtpInput, setShowOtpInput] = useState(false);
   const [otpCountdown, setOtpCountdown] = useState(0);
@@ -180,7 +180,7 @@ export function SettingsClient({
   const handleProfileSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    
+
     startTransition(async () => {
       const res = await updateProfileAction(formData);
       if (res?.error) {
@@ -203,12 +203,12 @@ export function SettingsClient({
       } else {
         setEmailChangeDialogOpen(false);
         toast.success("Verification codes sent! Please check both your current and new email addresses.");
-        
+
         const now = Date.now();
         localStorage.setItem(`settings_email_change_expiry_${user.id}`, now.toString());
         localStorage.setItem(`settings_email_change_resend_${user.id}`, now.toString());
         localStorage.setItem(`settings_email_change_target_${user.id}`, newEmail);
-        
+
         setNewEmailTarget(newEmail);
         setEmailOtpCountdown(15 * 60);
         setEmailResendCountdown(30);
@@ -239,13 +239,13 @@ export function SettingsClient({
         localStorage.removeItem(`settings_email_change_expiry_${user.id}`);
         localStorage.removeItem(`settings_email_change_resend_${user.id}`);
         localStorage.removeItem(`settings_email_change_target_${user.id}`);
-        
+
         setShowEmailOtpInput(false);
         setEmailOldOtp("");
         setEmailNewOtp("");
-        
+
         toast.success("Email changed successfully! Redirecting to login...");
-        
+
         setTimeout(() => {
           window.location.href = "/login";
         }, 1500);
@@ -256,11 +256,11 @@ export function SettingsClient({
   const handleResendEmailOtp = () => {
     if (emailResendCountdown > 0 || isResendingEmail) return;
     setIsResendingEmail(true);
-    
+
     startTransition(async () => {
       const res = await resendEmailChangeOtpAction(newEmailTarget);
       setIsResendingEmail(false);
-      
+
       if (res?.error) {
         toast.error(res.error);
       } else {
@@ -288,9 +288,9 @@ export function SettingsClient({
         setShowOtpInput(false);
         setOtpValue("");
         setOtpCountdown(0);
-        
+
         toast.success('Password updated. Redirecting to login...');
-        
+
         // Manual redirect after cleanup
         setTimeout(() => {
           window.location.href = '/login';
@@ -349,7 +349,7 @@ export function SettingsClient({
       formData.append('file', file);
       // Reset input value so the same file can be selected again
       e.target.value = '';
-      
+
       startTransition(async () => {
         const res = await uploadAvatarAction(formData);
         if (res?.error) toast.error(res.error);
@@ -391,24 +391,24 @@ export function SettingsClient({
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
       </div>
-      
+
 
       <div className="w-full max-w-4xl">
-        <Tabs defaultValue="account" className="w-full">
+        <Tabs defaultValue="personal" className="w-full">
           <TabsList className="mb-4">
-            <TabsTrigger value="account">Account</TabsTrigger>
+            <TabsTrigger value="personal">Personal</TabsTrigger>
             <TabsTrigger value="password">Password</TabsTrigger>
-            <TabsTrigger value="security">Security</TabsTrigger>
+            <TabsTrigger value="account">Account</TabsTrigger>
             <TabsTrigger value="danger" className="text-destructive data-[state=active]:text-destructive">Danger</TabsTrigger>
           </TabsList>
-          
-          <TabsContent value="account">
+
+          <TabsContent value="personal">
             <Card>
               <form onSubmit={handleProfileSubmit} className="flex flex-col gap-4">
                 <CardHeader>
-                  <CardTitle>Account</CardTitle>
+                  <CardTitle>Personal Information</CardTitle>
                   <CardDescription>
-                    Make changes to your account here. Click save when you&apos;re done.
+                    Update your personal profile details and avatar.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -420,18 +420,18 @@ export function SettingsClient({
                           {user.name ? user.name.charAt(0).toUpperCase() : "U"}
                         </AvatarFallback>
                       </Avatar>
-                      <div 
+                      <div
                         className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover/avatar:opacity-100 transition-opacity cursor-pointer"
                         onClick={() => fileInputRef.current?.click()}
                       >
                         <Camera className="h-6 w-6 text-white" />
                       </div>
-                      <input 
-                        type="file" 
-                        ref={fileInputRef} 
-                        className="hidden" 
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
                         accept="image/png, image/jpeg, image/gif"
-                        onChange={handleAvatarUpload} 
+                        onChange={handleAvatarUpload}
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -440,20 +440,20 @@ export function SettingsClient({
                         PNG, JPG or GIF. Max size 2MB.
                       </p>
                       <div className="flex gap-2 pt-1">
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          size="sm" 
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
                           className="h-8"
                           onClick={() => fileInputRef.current?.click()}
                           disabled={isPending}
                         >
                           Upload image
                         </Button>
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
                           className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                           onClick={() => setAvatarRemoveOpen(true)}
                           disabled={isPending || !user.avatarUrl}
@@ -479,30 +479,30 @@ export function SettingsClient({
               </form>
             </Card>
           </TabsContent>
-          
+
           <TabsContent value="password">
             <Card>
-              <form 
+              <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   const formData = new FormData(e.currentTarget);
                   const newPass = formData.get('new') as string;
                   const confirmPass = formData.get('confirm') as string;
-                  
+
                   if (newPass !== confirmPass) {
                     toast.error("Passwords do not match");
                     return;
                   }
-                  
+
                   handlePasswordSubmit(e);
-                }} 
+                }}
                 className="flex flex-col gap-4"
               >
                 <CardHeader>
                   <CardTitle>{hasPassword ? "Update Password" : "Create Password"}</CardTitle>
                   <CardDescription>
-                    {hasPassword 
-                      ? "Change your existing password. After saving, you'll be logged out." 
+                    {hasPassword
+                      ? "Change your existing password. After saving, you'll be logged out."
                       : "Set a password for your account so you can log in without social providers. After saving, you'll be logged out."}
                   </CardDescription>
                 </CardHeader>
@@ -522,12 +522,12 @@ export function SettingsClient({
                           </Button>
                         )}
                       </div>
-                      <PasswordInput 
-                        id="current" 
-                        name="current" 
-                        required={!showOtpInput} 
+                      <PasswordInput
+                        id="current"
+                        name="current"
+                        required={!showOtpInput}
                         disabled={showOtpInput}
-                        placeholder={showOtpInput ? "Using reset code instead" : "Enter current password"} 
+                        placeholder={showOtpInput ? "Using reset code instead" : "Enter current password"}
                       />
                     </div>
                   )}
@@ -561,7 +561,7 @@ export function SettingsClient({
                             </InputOTPGroup>
                           </InputOTP>
                           <input type="hidden" name="token" value={otpValue} />
-                          
+
                           <div className="text-center space-y-2">
                             <p className="text-xs text-muted-foreground">
                               Code expires in <span className="font-medium text-foreground">{formatTime(otpCountdown)}</span>
@@ -595,9 +595,9 @@ export function SettingsClient({
                     {isPending ? "Saving..." : hasPassword ? "Update password" : "Create password"}
                   </Button>
                   {showOtpInput && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       className="text-muted-foreground"
                       onClick={() => {
                         setShowOtpInput(false);
@@ -613,8 +613,8 @@ export function SettingsClient({
               </form>
             </Card>
           </TabsContent>
-          
-          <TabsContent value="security">
+
+          <TabsContent value="account">
             <div className="space-y-6">
               <Card>
                 <CardHeader>
@@ -691,7 +691,7 @@ export function SettingsClient({
                             <Button type="submit" className="w-full sm:w-auto" disabled={isPending}>
                               {isPending ? "Verifying..." : "Confirm Email Change"}
                             </Button>
-                            
+
                             <div className="text-center space-y-2">
                               <p className="text-xs text-muted-foreground">
                                 Codes expire in <span className="font-medium text-foreground">{formatTime(emailOtpCountdown)}</span>
@@ -715,9 +715,9 @@ export function SettingsClient({
                 </CardContent>
                 <CardFooter className="border-t bg-muted/20 px-6 py-4">
                   {!showEmailOtpInput && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => setEmailChangeDialogOpen(true)}
                       disabled={isPending}
                     >
@@ -725,9 +725,9 @@ export function SettingsClient({
                     </Button>
                   )}
                   {showEmailOtpInput && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       className="text-muted-foreground"
                       onClick={() => {
                         setShowEmailOtpInput(false);
@@ -755,9 +755,9 @@ export function SettingsClient({
                   </p>
                 </CardContent>
                 <CardFooter className="border-t bg-muted/20 px-6 py-4">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => setSignOutOthersOpen(true)}
                     disabled={isPending}
                   >
@@ -767,7 +767,7 @@ export function SettingsClient({
               </Card>
             </div>
           </TabsContent>
-          
+
           <TabsContent value="danger">
             <Card className="border-destructive/50">
               <CardHeader>
@@ -782,7 +782,7 @@ export function SettingsClient({
                 </p>
               </CardContent>
               <CardFooter className="border-t bg-destructive/5 px-6 py-4">
-                <Button 
+                <Button
                   variant="destructive"
                   onClick={() => setDeleteAccountOpen(true)}
                   disabled={isPending}
@@ -794,25 +794,25 @@ export function SettingsClient({
           </TabsContent>
         </Tabs>
 
-      {/* Dialogs */}
-      <AlertDialog open={avatarRemoveOpen} onOpenChange={setAvatarRemoveOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove Profile Picture?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to remove your profile picture?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRemoveAvatar}>
-              Remove
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        {/* Dialogs */}
+        <AlertDialog open={avatarRemoveOpen} onOpenChange={setAvatarRemoveOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove Profile Picture?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to remove your profile picture?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleRemoveAvatar}>
+                Remove
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
-      <AlertDialog open={signOutOthersOpen} onOpenChange={setSignOutOthersOpen}>
+        <AlertDialog open={signOutOthersOpen} onOpenChange={setSignOutOthersOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Sign out of other sessions?</AlertDialogTitle>
@@ -855,7 +855,7 @@ export function SettingsClient({
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction 
+              <AlertDialogAction
                 onClick={handleDeleteAccount}
                 variant="destructive"
               >
