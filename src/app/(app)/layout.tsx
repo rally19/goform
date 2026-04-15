@@ -5,7 +5,26 @@ import { PERSONAL_WORKSPACE_ID } from "@/lib/constants";
 import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
 
-export const unstable_instant = { prefetch: 'static' };
+export const unstable_instant = { 
+  prefetch: 'static',
+  samples: [
+    {
+      cookies: [
+        { name: 'goform_workspace', value: null },
+        { name: 'sb-access-token', value: null },
+        { name: 'sb-refresh-token', value: null }
+      ],
+      params: { 
+        id: 'sample-id', 
+        slug: 'sample-slug' 
+      },
+      searchParams: { 
+        oldEmail: null, 
+        newEmail: null 
+      }
+    }
+  ]
+};
 
 export default async function AppLayout({
   children,

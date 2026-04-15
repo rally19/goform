@@ -4,7 +4,18 @@ import { OrganizationsClient } from "./_client";
 import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
 
-export const unstable_instant = { prefetch: 'static' };
+export const unstable_instant = { 
+  prefetch: 'static',
+  samples: [
+    {
+      cookies: [
+        { name: 'goform_workspace', value: null },
+        { name: 'sb-access-token', value: null },
+        { name: 'sb-refresh-token', value: null }
+      ]
+    }
+  ]
+};
 
 export default async function OrganizationsPage() {
   return (

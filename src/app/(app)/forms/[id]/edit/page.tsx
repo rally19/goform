@@ -4,6 +4,19 @@ import { Room } from "@/components/form-builder/room";
 import type { BuilderField, BuilderForm } from "@/lib/form-types";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
+export const unstable_instant = { 
+  prefetch: 'static',
+  samples: [
+    {
+      cookies: [
+        { name: 'goform_workspace', value: null },
+        { name: 'sb-access-token', value: null },
+        { name: 'sb-refresh-token', value: null }
+      ],
+      params: { id: 'sample-form-id' }
+    }
+  ]
+};
 import { Loader2 } from "lucide-react";
 
 export default async function FormBuilderPage({

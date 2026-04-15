@@ -20,7 +20,18 @@ import { formatDistanceToNow } from "../forms/_components/date-utils";
 import Link from "next/link";
 import { Suspense } from "react";
 
-export const unstable_instant = { prefetch: 'static' };
+export const unstable_instant = { 
+  prefetch: 'static',
+  samples: [
+    {
+      cookies: [
+        { name: 'goform_workspace', value: null },
+        { name: 'sb-access-token', value: null },
+        { name: 'sb-refresh-token', value: null }
+      ]
+    }
+  ]
+};
 
 export default async function DashboardPage() {
   return (

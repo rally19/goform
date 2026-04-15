@@ -2,6 +2,19 @@ import { getForm } from "@/lib/actions/forms";
 import { redirect } from "next/navigation";
 import { SettingsClient } from "./_client";
 import { Suspense } from "react";
+export const unstable_instant = { 
+  prefetch: 'static',
+  samples: [
+    {
+      cookies: [
+        { name: 'goform_workspace', value: null },
+        { name: 'sb-access-token', value: null },
+        { name: 'sb-refresh-token', value: null }
+      ],
+      params: { id: 'sample-form-id' }
+    }
+  ]
+};
 import { Loader2 } from "lucide-react";
 
 export default async function FormSettingsPage({
