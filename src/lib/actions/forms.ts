@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { forms, formFields, type NewForm, type NewFormField } from "@/db/schema";
+import { forms, formFields, formResponses, type NewForm, type NewFormField } from "@/db/schema";
 import { createClient } from "@/lib/server";
 import { eq, desc, ilike, and, count, sql, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -73,12 +73,12 @@ export async function getForms({ search }: { search?: string } = {}): Promise<
         slug: forms.slug,
         accentColor: forms.accentColor,
         collaborationEnabled: forms.collaborationEnabled,
-        responseCount: sql<number>`(
-          SELECT COUNT(*) FROM form_responses WHERE form_id = ${forms.id}
-        )`.mapWith(Number),
+        responseCount: count(formResponses.id).mapWith(Number),
       })
       .from(forms)
+      .leftJoin(formResponses, eq(formResponses.formId, forms.id))
       .where(baseWhere)
+      .groupBy(forms.id)
       .orderBy(desc(forms.updatedAt));
 
     return { success: true, data: rows };
@@ -193,6 +193,7 @@ export async function createForm(
         organizationId: isPersonal ? null : workspaceId,
         title,
         slug,
+        updatedAt: new Date(),
       } as NewForm)
       .returning({ id: forms.id });
 
@@ -241,7 +242,8 @@ export async function moveForms(formIds: string[], targetWorkspaceId: string): P
           organizationId: targetIsPersonal ? null : targetWorkspaceId,
           // When moving to personal workspace, the current user becomes the owner.
           // When moving to an organization, we clear the creator (userId) for true org ownership.
-          userId: targetIsPersonal ? user.id : null
+          userId: targetIsPersonal ? user.id : null,
+          updatedAt: new Date(),
         })
         .where(eq(forms.id, id));
     }
@@ -466,6 +468,7 @@ export async function duplicateForm(id: string): Promise<ActionResult<{ id: stri
         successMessage: form.successMessage,
         redirectUrl: form.redirectUrl,
         autoSave: form.autoSave,
+        updatedAt: new Date(),
       } as NewForm)
       .returning({ id: forms.id });
 
