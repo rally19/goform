@@ -32,7 +32,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Camera, Monitor, ShieldCheck, LogOut } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Camera, Monitor, ShieldCheck, LogOut, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { 
   updateProfileAction, 
@@ -41,7 +49,10 @@ import {
   resetPasswordFromSettingsAction, 
   deleteAccountAction,
   uploadAvatarAction,
-  removeAvatarAction
+  removeAvatarAction,
+  initiateEmailChangeAction,
+  verifyEmailChangeAction,
+  resendEmailChangeOtpAction
 } from "./actions";
 import type { UserIdentity } from "@supabase/supabase-js";
 
@@ -70,6 +81,16 @@ export function SettingsClient({
   const [isResending, setIsResending] = useState(false);
   const [otpValue, setOtpValue] = useState("");
 
+  // Inline Email Change State
+  const [emailChangeDialogOpen, setEmailChangeDialogOpen] = useState(false);
+  const [showEmailOtpInput, setShowEmailOtpInput] = useState(false);
+  const [emailOtpCountdown, setEmailOtpCountdown] = useState(0);
+  const [emailResendCountdown, setEmailResendCountdown] = useState(0);
+  const [emailOldOtp, setEmailOldOtp] = useState("");
+  const [emailNewOtp, setEmailNewOtp] = useState("");
+  const [newEmailTarget, setNewEmailTarget] = useState("");
+  const [isResendingEmail, setIsResendingEmail] = useState(false);
+
   // Initialize and persist countdowns from localStorage
   useEffect(() => {
     const expiryKey = `settings_otp_expiry_${user.id}`;
@@ -94,6 +115,34 @@ export function SettingsClient({
       const remaining = Math.max(0, 30 - elapsed);
       setResendCountdown(remaining);
     }
+
+    // Email Change Persistence
+    const emailExpiryKey = `settings_email_change_expiry_${user.id}`;
+    const emailResendKey = `settings_email_change_resend_${user.id}`;
+    const emailTargetKey = `settings_email_change_target_${user.id}`;
+
+    const storedEmailExpiry = localStorage.getItem(emailExpiryKey);
+    const storedEmailTarget = localStorage.getItem(emailTargetKey);
+
+    if (storedEmailExpiry && storedEmailTarget) {
+      const elapsed = Math.floor((now - parseInt(storedEmailExpiry, 10)) / 1000);
+      const remaining = Math.max(0, 15 * 60 - elapsed);
+      if (remaining > 0) {
+        setEmailOtpCountdown(remaining);
+        setNewEmailTarget(storedEmailTarget);
+        setShowEmailOtpInput(true);
+      } else {
+        localStorage.removeItem(emailExpiryKey);
+        localStorage.removeItem(emailTargetKey);
+      }
+    }
+
+    const storedEmailResend = localStorage.getItem(emailResendKey);
+    if (storedEmailResend) {
+      const elapsed = Math.floor((now - parseInt(storedEmailResend, 10)) / 1000);
+      const remaining = Math.max(0, 30 - elapsed);
+      setEmailResendCountdown(remaining);
+    }
   }, [user.id]);
 
   // Main tick for both timers
@@ -107,9 +156,19 @@ export function SettingsClient({
         return prev > 0 ? prev - 1 : 0;
       });
       setResendCountdown((prev) => prev > 0 ? prev - 1 : 0);
+
+      setEmailOtpCountdown((prev) => {
+        if (prev <= 1 && showEmailOtpInput) {
+          setShowEmailOtpInput(false);
+          localStorage.removeItem(`settings_email_change_expiry_${user.id}`);
+          localStorage.removeItem(`settings_email_change_target_${user.id}`);
+        }
+        return prev > 0 ? prev - 1 : 0;
+      });
+      setEmailResendCountdown((prev) => prev > 0 ? prev - 1 : 0);
     }, 1000);
     return () => clearInterval(timer);
-  }, [showOtpInput, user.id]);
+  }, [showOtpInput, showEmailOtpInput, user.id]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -121,7 +180,6 @@ export function SettingsClient({
   const handleProfileSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const newEmail = formData.get('email') as string;
     
     startTransition(async () => {
       const res = await updateProfileAction(formData);
@@ -129,9 +187,89 @@ export function SettingsClient({
         toast.error(res.error);
       } else {
         toast.success('Profile updated successfully.');
-        if (res?.emailChangePending) {
-          window.location.href = `/settings/verify-email-change?oldEmail=${encodeURIComponent(user.email)}&newEmail=${encodeURIComponent(res.newEmail || newEmail)}`;
-        }
+      }
+    });
+  };
+
+  const handleEmailChangeInit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const newEmail = formData.get('email') as string;
+
+    startTransition(async () => {
+      const res = await initiateEmailChangeAction(formData);
+      if (res?.error) {
+        toast.error(res.error);
+      } else {
+        setEmailChangeDialogOpen(false);
+        toast.success("Verification codes sent! Please check both your current and new email addresses.");
+        
+        const now = Date.now();
+        localStorage.setItem(`settings_email_change_expiry_${user.id}`, now.toString());
+        localStorage.setItem(`settings_email_change_resend_${user.id}`, now.toString());
+        localStorage.setItem(`settings_email_change_target_${user.id}`, newEmail);
+        
+        setNewEmailTarget(newEmail);
+        setEmailOtpCountdown(15 * 60);
+        setEmailResendCountdown(30);
+        setShowEmailOtpInput(true);
+      }
+    });
+  };
+
+  const handleEmailChangeVerify = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (emailOldOtp.length !== 6 || emailNewOtp.length !== 6) {
+      toast.error("Please enter both 6-digit verification codes.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("oldEmail", user.email);
+    formData.append("newEmail", newEmailTarget);
+    formData.append("oldOtp", emailOldOtp);
+    formData.append("newOtp", emailNewOtp);
+
+    startTransition(async () => {
+      const res = await verifyEmailChangeAction(formData);
+      if (res?.error) {
+        toast.error(res.error);
+      } else {
+        // Clear persistence
+        localStorage.removeItem(`settings_email_change_expiry_${user.id}`);
+        localStorage.removeItem(`settings_email_change_resend_${user.id}`);
+        localStorage.removeItem(`settings_email_change_target_${user.id}`);
+        
+        setShowEmailOtpInput(false);
+        setEmailOldOtp("");
+        setEmailNewOtp("");
+        
+        toast.success("Email changed successfully! Redirecting to login...");
+        
+        setTimeout(() => {
+          window.location.href = "/login";
+        }, 1500);
+      }
+    });
+  };
+
+  const handleResendEmailOtp = () => {
+    if (emailResendCountdown > 0 || isResendingEmail) return;
+    setIsResendingEmail(true);
+    
+    startTransition(async () => {
+      const res = await resendEmailChangeOtpAction(newEmailTarget);
+      setIsResendingEmail(false);
+      
+      if (res?.error) {
+        toast.error(res.error);
+      } else {
+        toast.success("New codes have been sent to both addresses.");
+        const now = Date.now();
+        localStorage.setItem(`settings_email_change_resend_${user.id}`, now.toString());
+        localStorage.setItem(`settings_email_change_expiry_${user.id}`, now.toString());
+        setEmailResendCountdown(30);
+        setEmailOtpCountdown(15 * 60);
       }
     });
   };
@@ -329,11 +467,7 @@ export function SettingsClient({
                   <div className="space-y-4">
                     <div className="space-y-1">
                       <Label htmlFor="name">Name</Label>
-                      <Input id="name" name="name" defaultValue={user.name || ""} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="email">Email</Label>
-                      <Input id="email" name="email" type="email" defaultValue={user.email} />
+                      <Input id="input-name" name="name" defaultValue={user.name || ""} />
                     </div>
                   </div>
                 </CardContent>
@@ -456,10 +590,25 @@ export function SettingsClient({
                     <PasswordInput id="confirm" name="confirm" required minLength={6} placeholder="Repeat password" />
                   </div>
                 </CardContent>
-                <CardFooter>
+                <CardFooter className="flex justify-between items-center gap-2">
                   <Button type="submit" disabled={isPending}>
                     {isPending ? "Saving..." : hasPassword ? "Update password" : "Create password"}
                   </Button>
+                  {showOtpInput && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-muted-foreground"
+                      onClick={() => {
+                        setShowOtpInput(false);
+                        localStorage.removeItem(`settings_otp_expiry_${user.id}`);
+                        setOtpValue("");
+                      }}
+                      disabled={isPending}
+                    >
+                      Cancel Reset
+                    </Button>
+                  )}
                 </CardFooter>
               </form>
             </Card>
@@ -467,6 +616,132 @@ export function SettingsClient({
           
           <TabsContent value="security">
             <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Email Address</CardTitle>
+                  <CardDescription>
+                    Change your current email address. This will require verification of both your current and new email addresses.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Current Email</Label>
+                    <div className="flex items-center gap-2 text-sm bg-muted/50 p-2.5 rounded-md border border-border/50">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <span>{user.email}</span>
+                    </div>
+                  </div>
+
+                  <AnimatePresence>
+                    {showEmailOtpInput && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="space-y-6 pt-4 border-t border-border/50"
+                      >
+                        <form onSubmit={handleEmailChangeVerify} className="space-y-6">
+                          <div className="space-y-4">
+                            <div className="flex flex-col items-center space-y-3">
+                              <Label className="text-sm font-medium">Verification for <span className="text-primary">{user.email}</span></Label>
+                              <InputOTP
+                                maxLength={6}
+                                value={emailOldOtp}
+                                onChange={(val) => setEmailOldOtp(val)}
+                                disabled={isPending}
+                              >
+                                <InputOTPGroup>
+                                  <InputOTPSlot index={0} />
+                                  <InputOTPSlot index={1} />
+                                  <InputOTPSlot index={2} />
+                                </InputOTPGroup>
+                                <InputOTPSeparator />
+                                <InputOTPGroup>
+                                  <InputOTPSlot index={3} />
+                                  <InputOTPSlot index={4} />
+                                  <InputOTPSlot index={5} />
+                                </InputOTPGroup>
+                              </InputOTP>
+                            </div>
+
+                            <div className="flex flex-col items-center space-y-3">
+                              <Label className="text-sm font-medium">Verification for <span className="text-primary">{newEmailTarget}</span></Label>
+                              <InputOTP
+                                maxLength={6}
+                                value={emailNewOtp}
+                                onChange={(val) => setEmailNewOtp(val)}
+                                disabled={isPending}
+                              >
+                                <InputOTPGroup>
+                                  <InputOTPSlot index={0} />
+                                  <InputOTPSlot index={1} />
+                                  <InputOTPSlot index={2} />
+                                </InputOTPGroup>
+                                <InputOTPSeparator />
+                                <InputOTPGroup>
+                                  <InputOTPSlot index={3} />
+                                  <InputOTPSlot index={4} />
+                                  <InputOTPSlot index={5} />
+                                </InputOTPGroup>
+                              </InputOTP>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col items-center space-y-3">
+                            <Button type="submit" className="w-full sm:w-auto" disabled={isPending}>
+                              {isPending ? "Verifying..." : "Confirm Email Change"}
+                            </Button>
+                            
+                            <div className="text-center space-y-2">
+                              <p className="text-xs text-muted-foreground">
+                                Codes expire in <span className="font-medium text-foreground">{formatTime(emailOtpCountdown)}</span>
+                              </p>
+                              <Button
+                                type="button"
+                                variant="link"
+                                size="sm"
+                                className="h-auto p-0 text-xs"
+                                disabled={emailResendCountdown > 0 || isResendingEmail}
+                                onClick={handleResendEmailOtp}
+                              >
+                                {isResendingEmail ? "Sending..." : emailResendCountdown > 0 ? `Resend in ${emailResendCountdown}s` : "Resend codes"}
+                              </Button>
+                            </div>
+                          </div>
+                        </form>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </CardContent>
+                <CardFooter className="border-t bg-muted/20 px-6 py-4">
+                  {!showEmailOtpInput && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setEmailChangeDialogOpen(true)}
+                      disabled={isPending}
+                    >
+                      Change Email Address
+                    </Button>
+                  )}
+                  {showEmailOtpInput && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-muted-foreground"
+                      onClick={() => {
+                        setShowEmailOtpInput(false);
+                        localStorage.removeItem(`settings_email_change_expiry_${user.id}`);
+                        localStorage.removeItem(`settings_email_change_target_${user.id}`);
+                      }}
+                      disabled={isPending}
+                    >
+                      Cancel
+                    </Button>
+                  )}
+                </CardFooter>
+              </Card>
+
               <Card>
                 <CardHeader>
                   <CardTitle>Login Sessions</CardTitle>
@@ -490,8 +765,6 @@ export function SettingsClient({
                   </Button>
                 </CardFooter>
               </Card>
-
-
             </div>
           </TabsContent>
           
@@ -608,6 +881,48 @@ export function SettingsClient({
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <Dialog open={emailChangeDialogOpen} onOpenChange={setEmailChangeDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <form onSubmit={handleEmailChangeInit}>
+              <DialogHeader>
+                <DialogTitle>Change Email Address</DialogTitle>
+                <DialogDescription>
+                  Enter your new email and confirm your current password to start the verification process.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="new-email">New Email Address</Label>
+                  <Input
+                    id="target-email"
+                    name="email"
+                    placeholder="name@example.com"
+                    type="email"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="current-password">Current Password</Label>
+                  <PasswordInput
+                    id="verify-password"
+                    name="password"
+                    placeholder="Enter your password"
+                    required
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setEmailChangeDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isPending}>
+                  {isPending ? "Verifying..." : "Start verification"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

@@ -11,27 +11,20 @@ import { getSiteUrl } from '@/lib/utils'
 
 export async function updateProfileAction(formData: FormData) {
   const name = formData.get('name') as string
-  const email = formData.get('email') as string
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  // Update Supabase Auth (Email and Name Metadata)
-  let authError;
-  const updateParams: any = { data: { full_name: name, name: name } }
-  if (user.email !== email) {
-    updateParams.email = email
-  }
-
-  const { error } = await supabase.auth.updateUser(updateParams)
-  authError = error
+  // Update Supabase Auth metadata
+  const { error: authError } = await supabase.auth.updateUser({ 
+    data: { full_name: name, name: name } 
+  })
 
   // Update Drizzle Profile
   try {
     await db.update(users).set({
       name,
-      email,
     }).where(eq(users.id, user.id))
   } catch (err: any) {
     return { error: 'Failed to update profile data' }
@@ -40,11 +33,6 @@ export async function updateProfileAction(formData: FormData) {
   if (authError) return { error: authError.message }
 
   revalidatePath('/settings')
-  
-  if (user.email !== email) {
-    return { success: true, emailChangePending: true, newEmail: email }
-  }
-  
   return { success: true }
 }
 
@@ -80,6 +68,9 @@ export async function verifyEmailChangeAction(formData: FormData) {
   }).where(eq(users.email, oldEmail))
 
   revalidatePath('/settings')
+  
+  // Sign out globally on email change success
+  await supabase.auth.signOut({ scope: 'global' })
   return { success: true }
 }
 
@@ -128,6 +119,40 @@ export async function uploadAvatarAction(formData: FormData) {
 
   revalidatePath('/settings')
   return { success: true, avatarUrl: publicUrlData.publicUrl }
+}
+
+export async function initiateEmailChangeAction(formData: FormData) {
+  const newEmail = formData.get('email') as string
+  const password = formData.get('password') as string
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  if (user.email === newEmail) {
+    return { error: 'New email must be different from current email' }
+  }
+
+  // 1. Verify current password
+  const { error: authError } = await supabase.auth.signInWithPassword({
+    email: user.email!,
+    password,
+  })
+  if (authError) return { error: 'Incorrect password' }
+
+  // 2. Check if email is already taken in our DB
+  const existingUser = await db.query.users.findFirst({
+    where: eq(users.email, newEmail)
+  })
+  if (existingUser) return { error: 'This email is already associated with another account' }
+
+  // 3. Initiate email change in Supabase Auth
+  // This will send two OTPs if configured in Supabase dashboard
+  const { error: updateError } = await supabase.auth.updateUser({ email: newEmail })
+  
+  if (updateError) return { error: updateError.message }
+
+  return { success: true }
 }
 
 export async function removeAvatarAction() {
