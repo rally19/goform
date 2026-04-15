@@ -43,6 +43,8 @@ export function Room({ children, roomId, initialForm, initialFields }: RoomProps
       })
     };
   }, [initialFields, initialForm]);
+  
+  const [localAuthError, setLocalAuthError] = useState<Error | null>(null);
 
   const resolveAuth = useCallback(async (room?: string) => {
     const controller = new AbortController();
@@ -60,18 +62,32 @@ export function Room({ children, roomId, initialForm, initialFields }: RoomProps
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Auth failed (${response.status}): ${errorText || "Unknown error"}`);
+        const err = new Error(`Auth failed (${response.status}): ${errorText || "Unknown error"}`);
+        setLocalAuthError(err);
+        throw err;
       }
 
+      setLocalAuthError(null);
       return await response.json();
     } catch (err) {
       clearTimeout(timeoutId);
-      if (err instanceof Error && err.name === "AbortError") {
-        throw new Error("Authentication timed out during auth. This often happens on slow networks or cold-start functions.");
-      }
-      throw err;
+      const finalErr = err instanceof Error && err.name === "AbortError" 
+        ? new Error("Authentication timed out during auth. This often happens on slow networks or cold-start functions.")
+        : (err instanceof Error ? err : new Error(String(err)));
+      
+      setLocalAuthError(finalErr);
+      throw finalErr;
     }
   }, []);
+
+  if (localAuthError) {
+    return (
+      <SyncErrorFallback 
+        error={localAuthError} 
+        resetErrorBoundary={() => setLocalAuthError(null)} 
+      />
+    );
+  }
 
   return (
     <RoomErrorBoundary fallback={SyncErrorFallback}>
