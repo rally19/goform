@@ -72,7 +72,7 @@ export function CursorArea({ id, children, className, onClick }: CursorAreaProps
               : 0;
           } else {
             colType = "center";
-            relX = localX - rootOffsetLeft;
+            relX = (localX - rootOffsetLeft) / rootRect.width;
           }
 
           // --- Vertical Row Detection ---
@@ -121,7 +121,7 @@ export function CursorArea({ id, children, className, onClick }: CursorAreaProps
         rowType = "field";
         rowId = (target as HTMLElement)?.closest("[data-cursor-id]")?.getAttribute("data-cursor-id") || undefined;
         colType = "center";
-        relX = x; 
+        relX = x / rect.width; 
         relY = y / rect.height;
       }
 
@@ -193,9 +193,7 @@ function CursorFollower({ cursor, info, containerRef }: {
 
       const containerRect = containerRef.current.getBoundingClientRect();
       const rootEl = containerRef.current.querySelector('[data-cursor-area-root="true"]');
-      if (!rootEl) return;
-      
-      const rootRect = rootEl.getBoundingClientRect();
+      const rootRect = rootEl ? rootEl.getBoundingClientRect() : containerRect;
       const areaHeight = containerRect.height;
 
       let finalX = 0;
@@ -212,7 +210,7 @@ function CursorFollower({ cursor, info, containerRef }: {
         const localRightGutterWidth = containerRect.width - rootOffsetRight;
         finalX = rootOffsetRight + (cursor.relX * localRightGutterWidth);
       } else {
-        finalX = rootOffsetLeft + cursor.relX;
+        finalX = rootOffsetLeft + (cursor.relX * rootRect.width);
       }
 
       // --- Vertical Resolve ---
