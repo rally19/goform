@@ -52,11 +52,13 @@ export default async function AppLayout({
 
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* 
-            STATIC HEADER:
-            Being outside the dynamic data fetcher, this becomes interactive 
-            immediately upon page load (instant sidebar toggle).
+            HEADER SHELL:
+            Wrapped in Suspense to allow usePathname to remain dynamic 
+            without blocking the Static Shell generation.
           */}
-          <AppHeader />
+          <Suspense fallback={<HeaderSkeleton />}>
+            <AppHeader />
+          </Suspense>
           
           {/* 
             STATIC MAIN CONTENT:
@@ -73,6 +75,17 @@ export default async function AppLayout({
         <ObserverWrapper />
       </Suspense>
     </SidebarProvider>
+  );
+}
+
+function HeaderSkeleton() {
+  return (
+    <header className="flex h-14 items-center justify-between border-b border-border px-4 lg:px-6 shrink-0 bg-background/50 backdrop-blur-sm sticky top-0 z-30">
+      <div className="flex items-center gap-2">
+        <div className="h-8 w-8 rounded bg-primary/5 animate-pulse" />
+      </div>
+      <div className="h-8 w-8 rounded-full bg-primary/5 animate-pulse" />
+    </header>
   );
 }
 
