@@ -47,15 +47,20 @@ import {
   updatePasswordAction,
   signOutOthersAction,
   resetPasswordFromSettingsAction,
-  deleteAccountAction,
-  uploadAvatarAction,
-  removeAvatarAction,
   initiateEmailChangeAction,
   verifyEmailChangeAction,
   resendEmailChangeOtpAction,
+  initiateDeleteAccountAction,
+  verifyDeleteAccountAction,
+  resendDeleteAccountOtpAction,
+  uploadAvatarAction,
+  removeAvatarAction,
 } from "./actions";
 import { getOtpStatusAction } from "@/app/(auth)/actions";
 import type { UserIdentity } from "@supabase/supabase-js";
+
+const OTP_EXPIRY_SECONDS = Number(process.env.NEXT_PUBLIC_OTP_EXPIRY_SECONDS || 900);
+const OTP_RESEND_SECONDS = Number(process.env.NEXT_PUBLIC_OTP_RESEND_COOLDOWN_SECONDS || 30);
 
 export function SettingsClient({
   user,
@@ -69,8 +74,8 @@ export function SettingsClient({
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [signOutOthersOpen, setSignOutOthersOpen] = useState(false);
+  const [deletePasswordDialogOpen, setDeletePasswordDialogOpen] = useState(false);
   const [emailChangeAlertOpen, setEmailChangeAlertOpen] = useState(false);
   const [avatarRemoveOpen, setAvatarRemoveOpen] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
@@ -91,6 +96,13 @@ export function SettingsClient({
   const [emailNewOtp, setEmailNewOtp] = useState("");
   const [newEmailTarget, setNewEmailTarget] = useState("");
   const [isResendingEmail, setIsResendingEmail] = useState(false);
+  
+  // Deletion Flow State
+  const [showDeleteOtpInput, setShowDeleteOtpInput] = useState(false);
+  const [deleteOtpCountdown, setDeleteOtpCountdown] = useState(0);
+  const [deleteResendCountdown, setDeleteResendCountdown] = useState(0);
+  const [deleteOtpValue, setDeleteOtpValue] = useState("");
+  const [isResendingDelete, setIsResendingDelete] = useState(false);
 
   // Initialize and persist countdowns from localStorage
   useEffect(() => {
@@ -101,7 +113,7 @@ export function SettingsClient({
     const storedExpiry = localStorage.getItem(expiryKey);
     if (storedExpiry) {
       const elapsed = Math.floor((now - parseInt(storedExpiry, 10)) / 1000);
-      const remaining = Math.max(0, 15 * 60 - elapsed);
+      const remaining = Math.max(0, OTP_EXPIRY_SECONDS - elapsed);
       if (remaining > 0) {
         setOtpCountdown(remaining);
         setShowOtpInput(true);
@@ -113,7 +125,7 @@ export function SettingsClient({
     const storedResend = localStorage.getItem(resendKey);
     if (storedResend) {
       const elapsed = Math.floor((now - parseInt(storedResend, 10)) / 1000);
-      const remaining = Math.max(0, 30 - elapsed);
+      const remaining = Math.max(0, OTP_RESEND_SECONDS - elapsed);
       setResendCountdown(remaining);
     }
 
@@ -127,7 +139,7 @@ export function SettingsClient({
 
     if (storedEmailExpiry && storedEmailTarget) {
       const elapsed = Math.floor((now - parseInt(storedEmailExpiry, 10)) / 1000);
-      const remaining = Math.max(0, 15 * 60 - elapsed);
+      const remaining = Math.max(0, OTP_EXPIRY_SECONDS - elapsed);
       if (remaining > 0) {
         setEmailOtpCountdown(remaining);
         setNewEmailTarget(storedEmailTarget);
@@ -141,8 +153,31 @@ export function SettingsClient({
     const storedEmailResend = localStorage.getItem(emailResendKey);
     if (storedEmailResend) {
       const elapsed = Math.floor((now - parseInt(storedEmailResend, 10)) / 1000);
-      const remaining = Math.max(0, 30 - elapsed);
+      const remaining = Math.max(0, OTP_RESEND_SECONDS - elapsed);
       setEmailResendCountdown(remaining);
+    }
+    
+    // Deletion Flow Persistence
+    const deleteExpiryKey = `settings_delete_expiry_${user.id}`;
+    const deleteResendKey = `settings_delete_resend_${user.id}`;
+    
+    const storedDeleteExpiry = localStorage.getItem(deleteExpiryKey);
+    if (storedDeleteExpiry) {
+      const elapsed = Math.floor((now - parseInt(storedDeleteExpiry, 10)) / 1000);
+      const remaining = Math.max(0, OTP_EXPIRY_SECONDS - elapsed);
+      if (remaining > 0) {
+        setDeleteOtpCountdown(remaining);
+        setShowDeleteOtpInput(true);
+      } else {
+        localStorage.removeItem(deleteExpiryKey);
+      }
+    }
+    
+    const storedDeleteResend = localStorage.getItem(deleteResendKey);
+    if (storedDeleteResend) {
+      const elapsed = Math.floor((now - parseInt(storedDeleteResend, 10)) / 1000);
+      const remaining = Math.max(0, OTP_RESEND_SECONDS - elapsed);
+      setDeleteResendCountdown(remaining);
     }
 
     // Database Sync: Overwrite local storage with actual server data
@@ -153,11 +188,11 @@ export function SettingsClient({
           const sentTime = new Date(res.sentAt).getTime();
           const dbNow = Date.now();
           const elapsed = Math.floor((dbNow - sentTime) / 1000);
-          const remaining = Math.max(0, 15 * 60 - elapsed);
+          const remaining = Math.max(0, OTP_EXPIRY_SECONDS - elapsed);
           
           if (remaining > 0) {
             setOtpCountdown(remaining);
-            setResendCountdown(Math.max(0, 30 - elapsed));
+            setResendCountdown(Math.max(0, OTP_RESEND_SECONDS - elapsed));
             setShowOtpInput(true);
             localStorage.setItem(expiryKey, sentTime.toString());
             localStorage.setItem(resendKey, sentTime.toString());
@@ -171,14 +206,32 @@ export function SettingsClient({
           const sentTime = new Date(res.sentAt).getTime();
           const dbNow = Date.now();
           const elapsed = Math.floor((dbNow - sentTime) / 1000);
-          const remaining = Math.max(0, 15 * 60 - elapsed);
+          const remaining = Math.max(0, OTP_EXPIRY_SECONDS - elapsed);
           
           if (remaining > 0) {
             setEmailOtpCountdown(remaining);
-            setEmailResendCountdown(Math.max(0, 30 - elapsed));
+            setEmailResendCountdown(Math.max(0, OTP_RESEND_SECONDS - elapsed));
             setShowEmailOtpInput(true);
             localStorage.setItem(`settings_email_change_expiry_${user.id}`, sentTime.toString());
             localStorage.setItem(`settings_email_change_resend_${user.id}`, sentTime.toString());
+          }
+        }
+      });
+
+      // 3. Check Deletion Status
+      getOtpStatusAction(user.email, 'reauthentication').then((res) => {
+        if (res.success && res.sentAt) {
+          const sentTime = new Date(res.sentAt).getTime();
+          const dbNow = Date.now();
+          const elapsed = Math.floor((dbNow - sentTime) / 1000);
+          const remaining = Math.max(0, OTP_EXPIRY_SECONDS - elapsed);
+          
+          if (remaining > 0) {
+            setDeleteOtpCountdown(remaining);
+            setDeleteResendCountdown(Math.max(0, OTP_RESEND_SECONDS - elapsed));
+            setShowDeleteOtpInput(true);
+            localStorage.setItem(`settings_delete_expiry_${user.id}`, sentTime.toString());
+            localStorage.setItem(`settings_delete_resend_${user.id}`, sentTime.toString());
           }
         }
       });
@@ -206,9 +259,18 @@ export function SettingsClient({
         return prev > 0 ? prev - 1 : 0;
       });
       setEmailResendCountdown((prev) => prev > 0 ? prev - 1 : 0);
+
+      setDeleteOtpCountdown((prev) => {
+        if (prev <= 1 && showDeleteOtpInput) {
+          setShowDeleteOtpInput(false);
+          localStorage.removeItem(`settings_delete_expiry_${user.id}`);
+        }
+        return prev > 0 ? prev - 1 : 0;
+      });
+      setDeleteResendCountdown((prev) => prev > 0 ? prev - 1 : 0);
     }, 1000);
     return () => clearInterval(timer);
-  }, [showOtpInput, showEmailOtpInput, user.id]);
+  }, [showOtpInput, showEmailOtpInput, showDeleteOtpInput, user.id]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -250,8 +312,8 @@ export function SettingsClient({
         localStorage.setItem(`settings_email_change_target_${user.id}`, newEmail);
 
         setNewEmailTarget(newEmail);
-        setEmailOtpCountdown(15 * 60);
-        setEmailResendCountdown(30);
+        setEmailOtpCountdown(OTP_EXPIRY_SECONDS);
+        setEmailResendCountdown(OTP_RESEND_SECONDS);
         setShowEmailOtpInput(true);
       }
     });
@@ -308,8 +370,8 @@ export function SettingsClient({
         const now = Date.now();
         localStorage.setItem(`settings_email_change_resend_${user.id}`, now.toString());
         localStorage.setItem(`settings_email_change_expiry_${user.id}`, now.toString());
-        setEmailResendCountdown(30);
-        setEmailOtpCountdown(15 * 60);
+        setEmailResendCountdown(OTP_RESEND_SECONDS);
+        setEmailOtpCountdown(OTP_EXPIRY_SECONDS);
       }
     });
   };
@@ -350,8 +412,8 @@ export function SettingsClient({
         const now = Date.now();
         localStorage.setItem(`settings_otp_expiry_${user.id}`, now.toString());
         localStorage.setItem(`settings_otp_resend_${user.id}`, now.toString());
-        setOtpCountdown(15 * 60);
-        setResendCountdown(30);
+        setOtpCountdown(OTP_EXPIRY_SECONDS);
+        setResendCountdown(OTP_RESEND_SECONDS);
         setShowOtpInput(true);
       }
     });
@@ -370,8 +432,8 @@ export function SettingsClient({
         const now = Date.now();
         localStorage.setItem(`settings_otp_resend_${user.id}`, now.toString());
         localStorage.setItem(`settings_otp_expiry_${user.id}`, now.toString());
-        setResendCountdown(30);
-        setOtpCountdown(15 * 60);
+        setResendCountdown(OTP_RESEND_SECONDS);
+        setOtpCountdown(OTP_EXPIRY_SECONDS);
       }
     });
   };
@@ -418,11 +480,70 @@ export function SettingsClient({
 
 
 
-  const handleDeleteAccount = () => {
-    setDeleteAccountOpen(false);
+  const handleDeleteInit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+
     startTransition(async () => {
-      const res = await deleteAccountAction();
-      if (res?.error) toast.error(res.error);
+      const res = await initiateDeleteAccountAction(formData);
+      if (res?.error) {
+        toast.error(res.error);
+      } else {
+        setDeletePasswordDialogOpen(false);
+        toast.success("Security code sent! Please check your email to finalize deletion.");
+
+        const now = Date.now();
+        localStorage.setItem(`settings_delete_expiry_${user.id}`, now.toString());
+        localStorage.setItem(`settings_delete_resend_${user.id}`, now.toString());
+
+        setDeleteOtpCountdown(OTP_EXPIRY_SECONDS);
+        setDeleteResendCountdown(OTP_RESEND_SECONDS);
+        setShowDeleteOtpInput(true);
+      }
+    });
+  };
+
+  const handleDeleteVerify = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (deleteOtpValue.length !== 6) {
+      toast.error("Please enter the 6-digit verification code.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("token", deleteOtpValue);
+
+    startTransition(async () => {
+      const res = await verifyDeleteAccountAction(formData);
+      if (res?.error) {
+        toast.error(res.error);
+      } else {
+        // Sucess redirects to /login in the action
+        localStorage.removeItem(`settings_delete_expiry_${user.id}`);
+        localStorage.removeItem(`settings_delete_resend_${user.id}`);
+        toast.success("Account deleted successfully.");
+      }
+    });
+  };
+
+  const handleResendDeleteOtp = () => {
+    if (deleteResendCountdown > 0 || isResendingDelete) return;
+    setIsResendingDelete(true);
+
+    startTransition(async () => {
+      const res = await resendDeleteAccountOtpAction();
+      setIsResendingDelete(false);
+
+      if (res?.error) {
+        toast.error(res.error);
+      } else {
+        toast.success("A new verification code has been sent.");
+        const now = Date.now();
+        localStorage.setItem(`settings_delete_resend_${user.id}`, now.toString());
+        localStorage.setItem(`settings_delete_expiry_${user.id}`, now.toString());
+        setDeleteResendCountdown(OTP_RESEND_SECONDS);
+        setDeleteOtpCountdown(OTP_EXPIRY_SECONDS);
+      }
     });
   };
 
@@ -635,19 +756,7 @@ export function SettingsClient({
                     {isPending ? "Saving..." : hasPassword ? "Update password" : "Create password"}
                   </Button>
                   {showOtpInput && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-muted-foreground"
-                      onClick={() => {
-                        setShowOtpInput(false);
-                        localStorage.removeItem(`settings_otp_expiry_${user.id}`);
-                        setOtpValue("");
-                      }}
-                      disabled={isPending}
-                    >
-                      Cancel Reset
-                    </Button>
+                    <p className="text-xs text-muted-foreground italic">Leave this alone to cancel</p>
                   )}
                 </CardFooter>
               </form>
@@ -765,19 +874,7 @@ export function SettingsClient({
                     </Button>
                   )}
                   {showEmailOtpInput && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-muted-foreground"
-                      onClick={() => {
-                        setShowEmailOtpInput(false);
-                        localStorage.removeItem(`settings_email_change_expiry_${user.id}`);
-                        localStorage.removeItem(`settings_email_change_target_${user.id}`);
-                      }}
-                      disabled={isPending}
-                    >
-                      Cancel
-                    </Button>
+                    <p className="text-xs text-muted-foreground italic">Leave this alone to cancel</p>
                   )}
                 </CardFooter>
               </Card>
@@ -809,7 +906,7 @@ export function SettingsClient({
           </TabsContent>
 
           <TabsContent value="danger">
-            <Card className="border-destructive/50">
+            <Card className="border-destructive/50 overflow-hidden">
               <CardHeader>
                 <CardTitle className="text-destructive">Delete Account</CardTitle>
                 <CardDescription>
@@ -820,15 +917,83 @@ export function SettingsClient({
                 <p className="text-sm text-muted-foreground">
                   Once you delete your account, there is no going back. Please be certain.
                 </p>
+
+                <AnimatePresence mode="wait">
+                  {showDeleteOtpInput && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="space-y-6 pt-6 border-t border-destructive/20"
+                    >
+                      <form onSubmit={handleDeleteVerify} className="space-y-6">
+                        <div className="flex flex-col items-center space-y-3">
+                          <Label className="text-sm font-medium">Enter Security Code</Label>
+                          <InputOTP
+                            maxLength={6}
+                            value={deleteOtpValue}
+                            onChange={(val) => setDeleteOtpValue(val)}
+                            disabled={isPending}
+                          >
+                            <InputOTPGroup>
+                              <InputOTPSlot index={0} />
+                              <InputOTPSlot index={1} />
+                              <InputOTPSlot index={2} />
+                            </InputOTPGroup>
+                            <InputOTPSeparator />
+                            <InputOTPGroup>
+                              <InputOTPSlot index={3} />
+                              <InputOTPSlot index={4} />
+                              <InputOTPSlot index={5} />
+                            </InputOTPGroup>
+                          </InputOTP>
+                        </div>
+
+                        <div className="flex flex-col items-center space-y-3">
+                          <Button
+                            type="submit"
+                            variant="destructive"
+                            className="w-full sm:w-auto"
+                            disabled={isPending || deleteOtpValue.length !== 6 || deleteOtpCountdown === 0}
+                          >
+                            {isPending ? "Confirming Deletion..." : "Finalize Account Deletion"}
+                          </Button>
+
+                          <div className="text-center space-y-2">
+                            <p className="text-xs text-muted-foreground">
+                              Code expires in <span className="font-medium text-foreground">{formatTime(deleteOtpCountdown)}</span>
+                            </p>
+                            <Button
+                              type="button"
+                              variant="link"
+                              size="sm"
+                              className="h-auto p-0 text-xs text-destructive/80 hover:text-destructive"
+                              disabled={deleteResendCountdown > 0 || isResendingDelete}
+                              onClick={handleResendDeleteOtp}
+                            >
+                              {isResendingDelete ? "Sending..." : deleteResendCountdown > 0 ? `Resend code in ${deleteResendCountdown}s` : "Didn't receive code? Resend"}
+                            </Button>
+                          </div>
+                        </div>
+                      </form>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </CardContent>
               <CardFooter className="border-t bg-destructive/5 px-6 py-4">
-                <Button
-                  variant="destructive"
-                  onClick={() => setDeleteAccountOpen(true)}
-                  disabled={isPending}
-                >
-                  {isPending ? "Deleting..." : "Delete Account"}
-                </Button>
+                {!showDeleteOtpInput && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setDeletePasswordDialogOpen(true)}
+                    disabled={isPending}
+                  >
+                    Delete Account
+                  </Button>
+                )}
+                {showDeleteOtpInput && (
+                  <p className="text-xs text-muted-foreground italic">Leave this alone to cancel</p>
+                )}
               </CardFooter>
             </Card>
           </TabsContent>
@@ -885,25 +1050,37 @@ export function SettingsClient({
           </AlertDialogContent>
         </AlertDialog>
 
-        <AlertDialog open={deleteAccountOpen} onOpenChange={setDeleteAccountOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle className="text-destructive">Are you absolutely sure?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete your account and all associated data, including your forms and responses.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleDeleteAccount}
-                variant="destructive"
-              >
-                Delete Account
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <Dialog open={deletePasswordDialogOpen} onOpenChange={setDeletePasswordDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <form onSubmit={handleDeleteInit}>
+              <DialogHeader>
+                <DialogTitle className="text-destructive">Delete Account Verification</DialogTitle>
+                <DialogDescription>
+                  This action is irreversible. For security, please enter your current password to continue.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="delete-password">Current Password</Label>
+                  <PasswordInput
+                    id="delete-verify-password"
+                    name="password"
+                    placeholder="Enter your password"
+                    required
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setDeletePasswordDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" variant="destructive" disabled={isPending}>
+                  {isPending ? "Verifying..." : "Confirm Password"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
 
         <AlertDialog open={resetConfirmOpen} onOpenChange={setResetConfirmOpen}>
           <AlertDialogContent>

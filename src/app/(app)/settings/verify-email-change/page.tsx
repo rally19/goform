@@ -30,6 +30,9 @@ const verifyEmailChangeSchema = z.object({
   newOtp: z.string().min(6, { message: "New email code must be 6 digits." }),
 });
 
+const OTP_EXPIRY_SECONDS = Number(process.env.NEXT_PUBLIC_OTP_EXPIRY_SECONDS || 900);
+const OTP_RESEND_SECONDS = Number(process.env.NEXT_PUBLIC_OTP_RESEND_COOLDOWN_SECONDS || 30);
+
 function VerifyEmailChangeForm() {
   const searchParams = useSearchParams();
   const oldEmail = searchParams.get("oldEmail");
@@ -37,8 +40,8 @@ function VerifyEmailChangeForm() {
 
   const [isPending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState(15 * 60);
-  const [resendCountdown, setResendCountdown] = useState(30);
+  const [countdown, setCountdown] = useState(OTP_EXPIRY_SECONDS);
+  const [resendCountdown, setResendCountdown] = useState(OTP_RESEND_SECONDS);
   const [isResending, setIsResending] = useState(false);
 
   // Persistence logic
@@ -53,7 +56,7 @@ function VerifyEmailChangeForm() {
     const storedExpiry = localStorage.getItem(expiryKey);
     if (storedExpiry) {
       const elapsed = Math.floor((now - parseInt(storedExpiry, 10)) / 1000);
-      setCountdown(Math.max(0, 15 * 60 - elapsed));
+      setCountdown(Math.max(0, OTP_EXPIRY_SECONDS - elapsed));
     } else {
       localStorage.setItem(expiryKey, now.toString());
     }
@@ -62,7 +65,7 @@ function VerifyEmailChangeForm() {
     const storedResend = localStorage.getItem(resendKey);
     if (storedResend) {
       const elapsed = Math.floor((now - parseInt(storedResend, 10)) / 1000);
-      setResendCountdown(Math.max(0, 30 - elapsed));
+      setResendCountdown(Math.max(0, OTP_RESEND_SECONDS - elapsed));
     } else {
       localStorage.setItem(resendKey, now.toString());
     }
@@ -146,8 +149,8 @@ function VerifyEmailChangeForm() {
       const now = Date.now();
       localStorage.setItem(`email_change_resend_${oldEmail}_${newEmail}`, now.toString());
       localStorage.setItem(`email_change_expiry_${oldEmail}_${newEmail}`, now.toString());
-      setResendCountdown(30);
-      setCountdown(15 * 60);
+      setResendCountdown(OTP_RESEND_SECONDS);
+      setCountdown(OTP_EXPIRY_SECONDS);
     }
   }
 

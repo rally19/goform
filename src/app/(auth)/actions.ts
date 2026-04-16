@@ -276,7 +276,7 @@ export async function signOutAction() {
   redirect('/login')
 }
 
-export async function getOtpStatusAction(email: string, type: 'signup' | 'recovery' | 'email_change' | 'magiclink') {
+export async function getOtpStatusAction(email: string, type: 'signup' | 'recovery' | 'email_change' | 'magiclink' | 'reauthentication') {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceRoleKey) return { error: 'Service role key not configured' };
 
@@ -313,6 +313,9 @@ export async function getOtpStatusAction(email: string, type: 'signup' | 'recove
       break;
     case 'magiclink': 
       sentAt = user.confirmation_sent_at || user.last_sign_in_at || null;
+      break;
+    case 'reauthentication':
+      sentAt = (user as any).reauthentication_sent_at || null;
       break;
   }
 

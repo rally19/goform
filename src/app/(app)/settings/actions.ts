@@ -233,26 +233,63 @@ export async function resetPasswordFromSettingsAction() {
 
 
 
-export async function deleteAccountAction() {
-  // Using Admin API to delete the user.
-  // Warning: Requires service role key to be passed or executed in Edge function.
-  // We'll use service_role client specifically for this.
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceRoleKey) {
-    return { error: 'Admin service role key is not configured. Please add SUPABASE_SERVICE_ROLE_KEY to your .env.local file.' }
-  }
+export async function initiateDeleteAccountAction(formData: FormData) {
+  const password = formData.get('password') as string
+  const supabase = await createClient()
 
-  const { createClient: createAdminClient } = await import('@supabase/supabase-js')
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  // 1. Verify current password
+  const { error: authError } = await supabase.auth.signInWithPassword({
+    email: user.email!,
+    password,
+  })
+  if (authError) return { error: 'Incorrect password' }
+
+  // 2. Trigger reauthentication (OTP code)
+  const { error: reauthError } = await supabase.auth.reauthenticate()
+  if (reauthError) return { error: reauthError.message }
+
+  return { success: true }
+}
+
+export async function resendDeleteAccountOtpAction() {
+  const supabase = await createClient()
   
-  const adminClient = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    serviceRoleKey
-  )
+  // Re-calling reauthenticate acts as a 'resend' for reauthentication tokens
+  const { error } = await supabase.auth.reauthenticate()
+  if (error) return { error: error.message }
+  
+  return { success: true }
+}
 
+export async function verifyDeleteAccountAction(formData: FormData) {
+  const token = formData.get('token') as string
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   
   if (!user) return { error: 'Not authenticated' }
+
+  // 1. Verify the OTP (reauthentication nonce)
+  // Reauthentication nonces are verified via updateUser({ nonce: token })
+  const { error: verifyError } = await supabase.auth.updateUser({
+    nonce: token
+  })
+
+  if (verifyError) return { error: 'Invalid or expired code: ' + verifyError.message }
+
+  // 2. Proceed with actual deletion (Ownership succession + DB removal)
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) {
+    return { error: 'Admin service role key is not configured.' }
+  }
+
+  const { createClient: createAdminClient } = await import('@supabase/supabase-js')
+  const adminClient = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    serviceRoleKey
+  )
   
   // ─── OWNERSHIP SUCCESSION LOGIC ───
   // Find all organizations where this user is the owner
@@ -292,9 +329,8 @@ export async function deleteAccountAction() {
   await db.delete(users).where(eq(users.id, user.id))
 
   // Delete from Supabase Auth
-  const { error } = await adminClient.auth.admin.deleteUser(user.id)
-
-  if (error) return { error: error.message }
+  const { error: deleteError } = await adminClient.auth.admin.deleteUser(user.id)
+  if (deleteError) return { error: deleteError.message }
 
   await supabase.auth.signOut()
   redirect('/login')
