@@ -370,7 +370,7 @@ export function BuilderCanvas({
           </header>
 
           {/* Canvas */}
-          <div className="flex-1 h-full min-h-0 bg-muted/30 overflow-y-auto scroll-smooth" onClick={() => selectField(null)}>
+          <div className="flex-1 h-full min-h-0 bg-muted/30 overflow-y-auto" onClick={() => selectField(null)}>
             <CursorArea id="canvas" className="min-h-full" onClick={() => selectField(null)}>
               <div className="max-w-2xl mx-auto p-4 md:p-8 pb-32">
                 <CanvasDroppable>
