@@ -20,6 +20,7 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
+  useDroppable,
   DragStartEvent,
   DragEndEvent,
   closestCorners,
@@ -33,9 +34,10 @@ import {
 } from "@dnd-kit/sortable";
 import {
   PlusCircle, Globe, Settings2, Palette, Check,
-  Link as LinkIcon, Plus, Loader2, CheckCheck
+  Link as LinkIcon, Plus, Loader2, CheckCheck,
+  GripVertical, Copy, Trash2, ChevronDown
 } from "lucide-react";
-import { ACCENT_COLORS } from "@/lib/form-types";
+import { ACCENT_COLORS, FIELD_TYPE_META } from "@/lib/form-types";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Sheet,
@@ -143,6 +145,11 @@ export function BuilderCanvas({
     initialFields,
   });
 
+  const CanvasDroppable = useCallback(({ children }: { children: React.ReactNode }) => {
+    const { setNodeRef } = useDroppable({ id: "canvas" });
+    return <div ref={setNodeRef}>{children}</div>;
+  }, []);
+
   // Localized cursor tracking is now handled by CursorArea wrappers
 
   const accentColor = form?.accentColor ?? "#6366f1";
@@ -175,12 +182,50 @@ export function BuilderCanvas({
     const { active, over } = event;
     if (!over) return;
 
-    // Handle reordering
-    if (active.id !== over.id && !String(active.id).startsWith("new:")) {
-      const oldIdx = fields.findIndex((f) => f.id === active.id);
-      const newIdx = fields.findIndex((f) => f.id === over.id);
-      if (oldIdx !== -1 && newIdx !== -1) {
-        collabReorderFields(oldIdx, newIdx);
+    // Handle dropping back to sidebar (Delete or Cancel)
+    if (over.id === "component-panel") {
+      if (!String(active.id).startsWith("new:")) {
+        collabRemoveField(active.id as string);
+        toast.info("Field removed", {
+          description: "Field has been moved back to components",
+        });
+      }
+      return;
+    }
+
+    // Handle adding new components
+    if (String(active.id).startsWith("new:")) {
+      const type = String(active.id).split(":")[1];
+      const meta = FIELD_TYPE_META.find((m) => m.type === type);
+      
+      const newField: BuilderField = {
+        id: crypto.randomUUID(),
+        type: type as any,
+        label: meta?.defaultLabel ?? `New ${type.replace(/_/g, " ")}`,
+        placeholder: meta?.defaultLabel ? `Enter ${meta.defaultLabel.toLowerCase()}...` : `Enter ${type.replace(/_/g, " ")}...`,
+        required: false,
+        isNew: true,
+        options: meta?.defaultOptions ? [...meta.defaultOptions] : undefined,
+        properties: meta?.defaultProperties ? { ...meta.defaultProperties } : undefined,
+        orderIndex: fields.length,
+      };
+
+      // Determine drop position (only add if on canvas or field)
+      if (over.id === "canvas") {
+        collabAddField(newField);
+        setTimeout(() => selectField(newField.id), 50);
+      } else {
+        const overIdx = fields.findIndex((f) => f.id === over.id);
+        if (overIdx !== -1) {
+          collabAddField(newField, overIdx);
+          setTimeout(() => selectField(newField.id), 50);
+        }
+      }
+    } else if (active.id !== over.id) {
+      const oldIndex = fields.findIndex((f) => f.id === active.id);
+      const newIndex = fields.findIndex((f) => f.id === over.id);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        collabReorderFields(oldIndex, newIndex);
       }
     }
   };
@@ -325,10 +370,10 @@ export function BuilderCanvas({
           </header>
 
           {/* Canvas */}
-          {/* Canvas - Use native overflow for reliable dnd-kit auto-scrolling */}
           <div className="flex-1 h-full min-h-0 bg-muted/30 overflow-y-auto scroll-smooth" onClick={() => selectField(null)}>
             <CursorArea id="canvas" className="min-h-full" onClick={() => selectField(null)}>
               <div className="max-w-2xl mx-auto p-4 md:p-8 pb-32">
+                <CanvasDroppable>
                 <div data-cursor-area-root="true" className="space-y-8">
                   <div data-cursor-id="header" data-cursor-type="header">
                     <FormHeaderEditor 
@@ -376,6 +421,7 @@ export function BuilderCanvas({
                     )}
                   </div>
                 </div>
+                </CanvasDroppable>
               </div>
             </CursorArea>
           </div>
