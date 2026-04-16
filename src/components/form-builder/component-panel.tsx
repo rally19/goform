@@ -36,9 +36,19 @@ const CATEGORY_COLORS: Record<FieldCategory, string> = {
 };
 
 function DraggableSidebarItem({ item }: { item: FieldTypeMeta }) {
-  const { selectField } = useFormBuilder();
+  const { selectedFieldId, selectField } = useFormBuilder();
   const addField = useMutation(({ storage }, type: FieldType) => {
     const list = storage.get("fields");
+    
+    // Find index of selected field to insert below it
+    let insertIndex = list.length;
+    if (selectedFieldId) {
+      const selectedIndex = list.findIndex((f) => (f as any).get("id") === selectedFieldId);
+      if (selectedIndex !== -1) {
+        insertIndex = selectedIndex + 1;
+      }
+    }
+
     const newField: BuilderField = {
       id: crypto.randomUUID(),
       type,
@@ -46,14 +56,20 @@ function DraggableSidebarItem({ item }: { item: FieldTypeMeta }) {
       description: "",
       placeholder: "",
       required: false,
-      orderIndex: list.length,
+      orderIndex: insertIndex,
       isNew: true,
       options: item.defaultOptions ? [...item.defaultOptions] : undefined,
       properties: item.defaultProperties ? { ...item.defaultProperties } : undefined,
     };
-    list.push(new LiveObject(newField));
+
+    if (insertIndex < list.length) {
+      list.insert(new LiveObject(newField), insertIndex);
+    } else {
+      list.push(new LiveObject(newField));
+    }
+    
     selectField(newField.id);
-  }, [item]);
+  }, [item, selectedFieldId]);
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `new:${item.type}`,
