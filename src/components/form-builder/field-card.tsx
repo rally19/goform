@@ -218,7 +218,8 @@ export function FieldCard({
       ref={setNodeRef}
       onClick={onClick}
       className={cn(
-        "group relative rounded-xl border bg-card transition-all duration-300 cursor-pointer select-none",
+        "group relative rounded-xl border bg-card cursor-pointer select-none",
+        !isOverlay && "transition-all duration-300",
         isLocalDragging ? "opacity-0" : "opacity-100",
         isOverlay && "z-50 cursor-grabbing shadow-xl border-primary/50",
         isBeingEditedByOther && "ring-2 ring-offset-2",

@@ -510,15 +510,31 @@ export function BuilderCanvas({
         }),
       }}>
         {activeId && !String(activeId).startsWith("new:") ? (
-          <div className="w-[640px]">
-            <FieldCard
-              field={fields.find(f => f.id === activeId)!}
-              accentColor={accentColor}
-              currentUserId={currentUserId}
-              isSelected
-              isOverlay
-              others={[]}
-            />
+          <FieldCard
+            field={fields.find(f => f.id === activeId)!}
+            accentColor={accentColor}
+            currentUserId={currentUserId}
+            isSelected
+            isOverlay
+            others={[]}
+          />
+        ) : activeId && String(activeId).startsWith("new:") ? (
+          <div className="w-full max-w-2xl px-4 md:px-8 pointer-events-none">
+             <div 
+               className="rounded-xl border border-primary bg-card/50 backdrop-blur-sm p-4 shadow-xl opacity-90 flex items-center gap-3"
+               style={{ borderColor: accentColor }}
+             >
+                <div 
+                  className="h-8 w-8 rounded flex items-center justify-center bg-primary/10"
+                  style={{ color: accentColor }}
+                >
+                   <PlusCircle className="h-5 w-5" />
+                </div>
+                <div>
+                   <p className="font-semibold text-sm">Add {activeId.split(':')[1].replace(/_/g, " ")}</p>
+                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider">New component</p>
+                </div>
+             </div>
           </div>
         ) : null}
       </DragOverlay>
