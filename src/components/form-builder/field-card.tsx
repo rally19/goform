@@ -319,7 +319,7 @@ export const FieldCard = memo(function FieldCard({
 
         {/* Content */}
         <div className="flex-1 min-w-0 space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <div className="flex flex-row items-center gap-2">
             <div className="flex items-center gap-1.5 min-w-0 flex-1">
               <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <span className="font-medium text-sm text-foreground truncate">
@@ -329,7 +329,7 @@ export const FieldCard = memo(function FieldCard({
                 <span className="text-destructive text-sm leading-none shrink-0">*</span>
               )}
             </div>
-            <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
+            <div className="flex items-center justify-end gap-2 shrink-0">
               <Badge variant="secondary" className="text-[10px] capitalize">
                 {field.type.replace(/_/g, " ")}
               </Badge>
