@@ -39,9 +39,12 @@ export default async function AppLayout({
 }
 
 async function SidebarDataWrapper({ children }: { children: React.ReactNode }) {
-  const activeWorkspaceId = await getActiveWorkspace();
-  const orgsResult = await getUserOrganizations();
-  const userResult = await getCurrentUserProfile();
+  // Parallelize data fetching for massive TTFB improvement
+  const [activeWorkspaceId, orgsResult, userResult] = await Promise.all([
+    getActiveWorkspace(),
+    getUserOrganizations(),
+    getCurrentUserProfile()
+  ]);
   
   const workspaces: { id: string; name: string; type: "personal" | "organization"; avatarUrl?: string | null }[] = [
     {
@@ -76,12 +79,33 @@ async function SidebarDataWrapper({ children }: { children: React.ReactNode }) {
 
 function SidebarSkeleton({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-svh w-full items-center justify-center bg-background">
-      <div className="flex flex-col items-center gap-2">
-        <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
-        <span className="text-sm text-muted-foreground animate-pulse">Initializing workspace...</span>
+    <div className="flex h-svh w-full overflow-hidden bg-background">
+      {/* Ghost Sidebar Placeholder */}
+      <div className="hidden md:flex w-64 flex-col border-r border-sidebar-border bg-sidebar animate-pulse">
+        <div className="h-14 border-b border-sidebar-border flex items-center px-4">
+          <div className="h-8 w-full bg-sidebar-accent/10 rounded" />
+        </div>
+        <div className="flex-1 p-4 space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-8 w-full bg-sidebar-accent/5 rounded" />
+          ))}
+        </div>
       </div>
-      <div className="hidden">{children}</div>
+
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Ghost Header Placeholder */}
+        <header className="flex h-14 items-center justify-between border-b border-border px-4 lg:px-6 animate-pulse">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded bg-primary/5" />
+          </div>
+          <div className="h-8 w-8 rounded-full bg-primary/5" />
+        </header>
+        
+        {/* Real Content rendered instantly! No more hiding children. */}
+        <main className="flex-1 overflow-y-auto">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
