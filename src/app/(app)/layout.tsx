@@ -1,9 +1,16 @@
 import { AppSidebar } from "@/components/app-sidebar";
+import { AppHeader } from "@/components/layout/app-header";
+import { 
+  SidebarProvider,
+  Sidebar, 
+  SidebarHeader, 
+  SidebarContent 
+} from "@/components/ui/sidebar";
 import { getActiveWorkspace, getUserOrganizations } from "@/lib/actions/organizations";
 import { getCurrentUserProfile } from "@/lib/actions/users";
 import { PERSONAL_WORKSPACE_ID } from "@/lib/constants";
 import { Suspense } from "react";
-import { Loader2 } from "lucide-react";
+import { OrganizationObserver } from "@/components/organization-observer";
 
 export const unstable_instant = { 
   prefetch: 'static',
@@ -32,14 +39,44 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   return (
-    <Suspense fallback={<SidebarSkeleton>{children}</SidebarSkeleton>}>
-      <SidebarDataWrapper>{children}</SidebarDataWrapper>
-    </Suspense>
+    <SidebarProvider>
+      <div className="flex h-svh w-full overflow-hidden bg-background">
+        {/*
+          DEFERRED SIDEBAR:
+          Only the sidebar navigation/workspace switcher is behind Suspense.
+          This prevents the entire page from waiting for organization data.
+        */}
+        <Suspense fallback={<SidebarGhost />}>
+          <SidebarDataWrapper />
+        </Suspense>
+
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* 
+            STATIC HEADER:
+            Being outside the dynamic data fetcher, this becomes interactive 
+            immediately upon page load (instant sidebar toggle).
+          */}
+          <AppHeader />
+          
+          {/* 
+            STATIC MAIN CONTENT:
+            Rendered instantly as part of the Static Shell.
+          */}
+          <main className="flex-1 overflow-y-auto">
+            {children}
+          </main>
+        </div>
+      </div>
+
+      {/* Dynamic Security Observer (Deferred) */}
+      <Suspense fallback={null}>
+        <ObserverWrapper />
+      </Suspense>
+    </SidebarProvider>
   );
 }
 
-async function SidebarDataWrapper({ children }: { children: React.ReactNode }) {
-  // Parallelize data fetching for massive TTFB improvement
+async function SidebarDataWrapper() {
   const [activeWorkspaceId, orgsResult, userResult] = await Promise.all([
     getActiveWorkspace(),
     getUserOrganizations(),
@@ -70,42 +107,40 @@ async function SidebarDataWrapper({ children }: { children: React.ReactNode }) {
     <AppSidebar 
       workspaces={workspaces} 
       activeWorkspaceId={activeWorkspaceId}
-      currentUserId={userResult.success && userResult.data ? userResult.data.id : ""}
-    >
-      {children}
-    </AppSidebar>
+    />
   );
 }
 
-function SidebarSkeleton({ children }: { children: React.ReactNode }) {
+async function ObserverWrapper() {
+  const [activeWorkspaceId, userResult] = await Promise.all([
+    getActiveWorkspace(),
+    getCurrentUserProfile()
+  ]);
+
+  if (!userResult.success || !userResult.data) return null;
+
   return (
-    <div className="flex h-svh w-full overflow-hidden bg-background">
-      {/* Ghost Sidebar Placeholder */}
-      <div className="hidden md:flex w-64 flex-col border-r border-sidebar-border bg-sidebar animate-pulse">
-        <div className="h-14 border-b border-sidebar-border flex items-center px-4">
-          <div className="h-8 w-full bg-sidebar-accent/10 rounded" />
-        </div>
-        <div className="flex-1 p-4 space-y-4">
+    <OrganizationObserver 
+      currentUserId={userResult.data.id} 
+      activeWorkspaceId={activeWorkspaceId} 
+    />
+  );
+}
+
+
+function SidebarGhost() {
+  return (
+    <Sidebar className="hidden md:block">
+      <SidebarHeader className="border-b border-sidebar-border h-14 flex flex-col justify-center px-2 animate-pulse">
+        <div className="h-8 w-full bg-sidebar-accent/10 rounded" />
+      </SidebarHeader>
+      <SidebarContent className="animate-pulse p-2">
+        <div className="space-y-4 p-2">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-8 w-full bg-sidebar-accent/5 rounded" />
           ))}
         </div>
-      </div>
-
-      <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Ghost Header Placeholder */}
-        <header className="flex h-14 items-center justify-between border-b border-border px-4 lg:px-6 animate-pulse">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded bg-primary/5" />
-          </div>
-          <div className="h-8 w-8 rounded-full bg-primary/5" />
-        </header>
-        
-        {/* Real Content rendered instantly! No more hiding children. */}
-        <main className="flex-1 overflow-y-auto">
-          {children}
-        </main>
-      </div>
-    </div>
+      </SidebarContent>
+    </Sidebar>
   );
 }
