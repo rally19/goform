@@ -22,7 +22,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { verifyOtpAction, resendOtpAction } from "../actions";
+import { verifyOtpAction, resendOtpAction, getOtpStatusAction } from "../actions";
 import { toast } from "sonner";
 
 const verifySchema = z.object({
@@ -50,6 +50,21 @@ function VerifyForm() {
     const expiryKey = `otp_expiry_${email}_${type}`;
     const resendKey = `otp_resend_${email}_${type}`;
 
+    const reset = searchParams.get("reset") === "true";
+    if (reset) {
+      localStorage.removeItem(expiryKey);
+      localStorage.removeItem(resendKey);
+      setCountdown(15 * 60);
+      setResendCountdown(30);
+
+      // Clean up the URL to prevent re-resetting on refresh
+      const current = new URLSearchParams(window.location.search);
+      current.delete("reset");
+      const search = current.toString();
+      const query = search ? `?${search}` : "";
+      window.history.replaceState({}, '', window.location.pathname + query);
+    }
+
     const now = Date.now();
     
     // Handle Expiry Countdown
@@ -71,6 +86,23 @@ function VerifyForm() {
     } else {
       localStorage.setItem(resendKey, now.toString());
     }
+
+    // Database Sync: Overwrite local storage with actual server data
+    startTransition(() => {
+      getOtpStatusAction(email as string, type).then((res) => {
+        if (res.success && res.sentAt) {
+          const sentTime = new Date(res.sentAt).getTime();
+          const dbNow = Date.now();
+          const elapsed = Math.floor((dbNow - sentTime) / 1000);
+          
+          setCountdown(Math.max(0, 15 * 60 - elapsed));
+          setResendCountdown(Math.max(0, 30 - elapsed));
+          
+          localStorage.setItem(expiryKey, sentTime.toString());
+          localStorage.setItem(resendKey, sentTime.toString());
+        }
+      });
+    });
   }, [email, type]);
 
   useEffect(() => {

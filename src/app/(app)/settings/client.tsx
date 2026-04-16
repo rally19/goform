@@ -52,8 +52,9 @@ import {
   removeAvatarAction,
   initiateEmailChangeAction,
   verifyEmailChangeAction,
-  resendEmailChangeOtpAction
+  resendEmailChangeOtpAction,
 } from "./actions";
+import { getOtpStatusAction } from "@/app/(auth)/actions";
 import type { UserIdentity } from "@supabase/supabase-js";
 
 export function SettingsClient({
@@ -143,7 +144,46 @@ export function SettingsClient({
       const remaining = Math.max(0, 30 - elapsed);
       setEmailResendCountdown(remaining);
     }
-  }, [user.id]);
+
+    // Database Sync: Overwrite local storage with actual server data
+    startTransition(() => {
+      // 1. Check Password Recovery Status
+      getOtpStatusAction(user.email, 'recovery').then((res) => {
+        if (res.success && res.sentAt) {
+          const sentTime = new Date(res.sentAt).getTime();
+          const dbNow = Date.now();
+          const elapsed = Math.floor((dbNow - sentTime) / 1000);
+          const remaining = Math.max(0, 15 * 60 - elapsed);
+          
+          if (remaining > 0) {
+            setOtpCountdown(remaining);
+            setResendCountdown(Math.max(0, 30 - elapsed));
+            setShowOtpInput(true);
+            localStorage.setItem(expiryKey, sentTime.toString());
+            localStorage.setItem(resendKey, sentTime.toString());
+          }
+        }
+      });
+
+      // 2. Check Email Change Status
+      getOtpStatusAction(user.email, 'email_change').then((res) => {
+        if (res.success && res.sentAt) {
+          const sentTime = new Date(res.sentAt).getTime();
+          const dbNow = Date.now();
+          const elapsed = Math.floor((dbNow - sentTime) / 1000);
+          const remaining = Math.max(0, 15 * 60 - elapsed);
+          
+          if (remaining > 0) {
+            setEmailOtpCountdown(remaining);
+            setEmailResendCountdown(Math.max(0, 30 - elapsed));
+            setShowEmailOtpInput(true);
+            localStorage.setItem(`settings_email_change_expiry_${user.id}`, sentTime.toString());
+            localStorage.setItem(`settings_email_change_resend_${user.id}`, sentTime.toString());
+          }
+        }
+      });
+    });
+  }, [user.id, user.email]);
 
   // Main tick for both timers
   useEffect(() => {

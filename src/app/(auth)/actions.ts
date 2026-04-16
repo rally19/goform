@@ -117,6 +117,7 @@ export async function signUpAction(formData: FormData) {
     options: {
       data: {
         name,
+        full_name: name,
       },
       emailRedirectTo: getSiteUrl(),
     },
@@ -124,18 +125,51 @@ export async function signUpAction(formData: FormData) {
 
   if (error) {
     if (error.message.toLowerCase().includes('already registered')) {
-      redirect(`/verify?email=${encodeURIComponent(email)}&type=signup${next ? `&next=${encodeURIComponent(next)}` : ''}`)
+      redirect(`/verify?email=${encodeURIComponent(email)}&type=signup&reset=true${next ? `&next=${encodeURIComponent(next)}` : ''}`)
     }
     return { error: error.message }
   }
 
   // If user object is created, we can store their profile
   if (data.user) {
+    // ─── UNVERIFIED OVERWRITE LOGIC ──────────────────────────────────────────
+    // Supabase Auth prevents public signUp from updating existing unverified accounts.
+    // We use the admin client to force the update if the local DB shows it's unverified.
+    const existingUser = await db.query.users.findFirst({
+      where: eq(users.id, data.user.id),
+      columns: { emailVerifiedAt: true }
+    });
+
+    if (existingUser && !existingUser.emailVerifiedAt) {
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (serviceRoleKey) {
+        const { createClient: createAdminClient } = await import('@supabase/supabase-js')
+        const adminClient = createAdminClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          serviceRoleKey,
+          { auth: { autoRefreshToken: false, persistSession: false } }
+        )
+        
+        // Force update password and metadata
+        await adminClient.auth.admin.updateUserById(data.user.id, {
+          password,
+          user_metadata: { name, full_name: name }
+        })
+
+        // Explicitly resend the confirmation to ensure a fresh, valid OTP
+        // is generated AFTER the password/metadata updates are finalized.
+        await supabase.auth.resend({ type: 'signup', email })
+      }
+    }
+
     await db.insert(users).values({
       id: data.user.id,
       email: data.user.email!,
       name: name,
-    }).onConflictDoNothing() 
+    }).onConflictDoUpdate({
+      target: users.id,
+      set: { name }
+    })
 
     // Auto-join organizations if there's a pending invite
     const invites = await db.query.organizationInvites.findMany({
@@ -155,7 +189,7 @@ export async function signUpAction(formData: FormData) {
 
   if (!data.session) {
     // If Supabase confirms email is needed, session will be null
-    redirect(`/verify?email=${encodeURIComponent(email)}&type=signup${next ? `&next=${encodeURIComponent(next)}` : ''}`)
+    redirect(`/verify?email=${encodeURIComponent(email)}&type=signup&reset=true${next ? `&next=${encodeURIComponent(next)}` : ''}`)
   }
 
   revalidatePath('/', 'layout')
@@ -240,4 +274,47 @@ export async function signOutAction() {
   
   revalidatePath('/', 'layout')
   redirect('/login')
+}
+
+export async function getOtpStatusAction(email: string, type: 'signup' | 'recovery' | 'email_change' | 'magiclink') {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) return { error: 'Service role key not configured' };
+
+  const { createClient: createAdminClient } = await import('@supabase/supabase-js')
+  const adminClient = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    serviceRoleKey,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+
+  // 1. Resolve UID from our DB first to avoid listUsers pagination limits
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.email, email),
+    columns: { id: true }
+  });
+
+  if (!dbUser) return { error: 'User not found in record' };
+
+  // 2. Fetch specific auth user by ID
+  const { data: { user }, error } = await adminClient.auth.admin.getUserById(dbUser.id);
+  
+  if (error || !user) return { error: error?.message || 'Auth user not found' };
+
+  let sentAt: string | null = null;
+  switch (type) {
+    case 'signup': 
+      sentAt = user.confirmation_sent_at || null; 
+      break;
+    case 'recovery': 
+      sentAt = user.recovery_sent_at || null; 
+      break;
+    case 'email_change': 
+      sentAt = user.email_change_sent_at || null; 
+      break;
+    case 'magiclink': 
+      sentAt = user.confirmation_sent_at || user.last_sign_in_at || null;
+      break;
+  }
+
+  return { success: true, sentAt };
 }
