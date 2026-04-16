@@ -58,6 +58,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { CursorArea } from "./cursor-area";
 
 interface BuilderCanvasProps {
@@ -155,6 +165,7 @@ export function BuilderCanvas({
   const accentColor = form?.accentColor ?? "#6366f1";
   const [isComponentsOpen, setIsComponentsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const sensors = useMemo(() => [
@@ -426,15 +437,76 @@ export function BuilderCanvas({
             </CursorArea>
           </div>
 
-          {/* Mobile Footer */}
-          <div className="md:hidden h-14 border-t border-border bg-card flex items-center justify-around px-4 shrink-0">
-            <Button variant="ghost" size="sm" className="flex flex-col h-auto pt-1 gap-1" onClick={() => setIsComponentsOpen(true)}>
-              <Plus className="h-5 w-5" />
-              <span className="text-[10px]">Add</span>
+          {/* Mobile Footer Action Bar */}
+          <div className="md:hidden h-16 border-t border-border bg-card flex items-center justify-around px-2 shrink-0 z-30 pb-safe">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px]" 
+              onClick={() => setIsComponentsOpen(true)}
+            >
+              <Plus className="h-5 w-5 text-primary" />
+              <span className="text-[10px] font-medium">Add</span>
             </Button>
-            <Button variant="ghost" size="sm" className="flex flex-col h-auto pt-1 gap-1" onClick={() => setIsSettingsOpen(true)} disabled={!selectedFieldId}>
+
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px]" 
+              onClick={() => {
+                const field = fields.find(f => f.id === selectedFieldId);
+                if (field) handleDuplicateField(field);
+              }}
+              disabled={!selectedFieldId}
+            >
+              <Copy className="h-5 w-5" />
+              <span className="text-[10px] font-medium">Duplicate</span>
+            </Button>
+
+            <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px] text-destructive disabled:opacity-30" 
+                onClick={() => setIsDeleteConfirmOpen(true)}
+                disabled={!selectedFieldId}
+              >
+                <Trash2 className="h-5 w-5" />
+                <span className="text-[10px] font-medium">Delete</span>
+              </Button>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Field?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete the selected field? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={() => {
+                      if (selectedFieldId) {
+                        handleRemoveField(selectedFieldId);
+                        selectField(null);
+                      }
+                    }} 
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px]" 
+              onClick={() => setIsSettingsOpen(true)} 
+              disabled={!selectedFieldId}
+            >
               <Settings2 className="h-5 w-5" />
-              <span className="text-[10px]">Settings</span>
+              <span className="text-[10px] font-medium">Properties</span>
             </Button>
           </div>
         </div>

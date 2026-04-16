@@ -401,55 +401,6 @@ export const FieldCard = memo(function FieldCard({
         </motion.div>
       </div>
 
-      {/* Mobile Actions */}
-      {isSelected && (
-        <div 
-          className="flex md:hidden items-center justify-end gap-2 px-3 pb-3 border-t border-border/50 pt-2 mx-1"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 gap-1.5 text-xs font-medium"
-            onClick={() => onDuplicate?.(field)}
-          >
-            <Copy className="h-3.5 w-3.5" />
-            Duplicate
-          </Button>
-          <AlertDialog open={removeConfirmOpen} onOpenChange={setRemoveConfirmOpen}>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 gap-1.5 text-xs font-medium text-destructive hover:text-destructive hover:bg-destructive/10"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Delete
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Field?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Are you sure you want to delete the <strong>{field.label}</strong> field? This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRemove?.(field.id);
-                  }} 
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      )}
     </div>
   );
 });
