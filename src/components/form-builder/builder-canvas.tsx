@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, useMemo } from "react";
 import { useFormBuilder } from "@/hooks/use-form-builder";
 import { useFormCollaboration } from "@/hooks/use-form-collaboration";
 import { FieldCard } from "./field-card";
@@ -9,7 +9,6 @@ import { ComponentPanel } from "./component-panel";
 import { FieldSettings } from "./field-settings";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { BuilderField, BuilderForm } from "@/lib/form-types";
@@ -151,9 +150,14 @@ export function BuilderCanvas({
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 10 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } })
+  const sensors = useMemo(() => [
+    { sensor: MouseSensor, options: { activationConstraint: { distance: 10 } } },
+    { sensor: TouchSensor, options: { activationConstraint: { delay: 150, tolerance: 5 } } }
+  ], []);
+
+  const dndSensors = useSensors(
+    useSensor(sensors[0].sensor, sensors[0].options),
+    useSensor(sensors[1].sensor, sensors[1].options)
   );
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -195,9 +199,31 @@ export function BuilderCanvas({
     toast.success("Link copied!");
   };
 
+  const handleUpdateField = useCallback((id: string, changes: Partial<BuilderField>) => {
+    collabUpdateField(id, changes);
+  }, [collabUpdateField]);
+
+  const handleRemoveField = useCallback((id: string) => {
+    collabRemoveField(id);
+  }, [collabRemoveField]);
+
+  const handleDuplicateField = useCallback((field: BuilderField) => {
+    const copy = { ...field, id: crypto.randomUUID(), label: `${field.label} (Copy)`, isNew: true };
+    const idx = fields.findIndex(f => f.id === field.id);
+    collabAddField(copy, idx + 1);
+  }, [fields, collabAddField]);
+
+  const handleFieldClick = useCallback((id: string) => {
+    if (selectedFieldId === id) {
+      selectField(null);
+    } else {
+      selectField(id);
+    }
+  }, [selectedFieldId, selectField]);
+
   return (
     <DndContext
-      sensors={sensors}
+      sensors={dndSensors}
       collisionDetection={closestCorners}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
@@ -299,7 +325,8 @@ export function BuilderCanvas({
           </header>
 
           {/* Canvas */}
-          <ScrollArea className="flex-1 h-full min-h-0 bg-muted/30" onClick={() => selectField(null)}>
+          {/* Canvas - Use native overflow for reliable dnd-kit auto-scrolling */}
+          <div className="flex-1 h-full min-h-0 bg-muted/30 overflow-y-auto scroll-smooth" onClick={() => selectField(null)}>
             <CursorArea id="canvas" className="min-h-full" onClick={() => selectField(null)}>
               <div className="max-w-2xl mx-auto p-4 md:p-8 pb-32">
                 <div data-cursor-area-root="true" className="space-y-8">
@@ -319,7 +346,6 @@ export function BuilderCanvas({
                           {fields.map((field) => (
                             <motion.div
                               key={field.id}
-                              layout
                               initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
                               data-cursor-id={field.id}
@@ -330,21 +356,10 @@ export function BuilderCanvas({
                                 isSelected={selectedFieldId === field.id}
                                 accentColor={accentColor}
                                 currentUserId={currentUserId}
-                                onUpdate={(changes) => collabUpdateField(field.id, changes)}
-                                onRemove={() => collabRemoveField(field.id)}
-                                onDuplicate={() => {
-                                  const copy = { ...field, id: crypto.randomUUID(), label: `${field.label} (Copy)`, isNew: true };
-                                  const idx = fields.findIndex(f => f.id === field.id);
-                                  collabAddField(copy, idx + 1);
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (selectedFieldId === field.id) {
-                                    selectField(null);
-                                  } else {
-                                    selectField(field.id);
-                                  }
-                                }}
+                                onUpdate={handleUpdateField}
+                                onRemove={handleRemoveField}
+                                onDuplicate={handleDuplicateField}
+                                onClick={handleFieldClick}
                                 others={others}
                               />
                             </motion.div>
@@ -363,7 +378,7 @@ export function BuilderCanvas({
                 </div>
               </div>
             </CursorArea>
-          </ScrollArea>
+          </div>
 
           {/* Mobile Footer */}
           <div className="md:hidden h-14 border-t border-border bg-card flex items-center justify-around px-4 shrink-0">

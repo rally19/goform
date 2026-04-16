@@ -31,7 +31,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useState } from "react";
+import { useState, memo } from "react";
 
 const FIELD_ICONS: Record<string, React.ElementType> = {
   short_text: Type, long_text: AlignLeft, number: Hash, email: Mail,
@@ -48,14 +48,14 @@ interface FieldCardProps {
   accentColor?: string;
   isOverlay?: boolean;
   currentUserId: string;
-  onUpdate?: (changes: Partial<BuilderField>) => void;
-  onRemove?: () => void;
-  onDuplicate?: () => void;
-  onClick?: (e: React.MouseEvent) => void;
+  onUpdate?: (id: string, changes: Partial<BuilderField>) => void;
+  onRemove?: (id: string) => void;
+  onDuplicate?: (field: BuilderField) => void;
+  onClick?: (id: string) => void;
   others?: readonly any[];
 }
 
-export function FieldCard({ 
+export const FieldCard = memo(function FieldCard({ 
   field, 
   isSelected, 
   accentColor = "#6366f1",
@@ -216,7 +216,10 @@ export function FieldCard({
   return (
     <div
       ref={setNodeRef}
-      onClick={onClick}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick?.(field.id);
+      }}
       className={cn(
         "group relative rounded-xl border bg-card cursor-pointer select-none",
         !isOverlay && "transition-all duration-300",
@@ -354,11 +357,11 @@ export function FieldCard({
           )}
           onClick={(e) => e.stopPropagation()}
         >
-          <Button
+            <Button
             variant="ghost"
             size="icon"
             className="h-7 w-7"
-            onClick={onDuplicate}
+            onClick={() => onDuplicate?.(field)}
             title="Duplicate"
           >
             <Copy className="h-3.5 w-3.5" />
@@ -386,7 +389,7 @@ export function FieldCard({
                 <AlertDialogAction 
                   onClick={(e) => {
                     e.stopPropagation();
-                    onRemove?.();
+                    onRemove?.(field.id);
                   }} 
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
@@ -408,7 +411,7 @@ export function FieldCard({
             variant="ghost"
             size="sm"
             className="h-8 gap-1.5 text-xs font-medium"
-            onClick={onDuplicate}
+            onClick={() => onDuplicate?.(field)}
           >
             <Copy className="h-3.5 w-3.5" />
             Duplicate
@@ -436,7 +439,7 @@ export function FieldCard({
                 <AlertDialogAction 
                   onClick={(e) => {
                     e.stopPropagation();
-                    onRemove?.();
+                    onRemove?.(field.id);
                   }} 
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
@@ -449,4 +452,4 @@ export function FieldCard({
       )}
     </div>
   );
-}
+});
