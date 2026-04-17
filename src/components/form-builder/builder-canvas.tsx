@@ -101,6 +101,7 @@ function ActiveMembers({ self, others }: { self: any, others: readonly any[] }) 
 
   const displayUsers = allUsers.slice(0, 3);
   const showOverflow = allUsers.length > 3;
+  const isOverflowEditing = showOverflow && allUsers.slice(3).some(u => u.presence?.selectedFieldId);
 
   return (
     <DropdownMenu>
@@ -114,18 +115,23 @@ function ActiveMembers({ self, others }: { self: any, others: readonly any[] }) 
               <TooltipProvider key={user.connectionId || 'self'}>
                 <Tooltip delayDuration={200}>
                   <TooltipTrigger asChild>
-                    <Avatar 
-                      className={cn(
-                        "h-6 w-6 border-2 border-card ring-offset-background shrink-0",
-                        user.isSelf ? "z-10" : "z-0"
+                    <div className="relative">
+                      <Avatar 
+                        className={cn(
+                          "h-6 w-6 border-2 border-card shrink-0 transition-all duration-300",
+                          user.isSelf ? "z-10" : "z-0"
+                        )}
+                        style={{ backgroundColor: user.info?.color ?? "#ccc" }}
+                      >
+                        <AvatarImage src={user.info?.avatar || undefined} />
+                        <AvatarFallback className="text-[9px] font-bold text-white bg-transparent">
+                          {getInitials(user.info?.name ?? (user.isSelf ? "Me" : "U"))}
+                        </AvatarFallback>
+                      </Avatar>
+                      {user.presence?.selectedFieldId && (
+                        <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 h-2 w-2 bg-emerald-500 rounded-full border-2 border-card z-20" />
                       )}
-                      style={{ backgroundColor: user.info?.color ?? "#ccc" }}
-                    >
-                      <AvatarImage src={user.info?.avatar || undefined} />
-                      <AvatarFallback className="text-[9px] font-bold text-white bg-transparent">
-                        {getInitials(user.info?.name ?? (user.isSelf ? "Me" : "U"))}
-                      </AvatarFallback>
-                    </Avatar>
+                    </div>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="text-[10px] px-2 py-1">
                     {user.isSelf ? "You" : user.info?.name}
@@ -137,8 +143,15 @@ function ActiveMembers({ self, others }: { self: any, others: readonly any[] }) 
               </TooltipProvider>
             ))}
             {showOverflow && (
-              <div className="h-6 w-6 rounded-full border-2 border-card bg-muted flex items-center justify-center text-[9px] font-bold text-muted-foreground z-0">
-                +{allUsers.length - 3}
+              <div className="relative">
+                <div className={cn(
+                  "h-6 w-6 rounded-full border-2 border-card bg-muted text-muted-foreground flex items-center justify-center text-[9px] font-bold transition-all duration-300 z-0",
+                )}>
+                  +{allUsers.length - 3}
+                </div>
+                {isOverflowEditing && (
+                  <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 h-2 w-2 bg-emerald-500 rounded-full border-2 border-card z-20" />
+                )}
               </div>
             )}
           </div>
@@ -158,7 +171,10 @@ function ActiveMembers({ self, others }: { self: any, others: readonly any[] }) 
             >
               <div className="relative">
                 <Avatar 
-                  className="h-7 w-7 shrink-0 border border-border/50"
+                  className={cn(
+                    "h-7 w-7 shrink-0 border border-border/50 transition-all duration-300",
+                    user.presence?.selectedFieldId && "ring-2 ring-emerald-500 ring-offset-1 ring-offset-background"
+                  )}
                   style={{ backgroundColor: user.info?.color ?? "#ccc" }}
                 >
                   <AvatarImage src={user.info?.avatar || undefined} />
@@ -166,9 +182,6 @@ function ActiveMembers({ self, others }: { self: any, others: readonly any[] }) 
                     {getInitials(user.info?.name ?? (user.isSelf ? "Me" : "U"))}
                   </AvatarFallback>
                 </Avatar>
-                {user.presence?.selectedFieldId && (
-                   <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 border-2 border-card bg-emerald-500 rounded-full" />
-                )}
               </div>
               <div className="flex flex-col min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
