@@ -87,41 +87,112 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
-// ─── Collaborator avatar stack ─────────────────────────────────────────────────
-function CollaboratorAvatars({ others }: { others: readonly any[] }) {
-  if (others.length === 0) return null;
+// ─── Active Members Component ─────────────────────────────────────────────────
+function ActiveMembers({ self, others }: { self: any, others: readonly any[] }) {
+  const allUsers = useMemo(() => {
+    const users = [];
+    if (self) users.push({ ...self, isSelf: true });
+    users.push(...others.map(o => ({ ...o, isSelf: false })));
+    return users;
+  }, [self, others]);
+
+  if (allUsers.length === 0) return null;
+
+  const displayUsers = allUsers.slice(0, 3);
+  const showOverflow = allUsers.length > 3;
 
   return (
-    <TooltipProvider delayDuration={200}>
-      <div className="flex items-center -space-x-2">
-        {others.slice(0, 4).map(({ connectionId, info, presence }) => (
-          <Tooltip key={connectionId}>
-            <TooltipTrigger asChild>
-              <Avatar 
-                className="h-7 w-7 border-2 border-card ring-offset-background shrink-0 cursor-default"
-                style={{ backgroundColor: info?.color ?? "#ccc" }}
-              >
-                <AvatarImage src={info?.avatar || undefined} />
-                <AvatarFallback className="text-[10px] font-bold text-white bg-transparent">
-                  {getInitials(info?.name ?? "U")}
-                </AvatarFallback>
-              </Avatar>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">
-              {info?.name}
-              {presence?.selectedFieldId && (
-                <span className="text-muted-foreground ml-1">(editing)</span>
-              )}
-            </TooltipContent>
-          </Tooltip>
-        ))}
-        {others.length > 4 && (
-          <div className="h-7 w-7 rounded-full border-2 border-card bg-muted flex items-center justify-center text-[10px] font-semibold text-muted-foreground">
-            +{others.length - 4}
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button 
+          variant="ghost" 
+          className="h-9 px-1.5 gap-1 hover:bg-muted/80 rounded-lg border border-transparent transition-all group"
+        >
+          <div className="flex items-center -space-x-1.5">
+            {displayUsers.map((user, i) => (
+              <TooltipProvider key={user.connectionId || 'self'}>
+                <Tooltip delayDuration={200}>
+                  <TooltipTrigger asChild>
+                    <Avatar 
+                      className={cn(
+                        "h-6 w-6 border-2 border-card ring-offset-background shrink-0",
+                        user.isSelf ? "z-10" : "z-0"
+                      )}
+                      style={{ backgroundColor: user.info?.color ?? "#ccc" }}
+                    >
+                      <AvatarImage src={user.info?.avatar || undefined} />
+                      <AvatarFallback className="text-[9px] font-bold text-white bg-transparent">
+                        {getInitials(user.info?.name ?? (user.isSelf ? "Me" : "U"))}
+                      </AvatarFallback>
+                    </Avatar>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-[10px] px-2 py-1">
+                    {user.isSelf ? "You" : user.info?.name}
+                    {user.presence?.selectedFieldId && (
+                      <span className="text-muted-foreground ml-1">(editing)</span>
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ))}
+            {showOverflow && (
+              <div className="h-6 w-6 rounded-full border-2 border-card bg-muted flex items-center justify-center text-[9px] font-bold text-muted-foreground z-0">
+                +{allUsers.length - 3}
+              </div>
+            )}
           </div>
-        )}
-      </div>
-    </TooltipProvider>
+          <ChevronDown className="h-3 w-3 text-muted-foreground group-hover:text-foreground transition-colors" />
+        </Button>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent align="start" className="w-56 p-1 animate-in fade-in-0 zoom-in-95 data-[side=bottom]:slide-in-from-top-2">
+        <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-widest bg-muted/30 rounded-t-md mb-1">
+          Active Members ({allUsers.length})
+        </div>
+        <div className="max-h-[300px] overflow-y-auto">
+          {allUsers.map((user) => (
+            <div 
+              key={user.connectionId || 'self'} 
+              className="flex items-center gap-2.5 px-2 py-2 rounded-md hover:bg-muted/50 transition-colors group/item"
+            >
+              <div className="relative">
+                <Avatar 
+                  className="h-7 w-7 shrink-0 border border-border/50"
+                  style={{ backgroundColor: user.info?.color ?? "#ccc" }}
+                >
+                  <AvatarImage src={user.info?.avatar || undefined} />
+                  <AvatarFallback className="text-[10px] font-bold text-white bg-transparent">
+                    {getInitials(user.info?.name ?? (user.isSelf ? "Me" : "U"))}
+                  </AvatarFallback>
+                </Avatar>
+                {user.presence?.selectedFieldId && (
+                   <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 border-2 border-card bg-emerald-500 rounded-full" />
+                )}
+              </div>
+              <div className="flex flex-col min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold truncate leading-tight">
+                    {user.info?.name ?? (user.isSelf ? "You" : "Anonymous User")}
+                  </span>
+                  {user.isSelf && (
+                    <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-bold">YOU</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                   <div className={cn(
+                     "h-1.5 w-1.5 rounded-full animate-pulse",
+                     user.presence?.selectedFieldId ? "bg-emerald-500" : "bg-muted-foreground/30"
+                   )} />
+                   <span className="text-[10px] text-muted-foreground font-medium truncate">
+                    {user.presence?.selectedFieldId ? "Currently editing form" : "Spectating"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -282,18 +353,7 @@ export function BuilderCanvas({
           {/* Header */}
           <header className="h-14 border-b border-border bg-card flex items-center justify-between px-4 shrink-0 z-20">
             <div className="flex items-center gap-3 min-w-0">
-               <div className="hidden sm:flex items-center gap-1 bg-muted/50 rounded-lg p-1 border border-border">
-                  <Avatar 
-                    className="h-7 w-7 border-2 border-background shadow-sm shrink-0"
-                    style={{ backgroundColor: self?.info?.color }}
-                  >
-                    <AvatarImage src={self?.info?.avatar || undefined} />
-                    <AvatarFallback className="text-[10px] font-bold text-white bg-transparent">
-                      {getInitials(self?.info?.name ?? "Me")}
-                    </AvatarFallback>
-                  </Avatar>
-                  <CollaboratorAvatars others={others as any} />
-               </div>
+                <ActiveMembers self={self} others={others} />
 
               <div className="w-px h-4 bg-border mx-1 hidden sm:block" />
               
