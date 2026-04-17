@@ -94,10 +94,6 @@ export function SectionBar({
     <TooltipProvider delayDuration={300}>
       <div
         className="flex flex-col gap-1.5 select-none relative"
-        onClick={(e) => {
-          e.stopPropagation();
-          onSelect(currentSection.id);
-        }}
       >
         {/* Presence badge — mirrors FieldCard "X is editing" label */}
         <AnimatePresence>
@@ -140,12 +136,13 @@ export function SectionBar({
           )}
         </AnimatePresence>
 
-        {/* Action row */}
+        {/* Action row — clicking the card body toggles section selection */}
         <div
           className={cn(
-            "flex items-center justify-between gap-2 px-3 py-2 rounded-lg border bg-card/80 backdrop-blur-sm transition-all duration-200",
+            "flex items-center justify-between gap-2 px-3 py-2 rounded-lg border bg-card/80 backdrop-blur-sm transition-all duration-200 cursor-pointer",
             !isSelected && !isBeingEditedByOther && "border-border"
           )}
+          onClick={(e) => { e.stopPropagation(); onSelect(currentSection.id); }}
           style={{
             borderColor: isSelected
               ? accentColor
@@ -254,12 +251,12 @@ export function SectionBar({
           </div>
         </div>
 
-        {/* Pagination row */}
-        <div className="flex items-center justify-center gap-0.5" onClick={(e) => e.stopPropagation()}>
-          <Button variant="ghost" size="icon" className="h-6 w-6" disabled={currentIndex === 0} onClick={goFirst}>
+        {/* Pagination row — NO stopPropagation so clicks on empty space bubble up to canvas deselect */}
+        <div className="flex items-center justify-center gap-0.5">
+          <Button variant="ghost" size="icon" className="h-6 w-6" disabled={currentIndex === 0} onClick={(e) => { e.stopPropagation(); goFirst(); }}>
             <ChevronsLeft className="h-3 w-3" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-6 w-6" disabled={currentIndex === 0} onClick={goPrev}>
+          <Button variant="ghost" size="icon" className="h-6 w-6" disabled={currentIndex === 0} onClick={(e) => { e.stopPropagation(); goPrev(); }}>
             <ChevronLeft className="h-3 w-3" />
           </Button>
 
@@ -271,7 +268,7 @@ export function SectionBar({
             return (
               <button
                 key={sec.id}
-                onClick={() => onSelectSection(sec.id)}
+                onClick={(e) => { e.stopPropagation(); onSelectSection(sec.id); }}
                 className={cn(
                   "h-6 min-w-[24px] px-1.5 rounded text-[11px] font-medium transition-colors",
                   isCurrent
@@ -287,10 +284,10 @@ export function SectionBar({
 
           {pageEnd < total && <span className="text-[10px] text-muted-foreground px-1">…</span>}
 
-          <Button variant="ghost" size="icon" className="h-6 w-6" disabled={currentIndex === total - 1} onClick={goNext}>
+          <Button variant="ghost" size="icon" className="h-6 w-6" disabled={currentIndex === total - 1} onClick={(e) => { e.stopPropagation(); goNext(); }}>
             <ChevronRight className="h-3 w-3" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-6 w-6" disabled={currentIndex === total - 1} onClick={goLast}>
+          <Button variant="ghost" size="icon" className="h-6 w-6" disabled={currentIndex === total - 1} onClick={(e) => { e.stopPropagation(); goLast(); }}>
             <ChevronsRight className="h-3 w-3" />
           </Button>
         </div>

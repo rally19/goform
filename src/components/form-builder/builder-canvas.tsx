@@ -129,14 +129,14 @@ function ActiveMembers({ self, others }: { self: any, others: readonly any[] }) 
                           {getInitials(user.info?.name ?? (user.isSelf ? "Me" : "U"))}
                         </AvatarFallback>
                       </Avatar>
-                      {user.presence?.selectedFieldId && (
+                      {(user.presence?.selectedFieldId || user.presence?.selectedSectionId) && (
                         <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 h-2 w-2 bg-emerald-500 rounded-full border-2 border-card z-20" />
                       )}
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="text-[10px] px-2 py-1">
                     {user.isSelf ? "You" : user.info?.name}
-                    {user.presence?.selectedFieldId && (
+                    {(user.presence?.selectedFieldId || user.presence?.selectedSectionId) && (
                       <span className="text-muted-foreground ml-1">(editing)</span>
                     )}
                   </TooltipContent>
@@ -174,7 +174,7 @@ function ActiveMembers({ self, others }: { self: any, others: readonly any[] }) 
                 <Avatar 
                   className={cn(
                     "h-7 w-7 shrink-0 border border-border/50 transition-all duration-300",
-                    user.presence?.selectedFieldId && "ring-2 ring-emerald-500 ring-offset-1 ring-offset-background"
+                    (user.presence?.selectedFieldId || user.presence?.selectedSectionId) && "ring-2 ring-emerald-500 ring-offset-1 ring-offset-background"
                   )}
                   style={{ backgroundColor: user.info?.color ?? "#ccc" }}
                 >
@@ -196,10 +196,10 @@ function ActiveMembers({ self, others }: { self: any, others: readonly any[] }) 
                 <div className="flex items-center gap-1.5 mt-0.5">
                    <div className={cn(
                      "h-1.5 w-1.5 rounded-full animate-pulse",
-                     user.presence?.selectedFieldId ? "bg-emerald-500" : "bg-muted-foreground/30"
+                     (user.presence?.selectedFieldId || user.presence?.selectedSectionId) ? "bg-emerald-500" : "bg-muted-foreground/30"
                    )} />
                    <span className="text-[10px] text-muted-foreground font-medium truncate">
-                    {user.presence?.selectedFieldId ? "Currently editing form" : "Spectating"}
+                    {(user.presence?.selectedFieldId || user.presence?.selectedSectionId) ? "Currently editing form" : "Spectating"}
                   </span>
                 </div>
               </div>
@@ -286,8 +286,9 @@ export function BuilderCanvas({
     };
     collabAddSection(newSection);
     setCurrentSectionId(newSection.id);
+    selectSection(newSection.id);
     toast.success("Section added", { description: `"${newSection.name}" has been created` });
-  }, [sections, collabAddSection, setCurrentSectionId]);
+  }, [sections, collabAddSection, setCurrentSectionId, selectSection]);
 
   const handleDeleteSection = useCallback((id: string) => {
     const section = sortedSections.find(s => s.id === id);
@@ -305,13 +306,18 @@ export function BuilderCanvas({
     const newId = crypto.randomUUID();
     collabDuplicateSection(id, newId);
     setCurrentSectionId(newId);
+    selectSection(newId);
     toast.success("Section duplicated", { description: "You are now viewing the duplicate" });
-  }, [collabDuplicateSection, setCurrentSectionId]);
+  }, [collabDuplicateSection, setCurrentSectionId, selectSection]);
 
   const handleOpenSectionSettings = useCallback((id: string) => {
-    selectSection(id);
-    selectField(null);
-  }, [selectSection, selectField]);
+    if (selectedSectionId === id) {
+      selectSection(null);
+    } else {
+      selectSection(id);
+      selectField(null);
+    }
+  }, [selectedSectionId, selectSection, selectField]);
 
   const CanvasDroppable = useCallback(({ children }: { children: React.ReactNode }) => {
     const { setNodeRef } = useDroppable({ id: "canvas" });
@@ -488,12 +494,12 @@ export function BuilderCanvas({
 
           {/* Canvas — one unified CursorArea per section, keyed so switching section
                fully remounts the area and resets all live cursors to the new page */}
-          <div className="flex-1 h-full min-h-0 bg-muted/30 overflow-y-auto" onClick={() => selectField(null)}>
+          <div className="flex-1 h-full min-h-0 bg-muted/30 overflow-y-auto" onClick={() => { selectField(null); selectSection(null); }}>
             <CursorArea
               key={activeSectionId ?? "no-section"}
               id={`canvas-${activeSectionId ?? "no-section"}`}
               className="min-h-full"
-              onClick={() => selectField(null)}
+              onClick={() => { selectField(null); selectSection(null); }}
             >
               <div className="max-w-2xl mx-auto p-4 md:p-8 pb-32">
                 <CanvasDroppable>
@@ -605,10 +611,16 @@ export function BuilderCanvas({
               variant="ghost" 
               size="sm" 
               className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px]" 
-              onClick={() => setIsComponentsOpen(true)}
+              onClick={() => {
+                if (selectedSectionId) {
+                  handleAddSection(currentSectionIndex);
+                } else {
+                  setIsComponentsOpen(true);
+                }
+              }}
             >
-              <Plus className="h-5 w-5 text-primary" />
-              <span className="text-[10px] font-medium">Add</span>
+              <Plus className={cn("h-5 w-5", selectedSectionId ? "text-foreground" : "text-primary")} />
+              <span className="text-[10px] font-medium">{selectedSectionId ? "Add Section" : "Add"}</span>
             </Button>
 
             <Button 
