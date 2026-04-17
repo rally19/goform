@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Tooltip,
   TooltipContent,
@@ -19,6 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { motion, AnimatePresence } from "motion/react";
 import type { BuilderSection } from "@/lib/form-types";
 import {
   Settings2,
@@ -31,28 +33,39 @@ import {
   ChevronsRight,
 } from "lucide-react";
 
+interface SectionEditorInfo {
+  connectionId: number;
+  info: { name: string; avatar: string; color: string };
+}
+
 interface SectionBarProps {
   sections: BuilderSection[];
   currentSection: BuilderSection;
   currentIndex: number;
+  isSelected: boolean;
+  onSelect: (id: string) => void;
   onSelectSection: (id: string) => void;
   onOpenSettings: (id: string) => void;
   onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
   onAddAfter: (afterIndex: number) => void;
   accentColor: string;
+  others?: readonly any[];
 }
 
 export function SectionBar({
   sections,
   currentSection,
   currentIndex,
+  isSelected,
+  onSelect,
   onSelectSection,
   onOpenSettings,
   onDuplicate,
   onDelete,
   onAddAfter,
   accentColor,
+  others = [],
 }: SectionBarProps) {
   const total = sections.length;
   const isOnly = total === 1;
@@ -70,14 +83,83 @@ export function SectionBar({
   }
   const visiblePages = sections.slice(pageStart, pageEnd);
 
+  // Presence: others viewing this section's settings
+  const editors: SectionEditorInfo[] = others
+    .filter((o) => o.presence?.selectedSectionId === currentSection.id && o.info)
+    .map((o) => ({ connectionId: o.connectionId, info: o.info }));
+  const isBeingEditedByOther = editors.length > 0;
+  const primaryEditorColor = editors[0]?.info?.color;
+
   return (
     <TooltipProvider delayDuration={300}>
       <div
-        className="flex flex-col gap-1.5 select-none"
-        onClick={(e) => e.stopPropagation()}
+        className="flex flex-col gap-1.5 select-none relative"
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect(currentSection.id);
+        }}
       >
+        {/* Presence badge — mirrors FieldCard "X is editing" label */}
+        <AnimatePresence>
+          {isBeingEditedByOther && (
+            <motion.div
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 5 }}
+              className="absolute -top-7 left-0 px-2 py-1 rounded-t-lg text-[10px] font-bold text-white shadow-md flex items-center gap-2 z-10 pointer-events-none"
+              style={{ backgroundColor: primaryEditorColor }}
+            >
+              <TooltipProvider delayDuration={0}>
+                <div className="flex -space-x-1.5">
+                  {editors.map((ed) => (
+                    <Tooltip key={ed.connectionId}>
+                      <TooltipTrigger asChild>
+                        <div>
+                          <Avatar className="h-5 w-5 border-2 border-white/20 shadow-sm bg-background/20 backdrop-blur-sm">
+                            <AvatarImage src={ed.info.avatar || undefined} />
+                            <AvatarFallback className="bg-transparent text-[7px] text-white">
+                              {ed.info.name.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-[11px] py-1 px-2 font-medium">
+                        {ed.info.name}
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                </div>
+              </TooltipProvider>
+              <div className="h-1 w-1 rounded-full bg-white animate-pulse" />
+              <span className="max-w-[140px] truncate">
+                {editors.length === 1
+                  ? `${editors[0].info.name} is editing`
+                  : `${editors.length} people editing`}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Action row */}
-        <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-border bg-card/80 backdrop-blur-sm shadow-sm">
+        <div
+          className={cn(
+            "flex items-center justify-between gap-2 px-3 py-2 rounded-lg border bg-card/80 backdrop-blur-sm transition-all duration-200",
+            !isSelected && !isBeingEditedByOther && "border-border"
+          )}
+          style={{
+            borderColor: isSelected
+              ? accentColor
+              : isBeingEditedByOther
+              ? primaryEditorColor
+              : undefined,
+            boxShadow: isSelected
+              ? `0 0 0 3px ${accentColor}30, 0 4px 20px -4px ${accentColor}20`
+              : isBeingEditedByOther
+              ? `0 0 0 3px ${primaryEditorColor}40`
+              : undefined,
+            backgroundColor: isSelected ? `${accentColor}06` : undefined,
+          }}
+        >
           {/* Left: section name + settings */}
           <div className="flex items-center gap-1.5 min-w-0">
             <span
@@ -92,7 +174,7 @@ export function SectionBar({
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6 shrink-0"
-                  onClick={() => onOpenSettings(currentSection.id)}
+                  onClick={(e) => { e.stopPropagation(); onOpenSettings(currentSection.id); }}
                 >
                   <Settings2 className="h-3.5 w-3.5" />
                 </Button>
@@ -102,7 +184,7 @@ export function SectionBar({
           </div>
 
           {/* Right: action buttons */}
-          <div className="flex items-center gap-0.5 shrink-0">
+          <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -173,29 +255,15 @@ export function SectionBar({
         </div>
 
         {/* Pagination row */}
-        <div className="flex items-center justify-center gap-0.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            disabled={currentIndex === 0}
-            onClick={goFirst}
-          >
+        <div className="flex items-center justify-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+          <Button variant="ghost" size="icon" className="h-6 w-6" disabled={currentIndex === 0} onClick={goFirst}>
             <ChevronsLeft className="h-3 w-3" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            disabled={currentIndex === 0}
-            onClick={goPrev}
-          >
+          <Button variant="ghost" size="icon" className="h-6 w-6" disabled={currentIndex === 0} onClick={goPrev}>
             <ChevronLeft className="h-3 w-3" />
           </Button>
 
-          {pageStart > 0 && (
-            <span className="text-[10px] text-muted-foreground px-1">…</span>
-          )}
+          {pageStart > 0 && <span className="text-[10px] text-muted-foreground px-1">…</span>}
 
           {visiblePages.map((sec, vi) => {
             const absIdx = pageStart + vi;
@@ -217,26 +285,12 @@ export function SectionBar({
             );
           })}
 
-          {pageEnd < total && (
-            <span className="text-[10px] text-muted-foreground px-1">…</span>
-          )}
+          {pageEnd < total && <span className="text-[10px] text-muted-foreground px-1">…</span>}
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            disabled={currentIndex === total - 1}
-            onClick={goNext}
-          >
+          <Button variant="ghost" size="icon" className="h-6 w-6" disabled={currentIndex === total - 1} onClick={goNext}>
             <ChevronRight className="h-3 w-3" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            disabled={currentIndex === total - 1}
-            onClick={goLast}
-          >
+          <Button variant="ghost" size="icon" className="h-6 w-6" disabled={currentIndex === total - 1} onClick={goLast}>
             <ChevronsRight className="h-3 w-3" />
           </Button>
         </div>

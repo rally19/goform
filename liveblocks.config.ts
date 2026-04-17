@@ -14,6 +14,7 @@ export type Presence = {
     hidden?: boolean;
   } | null;
   selectedFieldId: string | null;
+  selectedSectionId: string | null;
   draggingFieldId: string | null;
 };
 

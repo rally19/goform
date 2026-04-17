@@ -43,9 +43,10 @@ export function useFormCollaboration({
   useEffect(() => {
     updateMyPresence({ 
       selectedFieldId,
+      selectedSectionId,
       draggingFieldId: isDragging ? selectedFieldId : null
     });
-  }, [selectedFieldId, isDragging, updateMyPresence]);
+  }, [selectedFieldId, selectedSectionId, isDragging, updateMyPresence]);
 
   // ─── Storage Access ───────────────────────────────────────────────────────
   // In Liveblocks 2.0, useStorage returns an immutable snapshot.
@@ -108,13 +109,12 @@ export function useFormCollaboration({
     }
   }, []);
 
-  const duplicateSection = useMutation(({ storage }, id: string) => {
+  const duplicateSection = useMutation(({ storage }, id: string, newSectionId: string) => {
     const fieldsList = storage.get("fields");
     const sectionsList = storage.get("sections");
     const srcSection = sectionsList.find((s) => (s as LiveObject<BuilderSection>).get("id") === id) as LiveObject<BuilderSection> | undefined;
     if (!srcSection) return;
 
-    const newSectionId = crypto.randomUUID();
     const newSection: BuilderSection = {
       id: newSectionId,
       name: `${srcSection.get("name")} (Copy)`,

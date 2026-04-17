@@ -282,25 +282,31 @@ export function BuilderCanvas({
       id: crypto.randomUUID(),
       name: `Section ${sections.length + 1}`,
       description: "",
-      orderIndex: sections.length,
+      orderIndex: afterIndex + 1,
     };
     collabAddSection(newSection);
     setCurrentSectionId(newSection.id);
+    toast.success("Section added", { description: `"${newSection.name}" has been created` });
   }, [sections, collabAddSection, setCurrentSectionId]);
 
   const handleDeleteSection = useCallback((id: string) => {
-    // Move current view away before deleting
+    const section = sortedSections.find(s => s.id === id);
     const idx = sortedSections.findIndex(s => s.id === id);
     const next = sortedSections[idx + 1] ?? sortedSections[idx - 1];
     if (next) setCurrentSectionId(next.id);
-    // Remove all fields in this section
     fields.filter(f => f.sectionId === id).forEach(f => collabRemoveField(f.id));
     collabRemoveSection(id);
+    toast.success("Section deleted", {
+      description: section ? `"${section.name}" and its fields have been removed` : undefined,
+    });
   }, [sortedSections, fields, collabRemoveField, collabRemoveSection, setCurrentSectionId]);
 
   const handleDuplicateSection = useCallback((id: string) => {
-    collabDuplicateSection(id);
-  }, [collabDuplicateSection]);
+    const newId = crypto.randomUUID();
+    collabDuplicateSection(id, newId);
+    setCurrentSectionId(newId);
+    toast.success("Section duplicated", { description: "You are now viewing the duplicate" });
+  }, [collabDuplicateSection, setCurrentSectionId]);
 
   const handleOpenSectionSettings = useCallback((id: string) => {
     selectSection(id);
@@ -516,12 +522,15 @@ export function BuilderCanvas({
                             sections={sortedSections}
                             currentSection={currentSection}
                             currentIndex={currentSectionIndex}
+                            isSelected={selectedSectionId === currentSection.id}
+                            onSelect={handleOpenSectionSettings}
                             onSelectSection={setCurrentSectionId}
                             onOpenSettings={handleOpenSectionSettings}
                             onDuplicate={handleDuplicateSection}
                             onDelete={handleDeleteSection}
                             onAddAfter={handleAddSection}
                             accentColor={accentColor}
+                            others={others}
                           />
                         </div>
 
@@ -571,12 +580,15 @@ export function BuilderCanvas({
                             sections={sortedSections}
                             currentSection={currentSection}
                             currentIndex={currentSectionIndex}
+                            isSelected={selectedSectionId === currentSection.id}
+                            onSelect={handleOpenSectionSettings}
                             onSelectSection={setCurrentSectionId}
                             onOpenSettings={handleOpenSectionSettings}
                             onDuplicate={handleDuplicateSection}
                             onDelete={handleDeleteSection}
                             onAddAfter={handleAddSection}
                             accentColor={accentColor}
+                            others={others}
                           />
                         </div>
                       </div>
@@ -604,10 +616,14 @@ export function BuilderCanvas({
               size="sm" 
               className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px]" 
               onClick={() => {
-                const field = fields.find(f => f.id === selectedFieldId);
-                if (field) handleDuplicateField(field);
+                if (selectedSectionId) {
+                  handleDuplicateSection(selectedSectionId);
+                } else {
+                  const field = fields.find(f => f.id === selectedFieldId);
+                  if (field) handleDuplicateField(field);
+                }
               }}
-              disabled={!selectedFieldId}
+              disabled={!selectedFieldId && !selectedSectionId}
             >
               <Copy className="h-5 w-5" />
               <span className="text-[10px] font-medium">Duplicate</span>
@@ -619,23 +635,28 @@ export function BuilderCanvas({
                 size="sm" 
                 className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px] text-destructive disabled:opacity-30" 
                 onClick={() => setIsDeleteConfirmOpen(true)}
-                disabled={!selectedFieldId}
+                disabled={!selectedFieldId && !selectedSectionId}
               >
                 <Trash2 className="h-5 w-5" />
                 <span className="text-[10px] font-medium">Delete</span>
               </Button>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Delete Field?</AlertDialogTitle>
+                  <AlertDialogTitle>{selectedSectionId ? "Delete Section?" : "Delete Field?"}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Are you sure you want to delete the selected field? This action cannot be undone.
+                    {selectedSectionId
+                      ? "This will permanently delete this section and all its fields. This cannot be undone."
+                      : "Are you sure you want to delete the selected field? This action cannot be undone."}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction 
                     onClick={() => {
-                      if (selectedFieldId) {
+                      if (selectedSectionId) {
+                        handleDeleteSection(selectedSectionId);
+                        selectSection(null);
+                      } else if (selectedFieldId) {
                         handleRemoveField(selectedFieldId);
                         selectField(null);
                       }
@@ -653,7 +674,7 @@ export function BuilderCanvas({
               size="sm" 
               className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px]" 
               onClick={() => setIsSettingsOpen(true)} 
-              disabled={!selectedFieldId}
+              disabled={!selectedFieldId && !selectedSectionId}
             >
               <Settings2 className="h-5 w-5" />
               <span className="text-[10px] font-medium">Properties</span>

@@ -106,6 +106,7 @@ export function Room({ children, roomId, initialForm, initialFields }: RoomProps
           initialPresence={{ 
             cursor: null, 
             selectedFieldId: null,
+            selectedSectionId: null,
             draggingFieldId: null 
           }}
           initialStorage={initialStorage}
