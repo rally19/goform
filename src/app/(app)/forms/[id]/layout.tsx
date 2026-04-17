@@ -158,6 +158,13 @@ function FormLayoutContent({
                     </Link>
                   );
                 })}
+                <div className="h-4 w-px bg-border/50 mx-1.5 shrink-0 md:hidden" />
+                <Button variant="outline" size="sm" asChild className="shrink-0 h-8 ml-1 md:hidden">
+                  <Link href={`/preview/${formId}`} target="_blank">
+                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                    Preview
+                  </Link>
+                </Button>
               </nav>
 
               {showRightArrow && (
