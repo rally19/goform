@@ -36,8 +36,8 @@ const CATEGORY_COLORS: Record<FieldCategory, string> = {
 };
 
 function DraggableSidebarItem({ item }: { item: FieldTypeMeta }) {
-  const { selectedFieldId, selectField } = useFormBuilder();
-  const addField = useMutation(({ storage }, type: FieldType) => {
+  const { selectedFieldId, selectField, currentSectionId } = useFormBuilder();
+  const addField = useMutation(({ storage }, type: FieldType, sectionId: string | null) => {
     const list = storage.get("fields");
     
     // Find index of selected field to insert below it
@@ -58,6 +58,7 @@ function DraggableSidebarItem({ item }: { item: FieldTypeMeta }) {
       required: false,
       orderIndex: insertIndex,
       isNew: true,
+      sectionId: sectionId ?? undefined,
       options: item.defaultOptions ? [...item.defaultOptions] : undefined,
       properties: item.defaultProperties ? { ...item.defaultProperties } : undefined,
     };
@@ -92,7 +93,7 @@ function DraggableSidebarItem({ item }: { item: FieldTypeMeta }) {
         "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-left text-sm hover:bg-muted transition-colors group cursor-grab active:cursor-grabbing",
         isDragging && "opacity-40"
       )}
-      onClick={() => addField(item.type as FieldType)}
+      onClick={() => addField(item.type as FieldType, currentSectionId)}
       title={item.description}
     >
       <div
@@ -125,6 +126,7 @@ export function ComponentPanel() {
 
   const filtered = useMemo(() => {
     return FIELD_TYPE_META.filter((m) => {
+      if (m.type === "section" || m.type === "page_break") return false;
       const matchesSearch =
         !search ||
         m.label.toLowerCase().includes(search.toLowerCase()) ||

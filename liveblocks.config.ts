@@ -1,5 +1,5 @@
 import { LiveList, LiveObject } from "@liveblocks/client";
-import { BuilderField, BuilderForm } from "@/lib/form-types";
+import { BuilderField, BuilderForm, BuilderSection } from "@/lib/form-types";
 
 export type Presence = {
   cursor: { 
@@ -20,6 +20,7 @@ export type Presence = {
 export type LiveblocksStorage = {
   fields: LiveList<LiveObject<BuilderField>>;
   formMetadata: LiveObject<BuilderForm>;
+  sections: LiveList<LiveObject<BuilderSection>>;
 };
 
 export type UserMeta = {

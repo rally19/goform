@@ -9,7 +9,7 @@ import {
 } from "@liveblocks/react";
 import { LiveList, LiveObject } from "@liveblocks/client";
 import { Loader2 } from "lucide-react";
-import type { BuilderField, BuilderForm } from "@/lib/form-types";
+import type { BuilderField, BuilderForm, BuilderSection } from "@/lib/form-types";
 import { useState, useEffect, useCallback } from "react";
 import { RoomErrorBoundary } from "./room-error-boundary";
 import { SyncErrorFallback } from "./error-fallback";
@@ -23,7 +23,15 @@ interface RoomProps {
 
 export function Room({ children, roomId, initialForm, initialFields }: RoomProps) {
   // We use useMemo to ensure initialStorage is stable across re-renders
+  const defaultSectionId = useMemo(() => crypto.randomUUID(), []);
+
   const initialStorage = useMemo(() => {
+    const defaultSection: BuilderSection = {
+      id: defaultSectionId,
+      name: "Section 1",
+      description: "",
+      orderIndex: 0,
+    };
     return {
       fields: new LiveList((initialFields || []).map(f => new LiveObject(f))),
       formMetadata: new LiveObject(initialForm || {
@@ -40,9 +48,10 @@ export function Room({ children, roomId, initialForm, initialFields }: RoomProps
         successMessage: "Thank you for your response!",
         autoSave: true,
         collaborationEnabled: true,
-      })
+      }),
+      sections: new LiveList([new LiveObject(defaultSection)]),
     };
-  }, [initialFields, initialForm]);
+  }, [initialFields, initialForm, defaultSectionId]);
   
   const [localAuthError, setLocalAuthError] = useState<Error | null>(null);
 

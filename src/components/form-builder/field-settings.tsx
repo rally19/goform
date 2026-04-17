@@ -1,6 +1,6 @@
 "use client";
 
-import { BuilderField } from "@/lib/form-types";
+import { BuilderField, BuilderSection } from "@/lib/form-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -43,6 +43,8 @@ interface FieldSettingsProps {
   onReorderOptions?: (from: number, to: number) => void;
   currentUserId: string;
   onMobileClose?: () => void;
+  selectedSection?: BuilderSection;
+  onUpdateSection?: (changes: Partial<BuilderSection>) => void;
 }
 
 export function FieldSettings({ 
@@ -53,15 +55,66 @@ export function FieldSettings({
   onUpdateOption,
   onReorderOptions,
   currentUserId,
-  onMobileClose 
+  onMobileClose,
+  selectedSection,
+  onUpdateSection,
 }: FieldSettingsProps) {
-  const { selectField } = useFormBuilder();
+  const { selectField, selectSection } = useFormBuilder();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 5 },
     })
   );
+
+  if (selectedSection && !field) {
+    return (
+      <div data-cursor-area-root="true" className="flex flex-col h-full bg-card min-h-0">
+        <div className="flex items-center justify-between p-3 border-b border-border shrink-0">
+          <div className="flex items-center gap-2">
+            <h3 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
+              Properties
+            </h3>
+            <Badge variant="secondary" className="text-[10px]">Section</Badge>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={() => {
+              selectSection(null);
+              onMobileClose?.();
+            }}
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="p-4 space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Section Name</Label>
+              <Input
+                value={selectedSection.name ?? ""}
+                onChange={(e) => onUpdateSection?.({ name: e.target.value })}
+                className="h-8 text-sm"
+                placeholder="Section name"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Description (optional)</Label>
+              <Textarea
+                value={selectedSection.description ?? ""}
+                onChange={(e) => onUpdateSection?.({ description: e.target.value })}
+                className="text-sm resize-none"
+                rows={2}
+                placeholder="Section description"
+              />
+            </div>
+          </div>
+        </ScrollArea>
+      </div>
+    );
+  }
 
   if (!field) {
     return (
@@ -136,7 +189,7 @@ export function FieldSettings({
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Label</Label>
               <Input
-                value={field.label}
+                value={field.label ?? ""}
                 onChange={(e) => onUpdate?.({ label: e.target.value })}
                 className="h-8 text-sm"
                 placeholder="Question label"

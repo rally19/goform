@@ -274,6 +274,8 @@ export interface BuilderField {
     // Add any other dynamic text like placeholder overwrites
     [key: string]: unknown;
   };
+  // Section this field belongs to
+  sectionId?: string;
   // Realtime Database Locked By userId
   lockedBy?: string | null;
   // dirty flag — needs to be saved
@@ -300,6 +302,17 @@ export interface BuilderForm {
   autoSave: boolean;
   collaborationEnabled: boolean;
   lastToggledBy?: string | null;
+  // Index signature for Liveblocks compatibility
+  [key: string]: any;
+}
+
+// ─── Section Types ────────────────────────────────────────────────────────────
+
+export interface BuilderSection {
+  id: string;
+  name: string;
+  description?: string;
+  orderIndex: number;
   // Index signature for Liveblocks compatibility
   [key: string]: any;
 }

@@ -10,7 +10,7 @@ import {
 } from "@liveblocks/react";
 import { LiveList, LiveObject } from "@liveblocks/client";
 import { useFormBuilder } from "./use-form-builder";
-import type { BuilderField, BuilderForm } from "@/lib/form-types";
+import type { BuilderField, BuilderForm, BuilderSection } from "@/lib/form-types";
 import { syncFormState } from "@/lib/actions/forms";
 
 interface UseFormCollaborationOptions {
@@ -27,7 +27,11 @@ export function useFormCollaboration({
   const { 
     selectedFieldId, 
     selectField,
-    isDragging 
+    isDragging,
+    currentSectionId,
+    setCurrentSectionId,
+    selectedSectionId,
+    selectSection,
   } = useFormBuilder();
 
   // ─── Presence ─────────────────────────────────────────────────────────────
@@ -47,6 +51,7 @@ export function useFormCollaboration({
   // In Liveblocks 2.0, useStorage returns an immutable snapshot.
   const fields = useStorage((root) => root.fields) as unknown as BuilderField[];
   const form = useStorage((root) => root.formMetadata) as unknown as BuilderForm;
+  const sections = useStorage((root) => root.sections) as unknown as BuilderSection[];
 
   // ─── Mutations ────────────────────────────────────────────────────────────
   
@@ -80,6 +85,59 @@ export function useFormCollaboration({
   const reorderFields = useMutation(({ storage }, from: number, to: number) => {
     const list = storage.get("fields");
     list.move(from, to);
+  }, []);
+
+  const addSection = useMutation(({ storage }, section: BuilderSection) => {
+    const list = storage.get("sections");
+    list.push(new LiveObject<BuilderSection>(section));
+  }, []);
+
+  const removeSection = useMutation(({ storage }, id: string) => {
+    const list = storage.get("sections");
+    const index = list.findIndex((s) => (s as LiveObject<BuilderSection>).get("id") === id);
+    if (index !== -1) list.delete(index);
+  }, []);
+
+  const updateSection = useMutation(({ storage }, id: string, changes: Partial<BuilderSection>) => {
+    const list = storage.get("sections");
+    const section = list.find((s) => (s as LiveObject<BuilderSection>).get("id") === id) as LiveObject<BuilderSection> | undefined;
+    if (section) {
+      for (const [key, value] of Object.entries(changes)) {
+        section.set(key as keyof BuilderSection, value);
+      }
+    }
+  }, []);
+
+  const duplicateSection = useMutation(({ storage }, id: string) => {
+    const fieldsList = storage.get("fields");
+    const sectionsList = storage.get("sections");
+    const srcSection = sectionsList.find((s) => (s as LiveObject<BuilderSection>).get("id") === id) as LiveObject<BuilderSection> | undefined;
+    if (!srcSection) return;
+
+    const newSectionId = crypto.randomUUID();
+    const newSection: BuilderSection = {
+      id: newSectionId,
+      name: `${srcSection.get("name")} (Copy)`,
+      description: srcSection.get("description") ?? "",
+      orderIndex: sectionsList.length,
+    };
+    sectionsList.push(new LiveObject<BuilderSection>(newSection));
+
+    const srcFieldKeys: string[] = ["type","label","description","placeholder","required","orderIndex","options","validation","properties","lockedBy","isDirty","isNew"];
+    const srcFields: Record<string, unknown>[] = [];
+    for (let i = 0; i < fieldsList.length; i++) {
+      const f = fieldsList.get(i) as LiveObject<BuilderField>;
+      if (f.get("sectionId") === id) {
+        const snapshot: Record<string, unknown> = {};
+        for (const k of srcFieldKeys) {
+          snapshot[k] = f.get(k as keyof BuilderField);
+        }
+        srcFields.push(snapshot);
+      }
+    }
+    for (const f of srcFields) {
+      fieldsList.push(new LiveObject<BuilderField>({ ...f, id: crypto.randomUUID(), sectionId: newSectionId, isNew: true } as BuilderField));
+    }
   }, []);
 
   const updateFormMeta = useMutation(({ storage }, changes: Partial<BuilderForm>) => {
@@ -197,6 +255,7 @@ export function useFormCollaboration({
   return {
     fields: fields || [],
     form: form || initialForm,
+    sections: sections || [],
     others,
     self,
     myPresence,
@@ -206,8 +265,16 @@ export function useFormCollaboration({
     updateField,
     reorderFields,
     updateFormMeta,
+    addSection,
+    removeSection,
+    updateSection,
+    duplicateSection,
     selectField,
     selectedFieldId,
     isDragging,
+    currentSectionId,
+    setCurrentSectionId,
+    selectedSectionId,
+    selectSection,
   };
 }

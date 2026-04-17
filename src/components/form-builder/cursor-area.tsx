@@ -175,7 +175,7 @@ export function CursorArea({ id, children, className, onClick }: CursorAreaProps
         position: "relative",
         // Prevent mobile browser gestures from interfering with precise pointer tracking
         // exclusively during active interaction if possible, or use pan-y for scrollable sidebars
-        touchAction: id === "canvas" ? "none" : "pan-y"
+        touchAction: id === "canvas" || id.startsWith("canvas-") ? "none" : "pan-y"
       }}
       onClick={onClick}
     >

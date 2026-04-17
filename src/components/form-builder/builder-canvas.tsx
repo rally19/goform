@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { BuilderField, BuilderForm } from "@/lib/form-types";
+import { SectionBar } from "./section-bar";
 import { setFormStatus } from "@/lib/actions/forms";
 import { toast } from "sonner";
 import {
@@ -33,7 +34,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import {
-  PlusCircle, Settings2, Palette, Check,
+  PlusCircle, Settings2, Palette,
   Plus, Loader2,
   GripVertical, Copy, Trash2, ChevronDown
 } from "lucide-react";
@@ -221,12 +222,17 @@ export function BuilderCanvas({
     selectedFieldId,
     selectField,
     setIsDragging,
+    currentSectionId,
+    setCurrentSectionId,
+    selectedSectionId,
+    selectSection,
   } = useFormBuilder();
 
   // ─── Liveblocks Engine ────────────────────────────────────────────────────
   const {
     fields,
     form,
+    sections,
     others,
     self,
     addField: collabAddField,
@@ -234,11 +240,72 @@ export function BuilderCanvas({
     updateField: collabUpdateField,
     reorderFields: collabReorderFields,
     updateFormMeta: collabUpdateFormMeta,
+    addSection: collabAddSection,
+    removeSection: collabRemoveSection,
+    updateSection: collabUpdateSection,
+    duplicateSection: collabDuplicateSection,
   } = useFormCollaboration({
     formId,
     initialForm,
     initialFields,
   });
+
+  // ─── Section state bootstrap ───────────────────────────────────────────────
+  // Once sections load, initialise currentSectionId to the first section
+  useEffect(() => {
+    if (sections.length > 0 && !currentSectionId) {
+      setCurrentSectionId(sections[0].id);
+    }
+    // If the current section was deleted, reset to first
+    if (currentSectionId && sections.length > 0 && !sections.find(s => s.id === currentSectionId)) {
+      setCurrentSectionId(sections[0].id);
+    }
+  }, [sections, currentSectionId, setCurrentSectionId]);
+
+  const sortedSections = useMemo(
+    () => [...sections].sort((a, b) => a.orderIndex - b.orderIndex),
+    [sections]
+  );
+
+  const activeSectionId = currentSectionId ?? sortedSections[0]?.id ?? null;
+  const currentSectionIndex = sortedSections.findIndex(s => s.id === activeSectionId);
+  const currentSection = sortedSections[currentSectionIndex] ?? null;
+
+  // Fields belonging to the currently displayed section
+  const sectionFields = useMemo(() => {
+    if (!activeSectionId) return fields;
+    return fields.filter(f => f.sectionId === activeSectionId);
+  }, [fields, activeSectionId]);
+
+  const handleAddSection = useCallback((afterIndex: number) => {
+    const newSection = {
+      id: crypto.randomUUID(),
+      name: `Section ${sections.length + 1}`,
+      description: "",
+      orderIndex: sections.length,
+    };
+    collabAddSection(newSection);
+    setCurrentSectionId(newSection.id);
+  }, [sections, collabAddSection, setCurrentSectionId]);
+
+  const handleDeleteSection = useCallback((id: string) => {
+    // Move current view away before deleting
+    const idx = sortedSections.findIndex(s => s.id === id);
+    const next = sortedSections[idx + 1] ?? sortedSections[idx - 1];
+    if (next) setCurrentSectionId(next.id);
+    // Remove all fields in this section
+    fields.filter(f => f.sectionId === id).forEach(f => collabRemoveField(f.id));
+    collabRemoveSection(id);
+  }, [sortedSections, fields, collabRemoveField, collabRemoveSection, setCurrentSectionId]);
+
+  const handleDuplicateSection = useCallback((id: string) => {
+    collabDuplicateSection(id);
+  }, [collabDuplicateSection]);
+
+  const handleOpenSectionSettings = useCallback((id: string) => {
+    selectSection(id);
+    selectField(null);
+  }, [selectSection, selectField]);
 
   const CanvasDroppable = useCallback(({ children }: { children: React.ReactNode }) => {
     const { setNodeRef } = useDroppable({ id: "canvas" });
@@ -301,6 +368,7 @@ export function BuilderCanvas({
         placeholder: meta?.defaultLabel ? `Enter ${meta.defaultLabel.toLowerCase()}...` : `Enter ${type.replace(/_/g, " ")}...`,
         required: false,
         isNew: true,
+        sectionId: activeSectionId ?? undefined,
         options: meta?.defaultOptions ? [...meta.defaultOptions] : undefined,
         properties: meta?.defaultProperties ? { ...meta.defaultProperties } : undefined,
         orderIndex: fields.length,
@@ -336,10 +404,10 @@ export function BuilderCanvas({
   }, [collabRemoveField]);
 
   const handleDuplicateField = useCallback((field: BuilderField) => {
-    const copy = { ...field, id: crypto.randomUUID(), label: `${field.label} (Copy)`, isNew: true };
+    const copy = { ...field, id: crypto.randomUUID(), label: `${field.label} (Copy)`, isNew: true, sectionId: activeSectionId ?? undefined };
     const idx = fields.findIndex(f => f.id === field.id);
     collabAddField(copy, idx + 1);
-  }, [fields, collabAddField]);
+  }, [fields, collabAddField, activeSectionId]);
 
   const handleFieldClick = useCallback((id: string) => {
     if (selectedFieldId === id) {
@@ -412,58 +480,108 @@ export function BuilderCanvas({
             </div>
           </header>
 
-          {/* Canvas */}
+          {/* Canvas — one unified CursorArea per section, keyed so switching section
+               fully remounts the area and resets all live cursors to the new page */}
           <div className="flex-1 h-full min-h-0 bg-muted/30 overflow-y-auto" onClick={() => selectField(null)}>
-            <CursorArea id="canvas" className="min-h-full" onClick={() => selectField(null)}>
+            <CursorArea
+              key={activeSectionId ?? "no-section"}
+              id={`canvas-${activeSectionId ?? "no-section"}`}
+              className="min-h-full"
+              onClick={() => selectField(null)}
+            >
               <div className="max-w-2xl mx-auto p-4 md:p-8 pb-32">
                 <CanvasDroppable>
-                <div data-cursor-area-root="true" className="space-y-8">
-                  <div data-cursor-id="header" data-cursor-type="header">
-                    <FormHeaderEditor 
-                      accentColor={accentColor} 
-                      title={form?.title}
-                      description={form?.description}
-                      onUpdate={(changes) => collabUpdateFormMeta(changes)}
-                    />
-                  </div>
+                  {/* Single data-cursor-area-root — the cursor detection grid covers
+                       header → section-bar-top → fields → section-bar-bottom as one tree */}
+                  <div data-cursor-area-root="true" className="space-y-8">
 
-                  <div className="space-y-4">
-                    <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
+                    {/* Row: Form header (shared across all sections) */}
+                    <div data-cursor-id="header" data-cursor-type="header">
+                      <FormHeaderEditor
+                        accentColor={accentColor}
+                        title={form?.title}
+                        description={form?.description}
+                        onUpdate={(changes) => collabUpdateFormMeta(changes)}
+                      />
+                    </div>
+
+                    {currentSection && (
                       <div className="space-y-4">
-                        <AnimatePresence>
-                          {fields.map((field) => (
-                            <motion.div
-                              key={field.id}
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              data-cursor-id={field.id}
-                              data-cursor-type="field"
-                            >
-                              <FieldCard
-                                field={field}
-                                isSelected={selectedFieldId === field.id}
-                                accentColor={accentColor}
-                                currentUserId={currentUserId}
-                                onUpdate={handleUpdateField}
-                                onRemove={handleRemoveField}
-                                onDuplicate={handleDuplicateField}
-                                onClick={handleFieldClick}
-                                others={others}
-                              />
-                            </motion.div>
-                          ))}
-                        </AnimatePresence>
-                      </div>
-                    </SortableContext>
-                    {fields.length === 0 && (
-                      <div className="border-2 border-dashed border-muted-foreground/20 rounded-xl p-12 text-center">
-                        <PlusCircle className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
-                        <p className="text-sm font-medium">Start building your form</p>
-                        <p className="text-xs text-muted-foreground mt-1">Drag components here to begin</p>
+                        {/* Row: Section navigation bar (top) */}
+                        <div
+                          data-cursor-id={`section-bar-top-${currentSection.id}`}
+                          data-cursor-type="header"
+                        >
+                          <SectionBar
+                            sections={sortedSections}
+                            currentSection={currentSection}
+                            currentIndex={currentSectionIndex}
+                            onSelectSection={setCurrentSectionId}
+                            onOpenSettings={handleOpenSectionSettings}
+                            onDuplicate={handleDuplicateSection}
+                            onDelete={handleDeleteSection}
+                            onAddAfter={handleAddSection}
+                            accentColor={accentColor}
+                          />
+                        </div>
+
+                        {/* Rows: Fields */}
+                        <SortableContext items={sectionFields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
+                          <div className="space-y-4">
+                            <AnimatePresence>
+                              {sectionFields.map((field) => (
+                                <motion.div
+                                  key={field.id}
+                                  initial={{ opacity: 0, y: 10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  data-cursor-id={field.id}
+                                  data-cursor-type="field"
+                                >
+                                  <FieldCard
+                                    field={field}
+                                    isSelected={selectedFieldId === field.id}
+                                    accentColor={accentColor}
+                                    currentUserId={currentUserId}
+                                    onUpdate={handleUpdateField}
+                                    onRemove={handleRemoveField}
+                                    onDuplicate={handleDuplicateField}
+                                    onClick={handleFieldClick}
+                                    others={others}
+                                  />
+                                </motion.div>
+                              ))}
+                            </AnimatePresence>
+                          </div>
+                        </SortableContext>
+
+                        {sectionFields.length === 0 && (
+                          <div className="border-2 border-dashed border-muted-foreground/20 rounded-xl p-12 text-center">
+                            <PlusCircle className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+                            <p className="text-sm font-medium">Start building your form</p>
+                            <p className="text-xs text-muted-foreground mt-1">Drag components here to begin</p>
+                          </div>
+                        )}
+
+                        {/* Row: Section navigation bar (bottom) */}
+                        <div
+                          data-cursor-id={`section-bar-bottom-${currentSection.id}`}
+                          data-cursor-type="header"
+                        >
+                          <SectionBar
+                            sections={sortedSections}
+                            currentSection={currentSection}
+                            currentIndex={currentSectionIndex}
+                            onSelectSection={setCurrentSectionId}
+                            onOpenSettings={handleOpenSectionSettings}
+                            onDuplicate={handleDuplicateSection}
+                            onDelete={handleDeleteSection}
+                            onAddAfter={handleAddSection}
+                            accentColor={accentColor}
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
-                </div>
                 </CanvasDroppable>
               </div>
             </CursorArea>
@@ -544,10 +662,12 @@ export function BuilderCanvas({
         </div>
 
         {/* Right Panel */}
-        <CursorArea id={`settings-${selectedFieldId || 'none'}`} className="w-80 shrink-0 hidden lg:flex flex-col border-l border-border h-full bg-card overflow-hidden">
+        <CursorArea id={`settings-${selectedFieldId || selectedSectionId || 'none'}`} className="w-80 shrink-0 hidden lg:flex flex-col border-l border-border h-full bg-card overflow-hidden">
           <FieldSettings 
             currentUserId={currentUserId} 
             field={fields.find(f => f.id === selectedFieldId)}
+            selectedSection={selectedSectionId ? sections.find(s => s.id === selectedSectionId) : undefined}
+            onUpdateSection={(changes) => selectedSectionId && collabUpdateSection(selectedSectionId, changes)}
             onUpdate={(changes) => selectedFieldId && collabUpdateField(selectedFieldId, changes)}
             onAddOption={() => {
               if (selectedFieldId) {
