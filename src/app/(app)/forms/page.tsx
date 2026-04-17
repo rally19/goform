@@ -12,7 +12,8 @@ export const unstable_instant = {
       cookies: [
         { name: 'goform_workspace', value: null },
         { name: 'sb-access-token', value: null },
-        { name: 'sb-refresh-token', value: null }
+        { name: 'sb-refresh-token', value: null },
+        { name: 'sidebar_state', value: null }
       ]
     }
   ]
