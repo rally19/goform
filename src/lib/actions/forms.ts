@@ -3,6 +3,7 @@
 import { db } from "@/db";
 import { forms, formFields, formResponses, type NewForm, type NewFormField } from "@/db/schema";
 import { createClient } from "@/lib/server";
+import { liveblocks } from "@/lib/liveblocks";
 import { eq, desc, ilike, and, count, sql, isNull, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import type { ActionResult, BuilderField, BuilderForm } from "@/lib/form-types";
@@ -284,6 +285,24 @@ export async function updateForm(
     if (shouldRevalidate) {
       revalidatePath(`/forms/${id}`);
     }
+
+    // sync changes to liveblocks if they exist
+    try {
+      await liveblocks.mutateStorage(id, ({ root }) => {
+        const meta = root.get("formMetadata");
+        if (meta) {
+          for (const [key, value] of Object.entries(data)) {
+            // Only set fields that exist in BuilderForm to avoid storage pollution
+            meta.set(key, value);
+          }
+        }
+      });
+    } catch (err) {
+      // Room might not exist yet, or other liveblocks error. 
+      // We don't want to fail the main action if sync fails.
+      console.error("Liveblocks sync failed:", err);
+    }
+
     return { success: true };
   } catch (err) {
     return { success: false, error: (err as Error).message };
@@ -408,6 +427,19 @@ export async function setFormStatus(
 
     revalidatePath(`/forms/${id}`);
     revalidatePath("/forms");
+
+    // sync changes to liveblocks
+    try {
+      await liveblocks.mutateStorage(id, ({ root }) => {
+        const meta = root.get("formMetadata");
+        if (meta) {
+          meta.set("status", status);
+        }
+      });
+    } catch (err) {
+      console.error("Liveblocks status sync failed:", err);
+    }
+
     return { success: true };
   } catch (err) {
     return { success: false, error: (err as Error).message };

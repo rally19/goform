@@ -165,6 +165,35 @@ export function useFormCollaboration({
     return () => clearTimeout(saveTimeoutRef.current);
   }, [fields, form, persistToSupabase]);
 
+  // ─── Initial Metadata Sync ────────────────────────────────────────────────
+  // On mount, if the storage metadata differs from the DB truth (initialForm),
+  // we force a sync to Liveblocks. This prevents stale storage resets.
+  useEffect(() => {
+    if (!form || !initialForm) return;
+
+    const fieldsToSync: (keyof BuilderForm)[] = [
+      "status", "accentColor", "acceptResponses", "requireAuth", 
+      "showProgress", "oneResponsePerUser", "successMessage", 
+      "redirectUrl", "title", "description", "slug"
+    ];
+
+    const changes: Partial<BuilderForm> = {};
+    let hasChanges = false;
+
+    for (const key of fieldsToSync) {
+      if (form[key] !== initialForm[key] && initialForm[key] !== undefined) {
+        changes[key] = initialForm[key] as any;
+        hasChanges = true;
+      }
+    }
+
+    if (hasChanges) {
+      updateFormMeta(changes);
+    }
+    // We only want to run this once when the form becomes available
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!form]);
+
   return {
     fields: fields || [],
     form: form || initialForm,

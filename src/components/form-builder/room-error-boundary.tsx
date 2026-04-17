@@ -33,10 +33,13 @@ export class RoomErrorBoundary extends Component<Props, State> {
 
   public render() {
     if (this.state.hasError && this.state.error) {
-      return this.props.fallback({
-        error: this.state.error,
-        resetErrorBoundary: this.resetErrorBoundary,
-      });
+      const Fallback = this.props.fallback;
+      return (
+        <Fallback
+          error={this.state.error}
+          resetErrorBoundary={this.resetErrorBoundary}
+        />
+      );
     }
 
     return this.props.children;

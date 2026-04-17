@@ -33,8 +33,8 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import {
-  PlusCircle, Globe, Settings2, Palette, Check,
-  Link as LinkIcon, Plus, Loader2, CheckCheck,
+  PlusCircle, Settings2, Palette, Check,
+  Plus, Loader2,
   GripVertical, Copy, Trash2, ChevronDown
 } from "lucide-react";
 import { ACCENT_COLORS, FIELD_TYPE_META } from "@/lib/form-types";
@@ -241,19 +241,6 @@ export function BuilderCanvas({
     }
   };
 
-  const updateStatus = async (status: "draft" | "active" | "closed") => {
-    const res = await setFormStatus(formId, status);
-    if (res.success) {
-      collabUpdateFormMeta({ status });
-      toast.success(`Form ${status}`);
-    }
-  };
-
-  const copyLink = () => {
-    const url = `${window.location.origin}/f/${form.slug}`;
-    navigator.clipboard.writeText(url);
-    toast.success("Link copied!");
-  };
 
   const handleUpdateField = useCallback((id: string, changes: Partial<BuilderField>) => {
     collabUpdateField(id, changes);
@@ -326,35 +313,6 @@ export function BuilderCanvas({
             </div>
 
             <div className="flex items-center gap-1 sm:gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-8 gap-1.5 hidden sm:flex">
-                    <Globe className="h-3.5 w-3.5" />
-                    <span>Publish</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={() => updateStatus("active")} className="gap-2">
-                    <CheckCheck className="h-4 w-4 text-emerald-500" />
-                    Publish Form
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => updateStatus("draft")} className="gap-2">
-                    <Settings2 className="h-4 w-4" />
-                    Back to Draft
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={copyLink} className="gap-2">
-                    <LinkIcon className="h-4 w-4" />
-                    Copy Link
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <Button variant="ghost" size="icon" className="h-8 w-8 sm:hidden" onClick={copyLink}>
-                <LinkIcon className="h-4 w-4" />
-              </Button>
-
-              <div className="w-px h-4 bg-border mx-1" />
-
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-8 w-8">

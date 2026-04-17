@@ -70,6 +70,7 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
       successMessage: form.successMessage,
       redirectUrl: form.redirectUrl || undefined,
       autoSave: form.autoSave,
+      status: form.status,
     });
     setSaving(false);
     if (result.success) {
@@ -200,6 +201,15 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
             <Separator />
 
             <div className="space-y-3">
+              <ToggleSetting
+                id="status"
+                label="Published"
+                description="Make this form public and start accepting responses"
+                checked={form.status === "active"}
+                onCheckedChange={(v) => update({ status: v ? "active" : "draft" })}
+                icon={Globe}
+              />
+
               <ToggleSetting
                 id="requireAuth"
                 label="Require Authentication"
