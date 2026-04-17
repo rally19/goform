@@ -65,7 +65,7 @@ export function FieldSettings({
 
   if (!field) {
     return (
-      <div className="flex flex-col h-full bg-card min-h-0">
+      <div data-cursor-area-root="true" className="flex flex-col h-full bg-card min-h-0">
         <div className="p-3 border-b border-border">
           <h3 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
             Properties
@@ -105,7 +105,7 @@ export function FieldSettings({
   };
 
   return (
-    <div className="flex flex-col h-full bg-card min-h-0">
+    <div data-cursor-area-root="true" className="flex flex-col h-full bg-card min-h-0">
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-border shrink-0">
         <div className="flex items-center gap-2">
@@ -132,7 +132,7 @@ export function FieldSettings({
       <ScrollArea className="flex-1 min-h-0">
         <div className="p-4 space-y-5">
           {/* Basic info */}
-          <div className="space-y-3">
+          <div className="space-y-3" data-cursor-id="basic-info">
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Label</Label>
               <Input
@@ -169,7 +169,7 @@ export function FieldSettings({
           {!isLayout && (
             <>
               <Separator />
-              <div className="flex items-center justify-between rounded-lg border border-border p-3 bg-background/50">
+              <div data-cursor-id="required-toggle" className="flex items-center justify-between rounded-lg border border-border p-3 bg-background/50">
                 <div>
                   <p className="text-sm font-medium">Required</p>
                   <p className="text-xs text-muted-foreground">Force respondents to answer</p>
@@ -186,7 +186,7 @@ export function FieldSettings({
           {hasOptions && (
             <>
               <Separator />
-              <div className="space-y-2">
+              <div className="space-y-2" data-cursor-id="options-manager">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-medium">Options</Label>
                   <Button
@@ -230,7 +230,7 @@ export function FieldSettings({
 
           {/* Other settings... Rating, Scale, Validation etc remain the same */}
           {hasRating && (
-            <div className="space-y-3 pt-2">
+            <div className="space-y-3 pt-2" data-cursor-id="rating-settings">
               <Separator />
               <div className="flex justify-between items-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
                  <span>Stars</span>
@@ -251,7 +251,7 @@ export function FieldSettings({
           )}
 
           {hasScale && (
-            <div className="space-y-3 pt-2">
+            <div className="space-y-3 pt-2" data-cursor-id="scale-settings">
               <Separator />
               <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Scale Range</Label>
               <div className="grid grid-cols-2 gap-2">
@@ -286,7 +286,7 @@ export function FieldSettings({
           )}
           
           {hasValidation && (
-            <div className="space-y-3 pt-2">
+            <div className="space-y-3 pt-2" data-cursor-id="validation-settings">
               <Separator />
               <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Validation Rules</Label>
               {(field.type === "short_text" || field.type === "long_text") && (

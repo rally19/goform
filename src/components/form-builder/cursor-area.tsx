@@ -5,7 +5,7 @@ import { useRef, useCallback, ReactNode, useEffect, useState } from "react";
 import { Cursor } from "./cursors";
 
 interface CursorAreaProps {
-  id: "components" | "canvas" | "settings";
+  id: string;
   children: ReactNode;
   className?: string;
   onClick?: () => void;
@@ -35,8 +35,16 @@ export function CursorArea({ id, children, className, onClick }: CursorAreaProps
       }
 
       // Occlusion check: Is there something (like a Sheet or Sidebar) physically over the canvas?
+      // We check if the element at the current point is actually inside this container.
       const targetAtPoint = document.elementFromPoint(e.clientX, e.clientY);
       const isOccluded = targetAtPoint && !containerRef.current.contains(targetAtPoint);
+
+      // CRITICAL FIX: If this area is occluded by another overlay (like a mobile Sheet or sidebar),
+      // we STOP here to prevent multiple CursorAreas from fighting over the shared presence state.
+      // This is what causes the "flickering/glitching" reported in mobile overlays.
+      if (isOccluded && !myPresence?.draggingFieldId) {
+        return;
+      }
 
       // Coordinates relative to container
       let x = e.clientX - rect.left;
@@ -48,81 +56,85 @@ export function CursorArea({ id, children, className, onClick }: CursorAreaProps
       let relX = 0;
       let relY = 0;
 
-      if (id === "canvas") {
-        const rootEl = containerRef.current.querySelector('[data-cursor-area-root="true"]');
-        if (rootEl) {
-          const rootRect = rootEl.getBoundingClientRect();
-          
-          // --- Horizontal Detection (Container-Relative) ---
-          const rootOffsetLeft = rootRect.left - rect.left;
-          const rootOffsetRight = rootRect.right - rect.left;
-          const localX = e.clientX - rect.left;
+      const rootEl = containerRef.current.querySelector('[data-cursor-area-root="true"]') as HTMLElement;
+      
+      if (rootEl) {
+        const rootRect = rootEl.getBoundingClientRect();
+        
+        // --- Horizontal Detection ---
+        const rootOffsetLeft = rootRect.left - rect.left;
+        const rootOffsetRight = rootRect.right - rect.left;
+        const localX = e.clientX - rect.left;
 
-          if (localX < rootOffsetLeft) {
-            colType = "left";
-            const leftGutterWidth = rootOffsetLeft;
-            relX = leftGutterWidth > 0 
-              ? Math.max(0, Math.min(1, (rootOffsetLeft - localX) / leftGutterWidth))
-              : 0;
-          } else if (localX > rootOffsetRight) {
-            colType = "right";
-            const rightGutterWidth = rect.width - rootOffsetRight;
-            relX = rightGutterWidth > 0
-              ? Math.max(0, Math.min(1, (localX - rootOffsetRight) / rightGutterWidth))
-              : 0;
+        if (localX < rootOffsetLeft) {
+          colType = "left";
+          const leftGutterWidth = rootOffsetLeft;
+          relX = leftGutterWidth > 0 
+            ? Math.max(0, Math.min(1, (rootOffsetLeft - localX) / leftGutterWidth))
+            : 0;
+        } else if (localX > rootOffsetRight) {
+          colType = "right";
+          const rightGutterWidth = rect.width - rootOffsetRight;
+          relX = rightGutterWidth > 0
+            ? Math.max(0, Math.min(1, (localX - rootOffsetRight) / rightGutterWidth))
+            : 0;
+        } else {
+          colType = "center";
+          relX = (localX - rootOffsetLeft) / rootRect.width;
+        }
+
+        // --- Vertical Row Detection (Anchors) ---
+        const anchorEls = Array.from(containerRef.current.querySelectorAll("[data-cursor-id]"));
+        const sortedAnchors = anchorEls.map(el => ({
+          el,
+          rect: el.getBoundingClientRect(),
+          id: el.getAttribute("data-cursor-id")!
+        })).sort((a, b) => a.rect.top - b.rect.top);
+
+        if (sortedAnchors.length > 0) {
+          const first = sortedAnchors[0];
+          const last = sortedAnchors[sortedAnchors.length - 1];
+
+          if (e.clientY < first.rect.top) {
+            rowType = "gutter-top";
+            relY = (first.rect.top - e.clientY) / 200;
+          } else if (e.clientY > last.rect.bottom) {
+            rowType = "gutter-bottom";
+            relY = (e.clientY - last.rect.bottom) / 200;
           } else {
-            colType = "center";
-            relX = (localX - rootOffsetLeft) / rootRect.width;
-          }
-
-          // --- Vertical Row Detection ---
-          const anchorEls = Array.from(containerRef.current.querySelectorAll("[data-cursor-id]"));
-          const sortedAnchors = anchorEls.map(el => ({
-            el,
-            rect: el.getBoundingClientRect(),
-            id: el.getAttribute("data-cursor-id")!
-          })).sort((a, b) => a.rect.top - b.rect.top);
-
-          if (sortedAnchors.length > 0) {
-            const first = sortedAnchors[0];
-            const last = sortedAnchors[sortedAnchors.length - 1];
-
-            if (e.clientY < first.rect.top) {
-              rowType = "gutter-top";
-              relY = (first.rect.top - e.clientY) / 200;
-            } else if (e.clientY > last.rect.bottom) {
-              rowType = "gutter-bottom";
-              relY = (e.clientY - last.rect.bottom) / 200;
-            } else {
-              for (let i = 0; i < sortedAnchors.length; i++) {
-                const current = sortedAnchors[i];
-                if (e.clientY >= current.rect.top && e.clientY <= current.rect.bottom) {
-                  rowType = current.el.getAttribute("data-cursor-type") as any || "field";
-                  rowId = current.id;
-                  relY = (e.clientY - current.rect.top) / current.rect.height;
+            for (let i = 0; i < sortedAnchors.length; i++) {
+              const current = sortedAnchors[i];
+              if (e.clientY >= current.rect.top && e.clientY <= current.rect.bottom) {
+                rowType = current.el.getAttribute("data-cursor-type") as any || "field";
+                rowId = current.id;
+                relY = (e.clientY - current.rect.top) / current.rect.height;
+                break;
+              }
+              if (i < sortedAnchors.length - 1) {
+                const next = sortedAnchors[i+1];
+                if (e.clientY > current.rect.bottom && e.clientY < next.rect.top) {
+                  rowType = "gap";
+                  rowId = next.id;
+                  relY = (e.clientY - current.rect.bottom) / (next.rect.top - current.rect.bottom);
                   break;
-                }
-                if (i < sortedAnchors.length - 1) {
-                  const next = sortedAnchors[i + 1];
-                  if (e.clientY > current.rect.bottom && e.clientY < next.rect.top) {
-                    rowType = "gap";
-                    rowId = next.id;
-                    relY = (e.clientY - current.rect.bottom) / (next.rect.top - current.rect.bottom);
-                    break;
-                  }
                 }
               }
             }
           }
+        } else {
+          // Fallback if no anchors in root
+          rowType = "field";
+          relY = (e.clientY - rootRect.top) / rootRect.height;
         }
       } else {
-        // Sidebar tracking
-        const target = document.elementFromPoint(e.clientX, e.clientY);
+        // Simple relative tracking for areas without a root
         rowType = "field";
-        rowId = (target as HTMLElement)?.closest("[data-cursor-id]")?.getAttribute("data-cursor-id") || undefined;
         colType = "center";
         relX = x / rect.width; 
         relY = y / rect.height;
+        
+        const target = document.elementFromPoint(e.clientX, e.clientY);
+        rowId = (target as HTMLElement)?.closest("[data-cursor-id]")?.getAttribute("data-cursor-id") || undefined;
       }
 
       updateMyPresence({
@@ -159,7 +171,12 @@ export function CursorArea({ id, children, className, onClick }: CursorAreaProps
       ref={containerRef}
       onMouseLeave={() => updateMyPresence({ cursor: null })}
       className={className}
-      style={{ position: "relative" }}
+      style={{ 
+        position: "relative",
+        // Prevent mobile browser gestures from interfering with precise pointer tracking
+        // exclusively during active interaction if possible, or use pan-y for scrollable sidebars
+        touchAction: id === "canvas" ? "none" : "pan-y"
+      }}
       onClick={onClick}
     >
       {children}

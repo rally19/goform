@@ -147,6 +147,7 @@ export function ComponentPanel() {
   return (
     <div
       ref={setNodeRef}
+      data-cursor-area-root="true"
       className={cn(
         "flex flex-col h-full bg-card min-h-0 relative transition-colors duration-200",
         isOver && "bg-destructive/10 ring-2 ring-inset ring-destructive/20"
@@ -223,7 +224,11 @@ export function ComponentPanel() {
             return (
               <div key={category}>
                 {activeCategory === "all" && (
-                  <div className="flex items-center gap-1.5 px-1 mb-1.5">
+                  <div 
+                    className="flex items-center gap-1.5 px-1 mb-1.5"
+                    data-cursor-id={`cat:${category}`}
+                    data-cursor-type="header"
+                  >
                     {CatIcon && <CatIcon className="h-3 w-3 text-muted-foreground" />}
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                       {catMeta?.label ?? category}

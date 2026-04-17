@@ -5,7 +5,7 @@ export type Presence = {
   cursor: { 
     x: number; // Fallback x
     y: number; // Fallback y
-    area: "components" | "canvas" | "settings";
+    area: string;
     rowType: "header" | "field" | "gap" | "gutter-top" | "gutter-bottom";
     rowId?: string; // fieldId
     colType: "left" | "center" | "right";

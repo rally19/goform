@@ -70,6 +70,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { CursorArea } from "./cursor-area";
 
+
 interface BuilderCanvasProps {
   formId: string;
   initialForm: BuilderForm;
@@ -344,9 +345,9 @@ export function BuilderCanvas({
     >
       <div className="flex h-full w-full overflow-hidden bg-muted/30">
         {/* Left Side: Components (Desktop) */}
-        <div className="w-72 shrink-0 hidden md:flex flex-col border-r border-border bg-card overflow-hidden relative">
+        <CursorArea id="components" className="w-72 shrink-0 hidden md:flex flex-col border-r border-border bg-card overflow-hidden">
           <ComponentPanel />
-        </div>
+        </CursorArea>
 
         {/* Main Canvas Area */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden relative">
@@ -530,7 +531,7 @@ export function BuilderCanvas({
         </div>
 
         {/* Right Panel */}
-        <div className="w-80 shrink-0 hidden lg:flex flex-col border-l border-border h-full bg-card overflow-hidden relative">
+        <CursorArea id={`settings-${selectedFieldId || 'none'}`} className="w-80 shrink-0 hidden lg:flex flex-col border-l border-border h-full bg-card overflow-hidden">
           <FieldSettings 
             currentUserId={currentUserId} 
             field={fields.find(f => f.id === selectedFieldId)}
@@ -577,7 +578,7 @@ export function BuilderCanvas({
             }}
             onMobileClose={() => {}}
           />
-        </div>
+        </CursorArea>
       </div>
 
       {/* Mobile Component Panel */}
@@ -589,7 +590,9 @@ export function BuilderCanvas({
               Add new components to your form
             </SheetDescription>
           </SheetHeader>
-          <ComponentPanel />
+          <CursorArea id="components" className="h-[calc(100%-65px)]">
+            <ComponentPanel />
+          </CursorArea>
         </SheetContent>
       </Sheet>
 
@@ -602,52 +605,54 @@ export function BuilderCanvas({
               Edit the properties of the selected field
             </SheetDescription>
           </SheetHeader>
-          <FieldSettings 
-            currentUserId={currentUserId} 
-            field={fields.find(f => f.id === selectedFieldId)}
-            onUpdate={(changes) => selectedFieldId && collabUpdateField(selectedFieldId, changes)}
-            onAddOption={() => {
-              if (selectedFieldId) {
-                const field = fields.find(f => f.id === selectedFieldId);
-                if (field) {
-                  const options = [...(field.options || [])];
-                  const idx = options.length + 1;
-                  options.push({ label: `Option ${idx}`, value: `option_${idx}` });
-                  collabUpdateField(selectedFieldId, { options });
+          <CursorArea id={`settings-${selectedFieldId || 'none'}`} className="h-[calc(100%-65px)]">
+            <FieldSettings 
+              currentUserId={currentUserId} 
+              field={fields.find(f => f.id === selectedFieldId)}
+              onUpdate={(changes) => selectedFieldId && collabUpdateField(selectedFieldId, changes)}
+              onAddOption={() => {
+                if (selectedFieldId) {
+                  const field = fields.find(f => f.id === selectedFieldId);
+                  if (field) {
+                    const options = [...(field.options || [])];
+                    const idx = options.length + 1;
+                    options.push({ label: `Option ${idx}`, value: `option_${idx}` });
+                    collabUpdateField(selectedFieldId, { options });
+                  }
                 }
-              }
-            }}
-            onRemoveOption={(idx) => {
-              if (selectedFieldId) {
-                const field = fields.find(f => f.id === selectedFieldId);
-                if (field?.options) {
-                  const options = [...field.options];
-                  options.splice(idx, 1);
-                  collabUpdateField(selectedFieldId, { options });
+              }}
+              onRemoveOption={(idx) => {
+                if (selectedFieldId) {
+                  const field = fields.find(f => f.id === selectedFieldId);
+                  if (field?.options) {
+                    const options = [...field.options];
+                    options.splice(idx, 1);
+                    collabUpdateField(selectedFieldId, { options });
+                  }
                 }
-              }
-            }}
-            onUpdateOption={(idx, label) => {
-              if (selectedFieldId) {
-                const field = fields.find(f => f.id === selectedFieldId);
-                if (field?.options) {
-                  const options = [...field.options];
-                  options[idx] = { ...options[idx], label };
-                  collabUpdateField(selectedFieldId, { options });
+              }}
+              onUpdateOption={(idx, label) => {
+                if (selectedFieldId) {
+                  const field = fields.find(f => f.id === selectedFieldId);
+                  if (field?.options) {
+                    const options = [...field.options];
+                    options[idx] = { ...options[idx], label };
+                    collabUpdateField(selectedFieldId, { options });
+                  }
                 }
-              }
-            }}
-            onReorderOptions={(from, to) => {
-              if (selectedFieldId) {
-                const field = fields.find(f => f.id === selectedFieldId);
-                if (field?.options) {
-                  const options = arrayMove(field.options, from, to);
-                  collabUpdateField(selectedFieldId, { options });
+              }}
+              onReorderOptions={(from, to) => {
+                if (selectedFieldId) {
+                  const field = fields.find(f => f.id === selectedFieldId);
+                  if (field?.options) {
+                    const options = arrayMove(field.options, from, to);
+                    collabUpdateField(selectedFieldId, { options });
+                  }
                 }
-              }
-            }}
-            onMobileClose={() => setIsSettingsOpen(false)}
-          />
+              }}
+              onMobileClose={() => setIsSettingsOpen(false)}
+            />
+          </CursorArea>
         </SheetContent>
       </Sheet>
 
