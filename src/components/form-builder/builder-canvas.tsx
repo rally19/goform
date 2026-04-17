@@ -344,9 +344,9 @@ export function BuilderCanvas({
     >
       <div className="flex h-full w-full overflow-hidden bg-muted/30">
         {/* Left Side: Components (Desktop) */}
-        <CursorArea id="components" className="w-72 shrink-0 hidden md:flex flex-col border-r border-border bg-card overflow-hidden">
+        <div className="w-72 shrink-0 hidden md:flex flex-col border-r border-border bg-card overflow-hidden relative">
           <ComponentPanel />
-        </CursorArea>
+        </div>
 
         {/* Main Canvas Area */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden relative">
@@ -530,7 +530,7 @@ export function BuilderCanvas({
         </div>
 
         {/* Right Panel */}
-        <CursorArea id="settings" className="w-80 shrink-0 hidden lg:flex flex-col border-l border-border h-full bg-card overflow-hidden">
+        <div className="w-80 shrink-0 hidden lg:flex flex-col border-l border-border h-full bg-card overflow-hidden relative">
           <FieldSettings 
             currentUserId={currentUserId} 
             field={fields.find(f => f.id === selectedFieldId)}
@@ -577,7 +577,7 @@ export function BuilderCanvas({
             }}
             onMobileClose={() => {}}
           />
-        </CursorArea>
+        </div>
       </div>
 
       {/* Mobile Component Panel */}
