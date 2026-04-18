@@ -46,7 +46,7 @@ async function FormPageData({ params }: PageProps) {
 
   if (!result.success || !result.data) notFound();
 
-  const { form, fields } = result.data;
+  const { form, fields, sections } = result.data;
   const accentColor = form.accentColor ?? "#6366f1";
 
   return (
@@ -72,7 +72,7 @@ async function FormPageData({ params }: PageProps) {
 
         {/* Form renderer */}
         <div className="rounded-xl border border-border bg-card shadow-sm p-8">
-          <FormRenderer form={form} fields={fields} />
+          <FormRenderer form={form} fields={fields} sections={sections} />
         </div>
 
         <p className="text-center text-xs text-muted-foreground pb-8">

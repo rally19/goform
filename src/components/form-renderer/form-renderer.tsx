@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { FormField } from "@/db/schema";
 import type { Form } from "@/db/schema";
-import type { FormAnswer } from "@/lib/form-types";
+import type { FormAnswer, BuilderSection } from "@/lib/form-types";
 import { submitFormResponse } from "@/lib/actions/responses";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,23 +26,64 @@ import { MultiSelect } from "@/components/ui/multi-select";
 interface FormRendererProps {
   form: Form;
   fields: FormField[];
+  sections?: BuilderSection[];
 }
 
 const PAGE_BREAK_TYPE = "page_break";
 
-function groupIntoPages(fields: FormField[]): FormField[][] {
-  const pages: FormField[][] = [];
+type RendererPage = { sectionName?: string; sectionDescription?: string; fields: FormField[] };
+
+function groupIntoPages(fields: FormField[], sections?: BuilderSection[]): RendererPage[] {
+  const sortedSections = sections && sections.length > 0
+    ? [...sections].sort((a, b) => a.orderIndex - b.orderIndex)
+    : null;
+
+  if (sortedSections && sortedSections.length > 0) {
+    const pages: RendererPage[] = [];
+    for (const section of sortedSections) {
+      const sectionFields = fields
+        .filter((f) => f.sectionId === section.id && f.type !== PAGE_BREAK_TYPE)
+        .sort((a, b) => a.orderIndex - b.orderIndex);
+
+      // Split this section's fields further on page_break if any exist
+      // (for backward compat where page_break was used within a section)
+      let currentChunk: FormField[] = [];
+      let firstChunk = true;
+      for (const field of sectionFields) {
+        if (field.type === PAGE_BREAK_TYPE) {
+          pages.push({
+            sectionName: firstChunk ? section.name : undefined,
+            sectionDescription: firstChunk ? section.description : undefined,
+            fields: currentChunk,
+          });
+          currentChunk = [];
+          firstChunk = false;
+        } else {
+          currentChunk.push(field);
+        }
+      }
+      pages.push({
+        sectionName: firstChunk ? section.name : undefined,
+        sectionDescription: firstChunk ? section.description : undefined,
+        fields: currentChunk,
+      });
+    }
+    return pages.length > 0 ? pages : [{ fields: [] }];
+  }
+
+  // Fallback: no sections — split on page_break only (legacy behaviour)
+  const pages: RendererPage[] = [];
   let currentPage: FormField[] = [];
   for (const field of fields) {
     if (field.type === PAGE_BREAK_TYPE) {
-      if (currentPage.length > 0) pages.push(currentPage);
+      if (currentPage.length > 0) pages.push({ fields: currentPage });
       currentPage = [];
     } else {
       currentPage.push(field);
     }
   }
-  if (currentPage.length > 0) pages.push(currentPage);
-  return pages.length > 0 ? pages : [[]];
+  if (currentPage.length > 0) pages.push({ fields: currentPage });
+  return pages.length > 0 ? pages : [{ fields: [] }];
 }
 
 function StarRating({
@@ -338,11 +379,9 @@ function FieldRenderer({
   }
 }
 
-export function FormRenderer({ form, fields }: FormRendererProps) {
+export function FormRenderer({ form, fields, sections }: FormRendererProps) {
   const accentColor = form.accentColor ?? "#6366f1";
-  const pages = groupIntoPages(fields.filter((f) => f.type !== "page_break"));
-  // Rebuild with page breaks to get accurate counts
-  const truePages = groupIntoPages(fields);
+  const pages = groupIntoPages(fields, sections);
 
   const [currentPage, setCurrentPage] = useState(0);
   const [answers, setAnswers] = useState<Record<string, FormAnswer>>({});
@@ -355,13 +394,14 @@ export function FormRenderer({ form, fields }: FormRendererProps) {
     startTime.current = Date.now();
   }, []);
 
-  const totalPages = truePages.length;
-  const currentFields = truePages[currentPage] ?? [];
+  const totalPages = pages.length;
+  const currentPageData = pages[currentPage] ?? { fields: [] };
+  const currentFields = currentPageData.fields;
   const progress = totalPages > 1 ? ((currentPage) / totalPages) * 100 : 0;
 
   const validatePage = useCallback(() => {
     const newErrors: Record<string, string> = {};
-    for (const field of currentFields) {
+    for (const field of currentFields as FormField[]) {
       if (field.type === "section" || field.type === "page_break") continue;
       if (field.required) {
         const val = answers[field.id];
@@ -378,14 +418,17 @@ export function FormRenderer({ form, fields }: FormRendererProps) {
     return Object.keys(newErrors).length === 0;
   }, [currentFields, answers]);
 
-  const handleNext = () => {
+  const handleNext = (e: React.MouseEvent) => {
+    e.preventDefault();
     if (!validatePage()) return;
     setCurrentPage((p) => Math.min(p + 1, totalPages - 1));
     setErrors({});
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (currentPage < totalPages - 1) return; // safety: not on last page
     if (!validatePage()) return;
 
     setSubmitting(true);
@@ -450,9 +493,23 @@ export function FormRenderer({ form, fields }: FormRendererProps) {
         </div>
       )}
 
+      {/* Section header — shown when the page represents a named section */}
+      {(currentPageData.sectionName || currentPageData.sectionDescription) && (
+        <div className="mb-6 pb-4 border-b border-border">
+          {currentPageData.sectionName && (
+            <h2 className="text-lg font-semibold" style={{ color: accentColor }}>
+              {currentPageData.sectionName}
+            </h2>
+          )}
+          {currentPageData.sectionDescription && (
+            <p className="text-sm text-muted-foreground mt-1">{currentPageData.sectionDescription}</p>
+          )}
+        </div>
+      )}
+
       {/* Fields */}
       <div className="space-y-6">
-        {currentFields.map((field) => {
+        {(currentFields as FormField[]).map((field) => {
           if (field.type === "section") {
             return (
               <div key={field.id}>
@@ -500,7 +557,7 @@ export function FormRenderer({ form, fields }: FormRendererProps) {
           <Button
             type="button"
             variant="outline"
-            onClick={() => setCurrentPage((p) => p - 1)}
+            onClick={() => { setCurrentPage((p) => p - 1); window.scrollTo({ top: 0, behavior: "smooth" }); }}
           >
             <ChevronLeft className="h-4 w-4 mr-1" />
             Back

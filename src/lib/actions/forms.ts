@@ -6,7 +6,7 @@ import { createClient } from "@/lib/server";
 import { liveblocks } from "@/lib/liveblocks";
 import { eq, desc, ilike, and, count, sql, isNull, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import type { ActionResult, BuilderField, BuilderForm } from "@/lib/form-types";
+import type { ActionResult, BuilderField, BuilderForm, BuilderSection } from "@/lib/form-types";
 import { z } from "zod";
 import { getActiveWorkspace, verifyWorkspaceAccess } from "./organizations";
 import { PERSONAL_WORKSPACE_ID } from "../constants";
@@ -93,6 +93,7 @@ export async function getForms({ search }: { search?: string } = {}): Promise<
 export async function getForm(id: string): Promise<ActionResult<{
   form: typeof forms.$inferSelect;
   fields: typeof formFields.$inferSelect[];
+  sections: BuilderSection[];
   currentUserRole: "owner" | "manager" | "administrator" | "editor" | "viewer";
   currentUserId: string;
 }>> {
@@ -123,7 +124,10 @@ export async function getForm(id: string): Promise<ActionResult<{
     }
 
     const { fields, ...formData } = form;
-    return { success: true, data: { form: formData, fields, currentUserRole, currentUserId: user.id } };
+    const sections: BuilderSection[] = Array.isArray(form.sections) && form.sections.length > 0
+      ? form.sections as BuilderSection[]
+      : [{ id: "default", name: "Section 1", description: "", orderIndex: 0 }];
+    return { success: true, data: { form: formData, fields, sections, currentUserRole, currentUserId: user.id } };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
@@ -134,6 +138,7 @@ export async function getForm(id: string): Promise<ActionResult<{
 export async function getFormBySlug(slug: string): Promise<ActionResult<{
   form: typeof forms.$inferSelect;
   fields: typeof formFields.$inferSelect[];
+  sections: BuilderSection[];
 }>> {
   try {
     const form = await db.query.forms.findFirst({
@@ -148,7 +153,10 @@ export async function getFormBySlug(slug: string): Promise<ActionResult<{
     if (!form) return { success: false, error: "Form not found" };
 
     const { fields, ...formData } = form;
-    return { success: true, data: { form: formData, fields } };
+    const sections: BuilderSection[] = Array.isArray(form.sections) && form.sections.length > 0
+      ? form.sections as BuilderSection[]
+      : [{ id: "default", name: "Section 1", description: "", orderIndex: 0 }];
+    return { success: true, data: { form: formData, fields, sections } };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
@@ -364,16 +372,18 @@ export async function syncFormState(
   id: string,
   fields: BuilderField[],
   metadata: Partial<BuilderForm>,
-  shouldRevalidate = false
+  shouldRevalidate = false,
+  sections: BuilderSection[] = []
 ): Promise<ActionResult> {
   try {
     await enforceFormAccess(id, "editor");
     const user = await getAuthUser();
 
     await db.transaction(async (tx) => {
-      // 1. Update Metadata
+      // 1. Update Metadata + sections
       const updateData: Record<string, any> = { 
         ...metadata, 
+        sections,
         updatedAt: new Date() 
       };
       if (metadata.collaborationEnabled !== undefined) {
@@ -381,7 +391,7 @@ export async function syncFormState(
       }
       await tx.update(forms).set(updateData).where(eq(forms.id, id));
 
-      // 2. Update Fields (Delete & Insert)
+      // 2. Update Fields (Delete & Insert) — include sectionId
       await tx.delete(formFields).where(eq(formFields.formId, id));
       if (fields.length > 0) {
         const toInsert: NewFormField[] = fields.map((f, i) => ({
@@ -396,6 +406,7 @@ export async function syncFormState(
           options: f.options || [],
           validation: f.validation || {},
           properties: f.properties || {},
+          sectionId: f.sectionId || null,
         }));
         await tx.insert(formFields).values(toInsert);
       }

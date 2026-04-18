@@ -40,7 +40,7 @@ async function BuilderData({ params }: { params: Promise<{ id: string }> }) {
     redirect("/forms");
   }
 
-  const { form, fields, currentUserRole, currentUserId } = result.data;
+  const { form, fields, sections, currentUserRole, currentUserId } = result.data;
   
   if (currentUserRole === "viewer") {
     redirect(`/forms/${id}/results`);
@@ -75,6 +75,7 @@ async function BuilderData({ params }: { params: Promise<{ id: string }> }) {
     options: f.options ?? undefined,
     validation: f.validation ?? undefined,
     properties: f.properties ?? undefined,
+    sectionId: f.sectionId ?? undefined,
   }));
 
   const canManageCollab =
@@ -83,7 +84,7 @@ async function BuilderData({ params }: { params: Promise<{ id: string }> }) {
     currentUserRole === "administrator";
 
   return (
-    <Room roomId={id} initialForm={builderForm} initialFields={builderFields}>
+    <Room roomId={id} initialForm={builderForm} initialFields={builderFields} initialSections={sections}>
       <BuilderCanvas
         formId={id}
         initialForm={builderForm}

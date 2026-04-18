@@ -19,19 +19,14 @@ interface RoomProps {
   roomId: string;
   initialForm?: BuilderForm;
   initialFields?: BuilderField[];
+  initialSections?: BuilderSection[];
 }
 
-export function Room({ children, roomId, initialForm, initialFields }: RoomProps) {
-  // We use useMemo to ensure initialStorage is stable across re-renders
-  const defaultSectionId = useMemo(() => crypto.randomUUID(), []);
-
+export function Room({ children, roomId, initialForm, initialFields, initialSections }: RoomProps) {
   const initialStorage = useMemo(() => {
-    const defaultSection: BuilderSection = {
-      id: defaultSectionId,
-      name: "Section 1",
-      description: "",
-      orderIndex: 0,
-    };
+    const seedSections: BuilderSection[] = initialSections && initialSections.length > 0
+      ? initialSections
+      : [{ id: crypto.randomUUID(), name: "Section 1", description: "", orderIndex: 0 }];
     return {
       fields: new LiveList((initialFields || []).map(f => new LiveObject(f))),
       formMetadata: new LiveObject(initialForm || {
@@ -49,9 +44,9 @@ export function Room({ children, roomId, initialForm, initialFields }: RoomProps
         autoSave: true,
         collaborationEnabled: true,
       }),
-      sections: new LiveList([new LiveObject(defaultSection)]),
+      sections: new LiveList(seedSections.map(s => new LiveObject(s))),
     };
-  }, [initialFields, initialForm, defaultSectionId]);
+  }, [initialFields, initialForm, initialSections]);
   
   const [localAuthError, setLocalAuthError] = useState<Error | null>(null);
 

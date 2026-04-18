@@ -163,6 +163,7 @@ export const forms = pgTable(
     autoSave: boolean("auto_save").notNull().default(true),
     collaborationEnabled: boolean("collaboration_enabled").notNull().default(false),
     lastToggledBy: text("last_toggled_by"),
+    sections: jsonb("sections").$type<{ id: string; name: string; description: string; orderIndex: number }[]>().notNull().default([]),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -242,6 +243,8 @@ export const formFields = pgTable(
       acceptedTypes?: string[];
       maxFileSize?: number;
     }>(),
+    // Section this field belongs to
+    sectionId: uuid("section_id"),
     // Realtime locking - user ID of who is editing this field
     lockedBy: text("locked_by"),
     createdAt: timestamp("created_at").defaultNow().notNull(),

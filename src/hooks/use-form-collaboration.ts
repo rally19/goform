@@ -174,8 +174,8 @@ export function useFormCollaboration({
     };
   }, []);
 
-  const persistToSupabase = useCallback(async (currentFields: BuilderField[], currentForm: BuilderForm) => {
-    const payload = JSON.stringify({ currentFields, currentForm });
+  const persistToSupabase = useCallback(async (currentFields: BuilderField[], currentForm: BuilderForm, currentSections: BuilderSection[]) => {
+    const payload = JSON.stringify({ currentFields, currentForm, currentSections });
     
     // Strict Path Sequestration: Ensure we are actually on the edit page for this form.
     // This prevents backgrounded tabs or transitioning states from firing syncs
@@ -194,7 +194,7 @@ export function useFormCollaboration({
       isSavingRef.current = true;
       isDirtyRef.current = false;
 
-      const result = await syncFormState(formId, currentFields, currentForm, false);
+      const result = await syncFormState(formId, currentFields, currentForm, false, currentSections);
 
       if (!result.success) throw new Error(result.error);
 
@@ -207,7 +207,7 @@ export function useFormCollaboration({
       // If changes happened while we were saving, trigger another save immediately
       // BUT ONLY if we are still mounted!
       if (isDirtyRef.current && mountedRef.current) {
-        persistToSupabase(fields, form);
+        persistToSupabase(fields, form, sections);
       }
     }
   }, [formId, fields, form]);
@@ -217,11 +217,11 @@ export function useFormCollaboration({
 
     clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
-      persistToSupabase(fields, form);
+      persistToSupabase(fields, form, sections ?? []);
     }, 3000);
 
     return () => clearTimeout(saveTimeoutRef.current);
-  }, [fields, form, persistToSupabase]);
+  }, [fields, form, sections, persistToSupabase]);
 
   // ─── Initial Metadata Sync ────────────────────────────────────────────────
   // On mount, if the storage metadata differs from the DB truth (initialForm),
