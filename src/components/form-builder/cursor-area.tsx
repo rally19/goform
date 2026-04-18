@@ -266,6 +266,10 @@ function CursorFollower({ cursor, info, containerRef }: {
           } else {
             finalY = targetRect.top - containerRect.top + (cursor.relY * targetRect.height);
           }
+        } else {
+          // Fallback: If the rowId doesn't exist anymore or wasn't provided, 
+          // resolve relative to the data-cursor-area-root instead of snapping to 0.
+          finalY = rootRect.top - containerRect.top + (cursor.relY * rootRect.height);
         }
       }
 

@@ -418,7 +418,9 @@ export function BuilderCanvas({
     const copy = { ...field, id: crypto.randomUUID(), label: `${field.label} (Copy)`, isNew: true, sectionId: activeSectionId ?? undefined };
     const idx = fields.findIndex(f => f.id === field.id);
     collabAddField(copy, idx + 1);
-  }, [fields, collabAddField, activeSectionId]);
+    // Automatically select the duplicated field
+    setTimeout(() => selectField(copy.id), 50);
+  }, [fields, collabAddField, activeSectionId, selectField]);
 
   const handleFieldClick = useCallback((id: string) => {
     if (selectedFieldId === id) {
@@ -771,10 +773,12 @@ export function BuilderCanvas({
               Edit the properties of the selected field
             </SheetDescription>
           </SheetHeader>
-          <CursorArea id={`settings-${selectedFieldId || 'none'}`} className="h-[calc(100%-65px)]">
+          <CursorArea id={`settings-${selectedFieldId || selectedSectionId || 'none'}`} className="h-[calc(100%-65px)]">
             <FieldSettings 
               currentUserId={currentUserId} 
               field={fields.find(f => f.id === selectedFieldId)}
+              selectedSection={selectedSectionId ? sections.find(s => s.id === selectedSectionId) : undefined}
+              onUpdateSection={(changes) => selectedSectionId && collabUpdateSection(selectedSectionId, changes)}
               onUpdate={(changes) => selectedFieldId && collabUpdateField(selectedFieldId, changes)}
               onAddOption={() => {
                 if (selectedFieldId) {

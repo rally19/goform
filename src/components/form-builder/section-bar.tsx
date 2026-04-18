@@ -139,7 +139,7 @@ export function SectionBar({
         {/* Action row — clicking the card body toggles section selection */}
         <div
           className={cn(
-            "flex items-center justify-between gap-2 px-3 py-2 rounded-xl border bg-card/80 backdrop-blur-sm transition-all duration-200 cursor-pointer",
+            "flex items-center justify-between gap-2 px-3 py-2 rounded-xl border bg-card transition-all duration-300 cursor-pointer",
             !isSelected && !isBeingEditedByOther && "border-border",
             isBeingEditedByOther && "ring-2 ring-offset-2"
           )}

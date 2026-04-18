@@ -90,25 +90,27 @@ export function FieldSettings({
           </Button>
         </div>
         <ScrollArea className="flex-1 min-h-0">
-          <div className="p-4 space-y-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Section Name</Label>
-              <Input
-                value={selectedSection.name ?? ""}
-                onChange={(e) => onUpdateSection?.({ name: e.target.value })}
-                className="h-8 text-sm"
-                placeholder="Section name"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Description (optional)</Label>
-              <Textarea
-                value={selectedSection.description ?? ""}
-                onChange={(e) => onUpdateSection?.({ description: e.target.value })}
-                className="text-sm resize-none"
-                rows={2}
-                placeholder="Section description"
-              />
+          <div className="p-4 space-y-5">
+            <div className="space-y-3" data-cursor-id="section-basic-info">
+              <div className="space-y-1.5" data-cursor-id="section-name" data-cursor-type="field">
+                <Label className="text-xs font-medium">Section Name</Label>
+                <Input
+                  value={selectedSection.name ?? ""}
+                  onChange={(e) => onUpdateSection?.({ name: e.target.value })}
+                  className="h-8 text-sm"
+                  placeholder="Section name"
+                />
+              </div>
+              <div className="space-y-1.5" data-cursor-id="section-description" data-cursor-type="field">
+                <Label className="text-xs font-medium">Description (optional)</Label>
+                <Textarea
+                  value={selectedSection.description ?? ""}
+                  onChange={(e) => onUpdateSection?.({ description: e.target.value })}
+                  className="text-sm resize-none"
+                  rows={2}
+                  placeholder="Section description"
+                />
+              </div>
             </div>
           </div>
         </ScrollArea>
