@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import type { FormField } from "@/db/schema";
 import type { Form } from "@/db/schema";
 import type { FormAnswer, BuilderSection } from "@/lib/form-types";
@@ -381,7 +381,7 @@ function FieldRenderer({
 
 export function FormRenderer({ form, fields, sections }: FormRendererProps) {
   const accentColor = form.accentColor ?? "#6366f1";
-  const pages = groupIntoPages(fields, sections);
+  const pages = useMemo(() => groupIntoPages(fields, sections), [fields, sections]);
 
   const [currentPage, setCurrentPage] = useState(0);
   const [answers, setAnswers] = useState<Record<string, FormAnswer>>({});

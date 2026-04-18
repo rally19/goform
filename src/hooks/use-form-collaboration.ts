@@ -260,7 +260,7 @@ export function useFormCollaboration({
         persistToSupabase(fields, form, sections);
       }
     }
-  }, [formId, fields, form]);
+  }, [formId, fields, form, sections]);
 
   // ─── One-time reconciliation on mount ────────────────────────────────────
   // Runs once when Liveblocks storage first becomes available. Patches any
