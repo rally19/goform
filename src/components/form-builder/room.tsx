@@ -24,9 +24,15 @@ interface RoomProps {
 
 export function Room({ children, roomId, initialForm, initialFields, initialSections }: RoomProps) {
   const initialStorage = useMemo(() => {
-    const seedSections: BuilderSection[] = initialSections && initialSections.length > 0
+    // Ensure section ids are valid UUIDs — the DB fallback uses "default" as a placeholder
+    // which would corrupt field sectionIds stored in Liveblocks.
+    const rawSections: BuilderSection[] = initialSections && initialSections.length > 0
       ? initialSections
       : [{ id: crypto.randomUUID(), name: "Section 1", description: "", orderIndex: 0 }];
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const seedSections: BuilderSection[] = rawSections.map((s) =>
+      uuidRe.test(s.id) ? s : { ...s, id: crypto.randomUUID() }
+    );
     return {
       fields: new LiveList((initialFields || []).map(f => new LiveObject(f))),
       formMetadata: new LiveObject(initialForm || {

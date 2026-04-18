@@ -17,12 +17,14 @@ interface UseFormCollaborationOptions {
   formId: string;
   initialForm: BuilderForm;
   initialFields: BuilderField[];
+  initialSections?: BuilderSection[];
 }
 
 export function useFormCollaboration({
   formId,
   initialForm,
   initialFields,
+  initialSections,
 }: UseFormCollaborationOptions) {
   const { 
     selectedFieldId, 
@@ -105,6 +107,54 @@ export function useFormCollaboration({
     if (section) {
       for (const [key, value] of Object.entries(changes)) {
         section.set(key as keyof BuilderSection, value);
+      }
+    }
+  }, []);
+
+  // ─── One-time field→section reconciliation ──────────────────────────────
+  // Runs once when sections + fields are first available from Liveblocks.
+  // Patches fields that have no sectionId (created before sections existed)
+  // by assigning them to the first section. Also restores sections from DB
+  // if the Liveblocks sections list is somehow empty.
+  const reconcileStorage = useMutation(({ storage }, seedSections: BuilderSection[]) => {
+    const sectionsList = storage.get("sections");
+    const fieldsList = storage.get("fields");
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    // Replace any section with a non-UUID id (e.g. "default") with a valid UUID
+    for (let i = 0; i < sectionsList.length; i++) {
+      const s = sectionsList.get(i) as LiveObject<BuilderSection>;
+      const sid = s.get("id");
+      if (!uuidRe.test(sid)) {
+        s.set("id", crypto.randomUUID());
+      }
+    }
+
+    // If Liveblocks still has no valid sections, seed from DB or create a default
+    if (sectionsList.length === 0) {
+      const toSeed: BuilderSection[] = seedSections.length > 0
+        ? seedSections.map((s) => ({ ...s, id: uuidRe.test(s.id) ? s.id : crypto.randomUUID() }))
+        : [{ id: crypto.randomUUID(), name: "Section 1", description: "", orderIndex: 0 }];
+      for (const s of toSeed) {
+        sectionsList.push(new LiveObject<BuilderSection>(s));
+      }
+    }
+
+    // Determine the valid section IDs after reconciliation
+    const validIds = new Set<string>();
+    for (let i = 0; i < sectionsList.length; i++) {
+      validIds.add((sectionsList.get(i) as LiveObject<BuilderSection>).get("id"));
+    }
+
+    if (validIds.size === 0) return;
+    const firstSectionId = (sectionsList.get(0) as LiveObject<BuilderSection>).get("id");
+
+    // Patch fields that have no sectionId, a non-UUID sectionId, or an orphaned sectionId
+    for (let i = 0; i < fieldsList.length; i++) {
+      const f = fieldsList.get(i) as LiveObject<BuilderField>;
+      const sid = f.get("sectionId");
+      if (!sid || !uuidRe.test(sid) || !validIds.has(sid)) {
+        f.set("sectionId", firstSectionId);
       }
     }
   }, []);
@@ -212,8 +262,26 @@ export function useFormCollaboration({
     }
   }, [formId, fields, form]);
 
+  // ─── One-time reconciliation on mount ────────────────────────────────────
+  // Runs once when Liveblocks storage first becomes available. Patches any
+  // fields that are missing a sectionId (e.g. undefined or "default")
+  // and seeds sections from DB if Liveblocks has none stored yet.
+  const reconciledRef = useRef(false);
+  const reconcileDoneRef = useRef(false);
+  useEffect(() => {
+    if (reconciledRef.current) return;
+    if (!fields || !sections) return;
+    reconciledRef.current = true;
+    reconcileStorage(initialSections ?? []);
+    // Mark reconciliation done so the save loop is unblocked
+    reconcileDoneRef.current = true;
+  }, [!!fields, !!sections]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!fields || !form) return;
+    // Wait for reconciliation to complete before saving, to avoid persisting
+    // stale sectionId values (e.g. undefined or "default") from old Liveblocks rooms
+    if (!reconcileDoneRef.current) return;
 
     clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {

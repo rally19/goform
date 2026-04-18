@@ -126,7 +126,7 @@ export async function getForm(id: string): Promise<ActionResult<{
     const { fields, ...formData } = form;
     const sections: BuilderSection[] = Array.isArray(form.sections) && form.sections.length > 0
       ? form.sections as BuilderSection[]
-      : [{ id: "default", name: "Section 1", description: "", orderIndex: 0 }];
+      : [];
     return { success: true, data: { form: formData, fields, sections, currentUserRole, currentUserId: user.id } };
   } catch (err) {
     return { success: false, error: (err as Error).message };
@@ -155,7 +155,7 @@ export async function getFormBySlug(slug: string): Promise<ActionResult<{
     const { fields, ...formData } = form;
     const sections: BuilderSection[] = Array.isArray(form.sections) && form.sections.length > 0
       ? form.sections as BuilderSection[]
-      : [{ id: "default", name: "Section 1", description: "", orderIndex: 0 }];
+      : [];
     return { success: true, data: { form: formData, fields, sections } };
   } catch (err) {
     return { success: false, error: (err as Error).message };
@@ -394,20 +394,29 @@ export async function syncFormState(
       // 2. Update Fields (Delete & Insert) — include sectionId
       await tx.delete(formFields).where(eq(formFields.formId, id));
       if (fields.length > 0) {
-        const toInsert: NewFormField[] = fields.map((f, i) => ({
-          id: f.id,
-          formId: id,
-          type: f.type,
-          label: f.label,
-          description: f.description || null,
-          placeholder: f.placeholder || null,
-          required: f.required,
-          orderIndex: i,
-          options: f.options || [],
-          validation: f.validation || {},
-          properties: f.properties || {},
-          sectionId: f.sectionId || null,
-        }));
+        const toInsert: NewFormField[] = fields.map((f, i) => {
+          const row: NewFormField = {
+            id: f.id,
+            formId: id,
+            type: f.type,
+            label: f.label,
+            description: f.description || null,
+            placeholder: f.placeholder || null,
+            required: f.required,
+            orderIndex: i,
+            options: f.options || [],
+            validation: f.validation || {},
+            properties: f.properties || {},
+            sectionId: (() => {
+              const sid = (f as any).sectionId;
+              if (!sid || typeof sid !== "string") return null;
+              // Reject non-UUID strings like "default" that Liveblocks may have stored
+              const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+              return uuidRe.test(sid) ? sid : null;
+            })(),
+          };
+          return row;
+        });
         await tx.insert(formFields).values(toInsert);
       }
     });

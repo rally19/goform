@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import type { BuilderField, BuilderForm } from "@/lib/form-types";
+import type { BuilderField, BuilderForm, BuilderSection } from "@/lib/form-types";
 import { SectionBar } from "./section-bar";
 import { setFormStatus } from "@/lib/actions/forms";
 import { toast } from "sonner";
@@ -76,6 +76,7 @@ interface BuilderCanvasProps {
   formId: string;
   initialForm: BuilderForm;
   initialFields: BuilderField[];
+  initialSections?: BuilderSection[];
   currentUserId: string;
   canManageCollab: boolean;
 }
@@ -215,6 +216,7 @@ export function BuilderCanvas({
   formId,
   initialForm,
   initialFields,
+  initialSections,
   currentUserId,
   canManageCollab,
 }: BuilderCanvasProps) {
@@ -249,6 +251,7 @@ export function BuilderCanvas({
     formId,
     initialForm,
     initialFields,
+    initialSections,
   });
 
   // ─── Section state bootstrap ───────────────────────────────────────────────
