@@ -510,7 +510,7 @@ export async function duplicateForm(id: string): Promise<ActionResult<{ id: stri
       return { success: false, error: "Form not found" };
     }
 
-    const { form, fields } = result.data;
+    const { form, fields, sections } = result.data;
     
     // Ensure we can duplicate into the current active workspace
     const workspaceId = await getActiveWorkspace();
@@ -538,10 +538,12 @@ export async function duplicateForm(id: string): Promise<ActionResult<{ id: stri
         successMessage: form.successMessage,
         redirectUrl: form.redirectUrl,
         autoSave: form.autoSave,
+        sections: sections.length > 0 ? sections : null,
         updatedAt: new Date(),
       } as NewForm)
       .returning({ id: forms.id });
 
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (fields.length > 0) {
       await db.insert(formFields).values(
         fields.map((f, i) => ({
@@ -555,6 +557,7 @@ export async function duplicateForm(id: string): Promise<ActionResult<{ id: stri
           options: f.options,
           validation: f.validation,
           properties: f.properties,
+          sectionId: f.sectionId && uuidRe.test(f.sectionId) ? f.sectionId : null,
         })) as NewFormField[]
       );
     }
