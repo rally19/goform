@@ -270,7 +270,7 @@ export const FieldCard = memo(function FieldCard({
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 5 }}
-            className="absolute -top-7 left-0 px-2 py-1 rounded-t-lg text-[10px] font-bold text-white shadow-md flex items-center gap-2"
+          className="absolute -top-7 left-4 px-2 py-1 rounded-t-lg text-[10px] font-bold text-white shadow-md flex items-center gap-2"
             style={{ backgroundColor: editorColor }}
           >
             <TooltipProvider delayDuration={0}>

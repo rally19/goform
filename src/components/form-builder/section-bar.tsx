@@ -102,7 +102,7 @@ export function SectionBar({
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 5 }}
-              className="absolute -top-7 left-0 px-2 py-1 rounded-t-lg text-[10px] font-bold text-white shadow-md flex items-center gap-2 z-10 pointer-events-none"
+              className="absolute -top-7 left-4 px-2 py-1 rounded-t-lg text-[10px] font-bold text-white shadow-md flex items-center gap-2 z-10"
               style={{ backgroundColor: primaryEditorColor }}
             >
               <TooltipProvider delayDuration={0}>
@@ -111,7 +111,7 @@ export function SectionBar({
                     <Tooltip key={ed.connectionId}>
                       <TooltipTrigger asChild>
                         <div>
-                          <Avatar className="h-5 w-5 border-2 border-white/20 shadow-sm bg-background/20 backdrop-blur-sm">
+                          <Avatar className="h-5 w-5 border-2 border-white/20 ring-offset-background shadow-sm bg-background/20 backdrop-blur-sm">
                             <AvatarImage src={ed.info.avatar || undefined} />
                             <AvatarFallback className="bg-transparent text-[7px] text-white">
                               {ed.info.name.charAt(0).toUpperCase()}
@@ -139,8 +139,9 @@ export function SectionBar({
         {/* Action row — clicking the card body toggles section selection */}
         <div
           className={cn(
-            "flex items-center justify-between gap-2 px-3 py-2 rounded-lg border bg-card/80 backdrop-blur-sm transition-all duration-200 cursor-pointer",
-            !isSelected && !isBeingEditedByOther && "border-border"
+            "flex items-center justify-between gap-2 px-3 py-2 rounded-xl border bg-card/80 backdrop-blur-sm transition-all duration-200 cursor-pointer",
+            !isSelected && !isBeingEditedByOther && "border-border",
+            isBeingEditedByOther && "ring-2 ring-offset-2"
           )}
           onClick={(e) => { e.stopPropagation(); onSelect(currentSection.id); }}
           style={{
@@ -150,11 +151,10 @@ export function SectionBar({
               ? primaryEditorColor
               : undefined,
             boxShadow: isSelected
-              ? `0 0 0 3px ${accentColor}30, 0 4px 20px -4px ${accentColor}20`
-              : isBeingEditedByOther
-              ? `0 0 0 3px ${primaryEditorColor}40`
+              ? `0 0 0 4px ${accentColor}10, 0 4px 20px -4px ${accentColor}25`
               : undefined,
-            backgroundColor: isSelected ? `${accentColor}06` : undefined,
+            backgroundColor: isSelected ? `${accentColor}05` : undefined,
+            ...(isBeingEditedByOther ? { ringColor: primaryEditorColor } : {}),
           }}
         >
           {/* Left: section name + settings */}
