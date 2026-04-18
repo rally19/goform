@@ -230,6 +230,7 @@ export const FieldCard = memo(function FieldCard({
       )}
       style={{
         ...style,
+        touchAction: "pan-y",
         borderColor: isBeingDraggedByOther 
           ? draggerColor 
           : isBeingEditedByOther 

@@ -221,6 +221,7 @@ export function BuilderCanvas({
   const {
     selectedFieldId,
     selectField,
+    isDragging,
     setIsDragging,
     currentSectionId,
     setCurrentSectionId,
@@ -332,15 +333,13 @@ export function BuilderCanvas({
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  const sensors = useMemo(() => [
-    { sensor: MouseSensor, options: { activationConstraint: { distance: 10 } } },
-    { sensor: TouchSensor, options: { activationConstraint: { delay: 150, tolerance: 5 } } }
-  ], []);
-
-  const dndSensors = useSensors(
-    useSensor(sensors[0].sensor, sensors[0].options),
-    useSensor(sensors[1].sensor, sensors[1].options)
-  );
+  const mouseSensor = useSensor(MouseSensor, { activationConstraint: { distance: 8 } });
+  // Touch: require 200ms hold on the drag handle (data-dnd-handle) before activating.
+  // Non-handle areas are excluded via the canStartDragging check so normal scroll works.
+  const touchSensor = useSensor(TouchSensor, {
+    activationConstraint: { delay: 200, tolerance: 8 },
+  });
+  const dndSensors = useSensors(mouseSensor, touchSensor);
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -499,6 +498,7 @@ export function BuilderCanvas({
               key={activeSectionId ?? "no-section"}
               id={`canvas-${activeSectionId ?? "no-section"}`}
               className="min-h-full"
+              isDragging={isDragging}
               onClick={() => { selectField(null); selectSection(null); }}
             >
               <div className="max-w-2xl mx-auto p-4 md:p-8 pb-32">

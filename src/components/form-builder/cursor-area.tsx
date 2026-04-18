@@ -9,42 +9,43 @@ interface CursorAreaProps {
   children: ReactNode;
   className?: string;
   onClick?: () => void;
+  isDragging?: boolean;
 }
 
-export function CursorArea({ id, children, className, onClick }: CursorAreaProps) {
+export function CursorArea({ id, children, className, onClick, isDragging = false }: CursorAreaProps) {
   const [myPresence, updateMyPresence] = useMyPresence();
   const others = useOthers();
   const containerRef = useRef<HTMLDivElement>(null);
+  // Keep isDragging in a ref so the stable useEffect closure can read the latest value
+  const isDraggingRef = useRef(isDragging);
+  useEffect(() => { isDraggingRef.current = isDragging; }, [isDragging]);
 
   useEffect(() => {
     const handlePointerMove = (e: PointerEvent) => {
       if (!containerRef.current) return;
 
       const rect = containerRef.current.getBoundingClientRect();
-      
-      // Boundary check: Is the pointer within this specific CursorArea?
-      const isWithinBounds = (
-        e.clientX >= rect.left &&
-        e.clientX <= rect.right &&
-        e.clientY >= rect.top &&
-        e.clientY <= rect.bottom
-      );
+      const dragging = isDraggingRef.current;
 
-      if (!isWithinBounds) {
-        return;
+      // During drag: skip bounds + occlusion checks — the DragOverlay sits on top
+      // and would otherwise cause both checks to reject the event.
+      if (!dragging) {
+        // Boundary check: Is the pointer within this specific CursorArea?
+        const isWithinBounds = (
+          e.clientX >= rect.left &&
+          e.clientX <= rect.right &&
+          e.clientY >= rect.top &&
+          e.clientY <= rect.bottom
+        );
+        if (!isWithinBounds) return;
+
+        // Occlusion check: Is there something (like a Sheet or Sidebar) physically over the canvas?
+        const targetAtPoint = document.elementFromPoint(e.clientX, e.clientY);
+        const isOccluded = targetAtPoint && !containerRef.current.contains(targetAtPoint);
+        if (isOccluded) return;
       }
 
-      // Occlusion check: Is there something (like a Sheet or Sidebar) physically over the canvas?
-      // We check if the element at the current point is actually inside this container.
-      const targetAtPoint = document.elementFromPoint(e.clientX, e.clientY);
-      const isOccluded = targetAtPoint && !containerRef.current.contains(targetAtPoint);
-
-      // CRITICAL FIX: If this area is occluded by another overlay (like a mobile Sheet or sidebar),
-      // we STOP here to prevent multiple CursorAreas from fighting over the shared presence state.
-      // This is what causes the "flickering/glitching" reported in mobile overlays.
-      if (isOccluded && !myPresence?.draggingFieldId) {
-        return;
-      }
+      const isOccluded = false; // not used below when dragging; false keeps hidden: false
 
       // Coordinates relative to container
       let x = e.clientX - rect.left;
@@ -146,7 +147,7 @@ export function CursorArea({ id, children, className, onClick }: CursorAreaProps
           colType,
           relX,
           relY,
-          hidden: myPresence?.draggingFieldId ? false : !!isOccluded // Always show if dragging
+          hidden: isDraggingRef.current ? false : !!isOccluded // Always show if dragging
         },
       });
     };
@@ -155,14 +156,28 @@ export function CursorArea({ id, children, className, onClick }: CursorAreaProps
       // Clear if moving completely out of bounds (handled by window listeners)
     };
 
+    // Synthesize a PointerEvent-like object from a TouchEvent for cursor tracking during drag
+    const handleTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      if (!touch) return;
+      // Construct a minimal synthetic object matching what handlePointerMove expects
+      handlePointerMove({
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+      } as PointerEvent);
+    };
+
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerdown", handlePointerMove);
     window.addEventListener("pointerleave", handlePointerLeave);
+    // Track touch position during drag (fires even when pointer is captured by dnd-kit)
+    window.addEventListener("touchmove", handleTouchMove, { passive: true });
 
     return () => {
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerdown", handlePointerMove);
       window.removeEventListener("pointerleave", handlePointerLeave);
+      window.removeEventListener("touchmove", handleTouchMove);
     };
   }, [id, updateMyPresence, myPresence?.cursor?.area]);
 
@@ -173,9 +188,9 @@ export function CursorArea({ id, children, className, onClick }: CursorAreaProps
       className={className}
       style={{ 
         position: "relative",
-        // Prevent mobile browser gestures from interfering with precise pointer tracking
-        // exclusively during active interaction if possible, or use pan-y for scrollable sidebars
-        touchAction: id === "canvas" || id.startsWith("canvas-") ? "none" : "pan-y"
+        // pan-y at rest so mobile can scroll; switches to none during drag so dnd-kit
+        // gets uninterrupted pointer capture for accurate drop detection.
+        touchAction: (id.startsWith("canvas-") || id === "canvas") && isDragging ? "none" : "pan-y"
       }}
       onClick={onClick}
     >

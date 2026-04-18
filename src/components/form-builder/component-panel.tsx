@@ -89,6 +89,7 @@ function DraggableSidebarItem({ item }: { item: FieldTypeMeta }) {
       {...attributes}
       {...listeners}
       data-cursor-id={item.type}
+      style={{ touchAction: "pan-y" }}
       className={cn(
         "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-left text-sm hover:bg-muted transition-colors group cursor-grab active:cursor-grabbing",
         isDragging && "opacity-40"
