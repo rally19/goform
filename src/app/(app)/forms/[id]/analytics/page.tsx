@@ -2,22 +2,10 @@ import { getFormAnalytics } from "@/lib/actions/responses";
 import { getForm } from "@/lib/actions/forms";
 import { redirect } from "next/navigation";
 import { AnalyticsDashboard } from "./_client";
-export const unstable_instant = { 
-  prefetch: 'static',
-  samples: [
-    {
-      cookies: [
-        { name: 'goform_workspace', value: null },
-        { name: 'sb-access-token', value: null },
-        { name: 'sb-refresh-token', value: null },
-        { name: 'sidebar_state', value: null }
-      ],
-      params: { id: 'sample-form-id' }
-    }
-  ]
-};
 import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
+
+export const unstable_instant = false;
 
 export default async function FormAnalyticsPage({
   params,

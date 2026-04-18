@@ -8,19 +8,7 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-export const unstable_instant = { 
-  prefetch: 'static',
-  samples: [
-    {
-      cookies: [
-        { name: 'goform_workspace', value: null },
-        { name: 'sb-access-token', value: null },
-        { name: 'sb-refresh-token', value: null }
-      ],
-      params: { slug: 'sample-form-slug' }
-    }
-  ]
-};
+export const unstable_instant = false;
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;

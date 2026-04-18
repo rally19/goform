@@ -4,19 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
 
-export const unstable_instant = { 
-  prefetch: 'static',
-  samples: [
-    {
-      cookies: [
-        { name: 'goform_workspace', value: null },
-        { name: 'sb-access-token', value: null },
-        { name: 'sb-refresh-token', value: null }
-      ],
-      params: { id: 'sample-form-id' }
-    }
-  ]
-};
+export const unstable_instant = false;
 
 export default async function FormPreviewPage({
   params,

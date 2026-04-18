@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useMemo } from "react";
+import { ReactNode, useRef } from "react";
 import {
   LiveblocksProvider,
   RoomProvider,
@@ -14,6 +14,40 @@ import { useState, useEffect, useCallback } from "react";
 import { RoomErrorBoundary } from "./room-error-boundary";
 import { SyncErrorFallback } from "./error-fallback";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function buildInitialStorage(
+  initialFields?: BuilderField[],
+  initialForm?: BuilderForm,
+  initialSections?: BuilderSection[]
+) {
+  const rawSections: BuilderSection[] = initialSections && initialSections.length > 0
+    ? initialSections
+    : [{ id: crypto.randomUUID(), name: "Section 1", description: "", orderIndex: 0 }];
+  const seedSections: BuilderSection[] = rawSections.map((s) =>
+    UUID_RE.test(s.id) ? s : { ...s, id: crypto.randomUUID() }
+  );
+  return {
+    fields: new LiveList((initialFields || []).map((f) => new LiveObject(f))),
+    formMetadata: new LiveObject(initialForm || {
+      id: "",
+      title: "",
+      description: "",
+      slug: "",
+      status: "draft" as const,
+      accentColor: "#6366f1",
+      acceptResponses: true,
+      requireAuth: false,
+      showProgress: true,
+      oneResponsePerUser: false,
+      successMessage: "Thank you for your response!",
+      autoSave: true,
+      collaborationEnabled: true,
+    }),
+    sections: new LiveList(seedSections.map((s) => new LiveObject(s))),
+  };
+}
+
 interface RoomProps {
   children: ReactNode;
   roomId: string;
@@ -23,36 +57,13 @@ interface RoomProps {
 }
 
 export function Room({ children, roomId, initialForm, initialFields, initialSections }: RoomProps) {
-  const initialStorage = useMemo(() => {
-    // Ensure section ids are valid UUIDs — the DB fallback uses "default" as a placeholder
-    // which would corrupt field sectionIds stored in Liveblocks.
-    const rawSections: BuilderSection[] = initialSections && initialSections.length > 0
-      ? initialSections
-      : [{ id: crypto.randomUUID(), name: "Section 1", description: "", orderIndex: 0 }];
-    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const seedSections: BuilderSection[] = rawSections.map((s) =>
-      uuidRe.test(s.id) ? s : { ...s, id: crypto.randomUUID() }
-    );
-    return {
-      fields: new LiveList((initialFields || []).map(f => new LiveObject(f))),
-      formMetadata: new LiveObject(initialForm || {
-        id: "",
-        title: "",
-        description: "",
-        slug: "",
-        status: "draft" as const,
-        accentColor: "#6366f1",
-        acceptResponses: true,
-        requireAuth: false,
-        showProgress: true,
-        oneResponsePerUser: false,
-        successMessage: "Thank you for your response!",
-        autoSave: true,
-        collaborationEnabled: true,
-      }),
-      sections: new LiveList(seedSections.map(s => new LiveObject(s))),
-    };
-  }, [initialFields, initialForm, initialSections]);
+  // initialStorage must be computed exactly once — Liveblocks only uses it for
+  // brand-new rooms. Using useRef guarantees stability and prevents UUID regeneration.
+  const initialStorageRef = useRef<ReturnType<typeof buildInitialStorage> | null>(null);
+  if (initialStorageRef.current === null) {
+    initialStorageRef.current = buildInitialStorage(initialFields, initialForm, initialSections);
+  }
+  const initialStorage = initialStorageRef.current;
   
   const [localAuthError, setLocalAuthError] = useState<Error | null>(null);
 

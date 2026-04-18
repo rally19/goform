@@ -51,10 +51,11 @@ export function useFormCollaboration({
   }, [selectedFieldId, selectedSectionId, isDragging, updateMyPresence]);
 
   // ─── Storage Access ───────────────────────────────────────────────────────
-  // In Liveblocks 2.0, useStorage returns an immutable snapshot.
-  const fields = useStorage((root) => root.fields) as unknown as BuilderField[];
-  const form = useStorage((root) => root.formMetadata) as unknown as BuilderForm;
-  const sections = useStorage((root) => root.sections) as unknown as BuilderSection[];
+  // useStorage returns an immutable readonly snapshot typed via liveblocks.config.ts.
+  // We use shallow selectors to avoid re-rendering on unrelated storage changes.
+  const fields = useStorage((root) => root.fields) as unknown as BuilderField[] | null;
+  const form = useStorage((root) => root.formMetadata) as unknown as BuilderForm | null;
+  const sections = useStorage((root) => root.sections) as unknown as BuilderSection[] | null;
 
   // ─── Mutations ────────────────────────────────────────────────────────────
   
@@ -256,8 +257,8 @@ export function useFormCollaboration({
       
       // If changes happened while we were saving, trigger another save immediately
       // BUT ONLY if we are still mounted!
-      if (isDirtyRef.current && mountedRef.current) {
-        persistToSupabase(fields, form, sections);
+      if (isDirtyRef.current && mountedRef.current && fields && form) {
+        persistToSupabase(fields, form, sections ?? []);
       }
     }
   }, [formId, fields, form, sections]);
@@ -268,14 +269,17 @@ export function useFormCollaboration({
   // and seeds sections from DB if Liveblocks has none stored yet.
   const reconciledRef = useRef(false);
   const reconcileDoneRef = useRef(false);
+  const fieldsReady = fields !== null;
+  const sectionsReady = sections !== null;
   useEffect(() => {
     if (reconciledRef.current) return;
-    if (!fields || !sections) return;
+    if (!fieldsReady || !sectionsReady) return;
     reconciledRef.current = true;
     reconcileStorage(initialSections ?? []);
-    // Mark reconciliation done so the save loop is unblocked
     reconcileDoneRef.current = true;
-  }, [!!fields, !!sections]); // eslint-disable-line react-hooks/exhaustive-deps
+  // reconcileStorage is stable (useMutation with [] deps); initialSections is stable from props
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fieldsReady, sectionsReady]);
 
   useEffect(() => {
     if (!fields || !form) return;
