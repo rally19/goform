@@ -36,8 +36,10 @@ import {
 import {
   PlusCircle, Settings2, Palette,
   Plus, Loader2,
-  GripVertical, Copy, Trash2, ChevronDown
+  GripVertical, Copy, Trash2, ChevronDown, MoveRight
 } from "lucide-react";
+import { FieldMoveDialog } from "./field-move-dialog";
+import { SectionReorderDialog } from "./section-reorder-dialog";
 import { ACCENT_COLORS, FIELD_TYPE_META } from "@/lib/form-types";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -246,6 +248,7 @@ export function BuilderCanvas({
     addSection: collabAddSection,
     removeSection: collabRemoveSection,
     updateSection: collabUpdateSection,
+    reorderSection: collabReorderSection,
     duplicateSection: collabDuplicateSection,
   } = useFormCollaboration({
     formId,
@@ -314,6 +317,13 @@ export function BuilderCanvas({
     toast.success("Section duplicated", { description: "You are now viewing the duplicate" });
   }, [collabDuplicateSection, setCurrentSectionId, selectSection]);
 
+  const handleReorderSection = useCallback((id: string, toIndex: number) => {
+    collabReorderSection(id, toIndex);
+    // Keep the moved section current + selected so the user can keep moving it
+    setCurrentSectionId(id);
+    selectSection(id);
+  }, [collabReorderSection, setCurrentSectionId, selectSection]);
+
   const handleNavigateSection = useCallback((id: string) => {
     setCurrentSectionId(id);
     selectField(null);
@@ -340,6 +350,8 @@ export function BuilderCanvas({
   const [isComponentsOpen, setIsComponentsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isMoveFieldOpen, setIsMoveFieldOpen] = useState(false);
+  const [isSectionReorderOpen, setIsSectionReorderOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const mouseSensor = useSensor(MouseSensor, { activationConstraint: { distance: 8 } });
@@ -422,6 +434,10 @@ export function BuilderCanvas({
   const handleRemoveField = useCallback((id: string) => {
     collabRemoveField(id);
   }, [collabRemoveField]);
+
+  const handleMoveField = useCallback((fieldId: string, targetSectionId: string) => {
+    collabUpdateField(fieldId, { sectionId: targetSectionId });
+  }, [collabUpdateField]);
 
   const handleDuplicateField = useCallback((field: BuilderField) => {
     const copy = { ...field, id: crypto.randomUUID(), label: `${field.label} (Copy)`, isNew: true, sectionId: activeSectionId ?? undefined };
@@ -543,6 +559,7 @@ export function BuilderCanvas({
                             onSelect={handleOpenSectionSettings}
                             onSelectSection={handleNavigateSection}
                             onOpenSettings={handleOpenSectionSettings}
+                            onReorder={handleReorderSection}
                             onDuplicate={handleDuplicateSection}
                             onDelete={handleDeleteSection}
                             onAddAfter={handleAddSection}
@@ -568,9 +585,11 @@ export function BuilderCanvas({
                                     isSelected={selectedFieldId === field.id}
                                     accentColor={accentColor}
                                     currentUserId={currentUserId}
+                                    sections={sortedSections}
                                     onUpdate={handleUpdateField}
                                     onRemove={handleRemoveField}
                                     onDuplicate={handleDuplicateField}
+                                    onMove={handleMoveField}
                                     onClick={handleFieldClick}
                                     others={others}
                                   />
@@ -601,6 +620,7 @@ export function BuilderCanvas({
                             onSelect={handleOpenSectionSettings}
                             onSelectSection={handleNavigateSection}
                             onOpenSettings={handleOpenSectionSettings}
+                            onReorder={handleReorderSection}
                             onDuplicate={handleDuplicateSection}
                             onDelete={handleDeleteSection}
                             onAddAfter={handleAddSection}
@@ -650,6 +670,24 @@ export function BuilderCanvas({
             >
               <Copy className="h-5 w-5" />
               <span className="text-[10px] font-medium">Duplicate</span>
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px]"
+              onClick={() => {
+                if (selectedSectionId) setIsSectionReorderOpen(true);
+                else setIsMoveFieldOpen(true);
+              }}
+              disabled={
+                (!selectedFieldId && !selectedSectionId) ||
+                (!!selectedFieldId && sections.length <= 1) ||
+                (!!selectedSectionId && sections.length <= 1)
+              }
+            >
+              <MoveRight className="h-5 w-5" />
+              <span className="text-[10px] font-medium">Move</span>
             </Button>
 
             <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
@@ -703,6 +741,29 @@ export function BuilderCanvas({
               <span className="text-[10px] font-medium">Properties</span>
             </Button>
           </div>
+
+          {/* Mobile: Field Move Dialog */}
+          <FieldMoveDialog
+            open={isMoveFieldOpen}
+            onOpenChange={setIsMoveFieldOpen}
+            sections={sortedSections}
+            currentSectionId={selectedFieldId ? (fields.find(f => f.id === selectedFieldId)?.sectionId ?? null) : null}
+            accentColor={accentColor}
+            onMove={(targetSectionId) => {
+              if (selectedFieldId) handleMoveField(selectedFieldId, targetSectionId);
+            }}
+          />
+
+          {/* Mobile: Section Reorder Dialog */}
+          <SectionReorderDialog
+            open={isSectionReorderOpen}
+            onOpenChange={setIsSectionReorderOpen}
+            sections={sortedSections}
+            currentSectionId={selectedSectionId}
+            accentColor={accentColor}
+            others={others}
+            onReorder={handleReorderSection}
+          />
         </div>
 
         {/* Right Panel */}

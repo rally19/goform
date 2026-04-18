@@ -31,7 +31,10 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsRight,
+  MoveRight,
 } from "lucide-react";
+import { useState } from "react";
+import { SectionReorderDialog } from "./section-reorder-dialog";
 
 interface SectionEditorInfo {
   connectionId: number;
@@ -46,11 +49,13 @@ interface SectionBarProps {
   onSelect: (id: string) => void;
   onSelectSection: (id: string) => void;
   onOpenSettings: (id: string) => void;
+  onReorder: (id: string, toIndex: number) => void;
   onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
   onAddAfter: (afterIndex: number) => void;
   accentColor: string;
   others?: readonly any[];
+  currentSectionId?: string | null;
 }
 
 export function SectionBar({
@@ -61,14 +66,17 @@ export function SectionBar({
   onSelect,
   onSelectSection,
   onOpenSettings,
+  onReorder,
   onDuplicate,
   onDelete,
   onAddAfter,
   accentColor,
   others = [],
+  currentSectionId,
 }: SectionBarProps) {
   const total = sections.length;
   const isOnly = total === 1;
+  const [reorderOpen, setReorderOpen] = useState(false);
 
   const goFirst = () => onSelectSection(sections[0].id);
   const goPrev = () => currentIndex > 0 && onSelectSection(sections[currentIndex - 1].id);
@@ -182,6 +190,24 @@ export function SectionBar({
 
           {/* Right: action buttons */}
           <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+            {/* Reorder dialog trigger */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  disabled={isOnly}
+                  onClick={() => setReorderOpen(true)}
+                >
+                  <MoveRight className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">Reorder sections</TooltipContent>
+            </Tooltip>
+
+            <div className="w-px h-4 bg-border mx-0.5" />
+
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -292,6 +318,16 @@ export function SectionBar({
           </Button>
         </div>
       </div>
+
+      <SectionReorderDialog
+        open={reorderOpen}
+        onOpenChange={setReorderOpen}
+        sections={sections}
+        currentSectionId={currentSectionId ?? currentSection.id}
+        accentColor={accentColor}
+        others={others}
+        onReorder={onReorder}
+      />
     </TooltipProvider>
   );
 }

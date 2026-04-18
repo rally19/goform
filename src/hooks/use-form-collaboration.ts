@@ -160,6 +160,27 @@ export function useFormCollaboration({
     }
   }, []);
 
+  const reorderSection = useMutation(({ storage }, id: string, toIndex: number) => {
+    const list = storage.get("sections");
+    // Build a sorted snapshot of [liveObject, orderIndex] pairs
+    const items: { obj: LiveObject<BuilderSection>; orderIndex: number }[] = [];
+    for (let i = 0; i < list.length; i++) {
+      const obj = list.get(i) as LiveObject<BuilderSection>;
+      items.push({ obj, orderIndex: obj.get("orderIndex") });
+    }
+    items.sort((a, b) => a.orderIndex - b.orderIndex);
+
+    const fromIndex = items.findIndex((item) => item.obj.get("id") === id);
+    if (fromIndex === -1 || fromIndex === toIndex) return;
+    const clampedTo = Math.max(0, Math.min(toIndex, items.length - 1));
+
+    // Swap the orderIndex of the moved section with the one at the target position
+    const fromOrder = items[fromIndex].orderIndex;
+    const toOrder = items[clampedTo].orderIndex;
+    items[fromIndex].obj.set("orderIndex", toOrder);
+    items[clampedTo].obj.set("orderIndex", fromOrder);
+  }, []);
+
   const duplicateSection = useMutation(({ storage }, id: string, newSectionId: string) => {
     const fieldsList = storage.get("fields");
     const sectionsList = storage.get("sections");
@@ -340,6 +361,7 @@ export function useFormCollaboration({
     addSection,
     removeSection,
     updateSection,
+    reorderSection,
     duplicateSection,
     selectField,
     selectedFieldId,

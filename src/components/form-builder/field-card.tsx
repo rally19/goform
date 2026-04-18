@@ -5,11 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
-  GripVertical, Trash2, Copy, Star,
+  GripVertical, Trash2, Copy, Star, MoveRight,
   Type, AlignLeft, Hash, Mail, Phone, Link2, Calendar, Clock,
   CircleDot, CheckSquare, ChevronDown, ListChecks,
   SlidersHorizontal, Heading, Columns2, Upload, CalendarClock,
 } from "lucide-react";
+import { FieldMoveDialog } from "./field-move-dialog";
+import type { BuilderSection } from "@/lib/form-types";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { motion, AnimatePresence } from "motion/react";
@@ -48,9 +50,11 @@ interface FieldCardProps {
   accentColor?: string;
   isOverlay?: boolean;
   currentUserId: string;
+  sections?: BuilderSection[];
   onUpdate?: (id: string, changes: Partial<BuilderField>) => void;
   onRemove?: (id: string) => void;
   onDuplicate?: (field: BuilderField) => void;
+  onMove?: (fieldId: string, targetSectionId: string) => void;
   onClick?: (id: string) => void;
   others?: readonly any[];
 }
@@ -61,9 +65,11 @@ export const FieldCard = memo(function FieldCard({
   accentColor = "#6366f1",
   isOverlay = false,
   currentUserId,
+  sections = [],
   onUpdate,
   onRemove,
   onDuplicate,
+  onMove,
   onClick,
   others = [],
 }: FieldCardProps) {
@@ -77,6 +83,7 @@ export const FieldCard = memo(function FieldCard({
   const isBeingDraggedByOther = !!dragger;
   
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
+  const [moveOpen, setMoveOpen] = useState(false);
 
   const {
     attributes,
@@ -399,7 +406,30 @@ export const FieldCard = memo(function FieldCard({
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+
+          {sections.length > 1 && onMove && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setMoveOpen(true)}
+              title="Move to section"
+            >
+              <MoveRight className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </motion.div>
+
+        {sections.length > 1 && onMove && (
+          <FieldMoveDialog
+            open={moveOpen}
+            onOpenChange={setMoveOpen}
+            sections={sections}
+            currentSectionId={field.sectionId ?? null}
+            accentColor={accentColor}
+            onMove={(targetSectionId) => onMove(field.id, targetSectionId)}
+          />
+        )}
       </div>
 
     </div>
