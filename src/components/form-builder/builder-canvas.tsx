@@ -314,6 +314,12 @@ export function BuilderCanvas({
     toast.success("Section duplicated", { description: "You are now viewing the duplicate" });
   }, [collabDuplicateSection, setCurrentSectionId, selectSection]);
 
+  const handleNavigateSection = useCallback((id: string) => {
+    setCurrentSectionId(id);
+    selectField(null);
+    selectSection(null);
+  }, [setCurrentSectionId, selectField, selectSection]);
+
   const handleOpenSectionSettings = useCallback((id: string) => {
     if (selectedSectionId === id) {
       selectSection(null);
@@ -535,7 +541,7 @@ export function BuilderCanvas({
                             currentIndex={currentSectionIndex}
                             isSelected={selectedSectionId === currentSection.id}
                             onSelect={handleOpenSectionSettings}
-                            onSelectSection={setCurrentSectionId}
+                            onSelectSection={handleNavigateSection}
                             onOpenSettings={handleOpenSectionSettings}
                             onDuplicate={handleDuplicateSection}
                             onDelete={handleDeleteSection}
@@ -593,7 +599,7 @@ export function BuilderCanvas({
                             currentIndex={currentSectionIndex}
                             isSelected={selectedSectionId === currentSection.id}
                             onSelect={handleOpenSectionSettings}
-                            onSelectSection={setCurrentSectionId}
+                            onSelectSection={handleNavigateSection}
                             onOpenSettings={handleOpenSectionSettings}
                             onDuplicate={handleDuplicateSection}
                             onDelete={handleDeleteSection}
@@ -652,7 +658,7 @@ export function BuilderCanvas({
                 size="sm" 
                 className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px] text-destructive disabled:opacity-30" 
                 onClick={() => setIsDeleteConfirmOpen(true)}
-                disabled={!selectedFieldId && !selectedSectionId}
+                disabled={(!selectedFieldId && !selectedSectionId) || (!!selectedSectionId && sections.length === 1)}
               >
                 <Trash2 className="h-5 w-5" />
                 <span className="text-[10px] font-medium">Delete</span>
