@@ -5,6 +5,7 @@ import { useFormBuilder } from "@/hooks/use-form-builder";
 import { FIELD_TYPE_META, FIELD_CATEGORIES } from "@/lib/form-types";
 import type { FieldType, FieldCategory, FieldTypeMeta, BuilderField } from "@/lib/form-types";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -15,7 +16,7 @@ import {
   Type, AlignLeft, Hash, Mail, Phone, Link, Calendar, Clock,
   CalendarClock, CircleDot, CheckSquare, ChevronDown, ListChecks,
   Star, SlidersHorizontal, Heading, Columns2, Upload, User, List,
-  BarChart2, Layout, Paperclip, Search, LayoutGrid, Trash2,
+  BarChart2, Layout, Paperclip, Search, LayoutGrid, Trash2, X,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -117,7 +118,11 @@ function DraggableSidebarItem({ item }: { item: FieldTypeMeta }) {
   );
 }
 
-export function ComponentPanel() {
+interface ComponentPanelProps {
+  onMobileClose?: () => void;
+}
+
+export function ComponentPanel({ onMobileClose }: ComponentPanelProps) {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<FieldCategory | "all">("all");
 
@@ -168,19 +173,31 @@ export function ComponentPanel() {
       )}
 
       {/* Header */}
-      <div className="p-3 border-b border-border">
-        <h3 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider mb-2 px-1">
-          Components
-        </h3>
-        <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search..."
-            className="pl-8 h-8 text-sm"
-          />
+      <div className="p-3 border-b border-border flex items-center justify-between">
+        <div>
+          <h3 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider mb-2 px-1">
+            Components
+          </h3>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search..."
+              className="pl-8 h-8 text-sm"
+            />
+          </div>
         </div>
+        {onMobileClose && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 -mt-8"
+            onClick={onMobileClose}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
       {/* Category tabs */}

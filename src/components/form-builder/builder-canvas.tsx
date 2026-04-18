@@ -751,29 +751,29 @@ export function BuilderCanvas({
 
       {/* Mobile Component Panel */}
       <Sheet open={isComponentsOpen} onOpenChange={setIsComponentsOpen}>
-        <SheetContent side="left" className="p-0 w-80">
-          <SheetHeader className="p-4 border-b">
+        <SheetContent side="left" className="p-0 w-80" showCloseButton={false}>
+          <SheetHeader className="sr-only">
             <SheetTitle>Components</SheetTitle>
-            <SheetDescription className="sr-only">
+            <SheetDescription>
               Add new components to your form
             </SheetDescription>
           </SheetHeader>
-          <CursorArea id="components" className="h-[calc(100%-65px)]">
-            <ComponentPanel />
+          <CursorArea id="components" className="h-[calc(100%-1px)]">
+            <ComponentPanel onMobileClose={() => setIsComponentsOpen(false)} />
           </CursorArea>
         </SheetContent>
       </Sheet>
 
       {/* Mobile Settings Panel */}
       <Sheet open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-        <SheetContent side="right" className="p-0 w-full sm:w-80">
-          <SheetHeader className="p-4 border-b">
+        <SheetContent side="right" className="p-0 w-full sm:w-80" showCloseButton={false}>
+          <SheetHeader className="sr-only">
             <SheetTitle>Field Properties</SheetTitle>
-            <SheetDescription className="sr-only">
+            <SheetDescription>
               Edit the properties of the selected field
             </SheetDescription>
           </SheetHeader>
-          <CursorArea id={`settings-${selectedFieldId || selectedSectionId || 'none'}`} className="h-[calc(100%-65px)]">
+          <CursorArea id={`settings-${selectedFieldId || selectedSectionId || 'none'}`} className="h-[calc(100%-1px)]">
             <FieldSettings 
               currentUserId={currentUserId} 
               field={fields.find(f => f.id === selectedFieldId)}
