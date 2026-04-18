@@ -1,6 +1,6 @@
 import { getForm } from "@/lib/actions/forms";
 import { FormRenderer } from "@/components/form-renderer/form-renderer";
-import { redirect } from "next/navigation";
+import { forbidden } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
 
@@ -27,7 +27,7 @@ async function PreviewPageData({
   const result = await getForm(id);
 
   if (!result.success || !result.data) {
-    redirect("/forms");
+    return forbidden();
   }
 
   const { form, fields, sections } = result.data;
@@ -39,7 +39,7 @@ async function PreviewPageData({
       <div className="max-w-2xl mx-auto mb-4">
         <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 px-4 py-2.5 flex items-center justify-between text-sm shadow-sm ring-1 ring-amber-900/5">
           <span className="text-amber-800 dark:text-amber-300 font-medium">
-            👁 Preview Mode — responses won&apos;t be saved
+            👁 Preview Mode — only accessible to form collaborators
           </span>
           <Link
             href={`/forms/${id}/edit`}
@@ -69,7 +69,7 @@ async function PreviewPageData({
 
         {/* Form */}
         <div className="rounded-xl border border-border bg-card shadow-sm p-8">
-          <FormRenderer form={form} fields={fields} sections={sections} />
+          <FormRenderer form={form} fields={fields} sections={sections} mode="preview" />
         </div>
 
         <p className="text-center text-xs text-muted-foreground pb-8">

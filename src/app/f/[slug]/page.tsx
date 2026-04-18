@@ -3,6 +3,7 @@ import { FormRenderer } from "@/components/form-renderer/form-renderer";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { createClient } from "@/lib/server";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -37,6 +38,10 @@ async function FormPageData({ params }: PageProps) {
   const { form, fields, sections } = result.data;
   const accentColor = form.accentColor ?? "#6366f1";
 
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const isAuthenticated = !!user;
+
   return (
     <div className="min-h-screen bg-muted/20 py-10 px-4 animate-in fade-in duration-500">
       <div className="max-w-2xl mx-auto space-y-4">
@@ -60,7 +65,7 @@ async function FormPageData({ params }: PageProps) {
 
         {/* Form renderer */}
         <div className="rounded-xl border border-border bg-card shadow-sm p-8">
-          <FormRenderer form={form} fields={fields} sections={sections} />
+          <FormRenderer form={form} fields={fields} sections={sections} mode="public" isAuthenticated={isAuthenticated} />
         </div>
 
         <p className="text-center text-xs text-muted-foreground pb-8">

@@ -26,7 +26,7 @@ import { ACCENT_COLORS } from "@/lib/form-types";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Loader2, Trash2, Copy, ExternalLink, Globe, Lock } from "lucide-react";
+import { Loader2, Trash2, Copy, ExternalLink, Globe, Lock, ShieldCheck } from "lucide-react";
 
 interface SettingsClientProps {
   formId: string;
@@ -209,15 +209,6 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
                 onCheckedChange={(v) => update({ status: v ? "active" : "draft" })}
                 icon={Globe}
               />
-
-              <ToggleSetting
-                id="requireAuth"
-                label="Require Authentication"
-                description="Only logged-in users can view and submit"
-                checked={form.requireAuth}
-                onCheckedChange={(v) => update({ requireAuth: v })}
-                icon={Lock}
-              />
             </div>
           </CardContent>
         </Card>
@@ -244,18 +235,40 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
               onCheckedChange={(v) => update({ showProgress: v })}
             />
             <ToggleSetting
-              id="oneResponsePerUser"
-              label="One Response Per User"
-              description="Limit authenticated users to one submission"
-              checked={form.oneResponsePerUser}
-              onCheckedChange={(v) => update({ oneResponsePerUser: v })}
-            />
-            <ToggleSetting
               id="autoSave"
               label="Auto Save"
               description="Automatically save changes while building the form"
               checked={form.autoSave}
               onCheckedChange={(v) => update({ autoSave: v })}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Authentication */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Authentication</CardTitle>
+            <CardDescription>Control who can submit this form</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <ToggleSetting
+              id="requireAuth"
+              label="Require Authentication"
+              description="Only signed-in users can view and submit this form"
+              checked={form.requireAuth}
+              onCheckedChange={(v) =>
+                update({ requireAuth: v, oneResponsePerUser: v ? form.oneResponsePerUser : false })
+              }
+              icon={Lock}
+            />
+            <ToggleSetting
+              id="oneResponsePerUser"
+              label="One Response Per User"
+              description="Limit each authenticated user to a single submission"
+              checked={form.oneResponsePerUser}
+              onCheckedChange={(v) => update({ oneResponsePerUser: v })}
+              icon={ShieldCheck}
+              disabled={!form.requireAuth}
             />
           </CardContent>
         </Card>
@@ -359,6 +372,7 @@ function ToggleSetting({
   checked,
   onCheckedChange,
   icon: Icon,
+  disabled,
 }: {
   id: string;
   label: string;
@@ -366,17 +380,18 @@ function ToggleSetting({
   checked: boolean;
   onCheckedChange: (v: boolean) => void;
   icon?: React.ElementType;
+  disabled?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between p-3 border border-border rounded-lg bg-background">
+    <div className={cn("flex items-center justify-between p-3 border border-border rounded-lg bg-background", disabled && "opacity-50")}>
       <div className="flex items-start gap-3">
         {Icon && <Icon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />}
         <div>
-          <Label htmlFor={id} className="cursor-pointer font-medium">{label}</Label>
+          <Label htmlFor={id} className={cn("font-medium", !disabled && "cursor-pointer")}>{label}</Label>
           <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
         </div>
       </div>
-      <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} />
+      <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} disabled={disabled} />
     </div>
   );
 }

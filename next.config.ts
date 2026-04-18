@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "5mb",
     },
     instantNavigationDevToolsToggle: true,
+    authInterrupts: true,
   },
 };
 

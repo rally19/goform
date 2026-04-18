@@ -25,23 +25,38 @@ export async function submitFormResponse(
     });
 
     if (!form) return { success: false, error: "Form not found" };
-    if (!form.acceptResponses) {
-      return { success: false, error: "This form is no longer accepting responses" };
+    if (form.status === "draft") {
+      return { success: false, error: "This form is not yet published" };
     }
     if (form.status === "closed") {
       return { success: false, error: "This form is closed" };
+    }
+    if (!form.acceptResponses) {
+      return { success: false, error: "This form is no longer accepting responses" };
     }
 
     // Check auth if required
     let respondentId: string | undefined;
     let respondentEmail: string | undefined;
 
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
     if (form.requireAuth) {
-      const supabase = await createClient();
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return { success: false, error: "Authentication required" };
       respondentId = user.id;
       respondentEmail = user.email ?? undefined;
+    }
+
+    // Check one response per user
+    if (form.oneResponsePerUser && user) {
+      const existing = await db.query.formResponses.findFirst({
+        where: and(
+          eq(formResponses.formId, formId),
+          eq(formResponses.respondentId, user.id)
+        ),
+      });
+      if (existing) return { success: false, error: "You have already submitted a response to this form" };
     }
 
     const [response] = await db
@@ -320,6 +335,39 @@ export async function exportResponsesCSV(formId: string): Promise<ActionResult<s
       .join("\n");
 
     return { success: true, data: csv };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+// ─── Get Public Form Status (for pre-submit checks) ───────────────────────────
+
+export async function getPublicFormStatus(formId: string): Promise<ActionResult<{
+  acceptResponses: boolean;
+  status: string;
+  requireAuth: boolean;
+  isAuthenticated: boolean;
+}>> {
+  try {
+    const form = await db.query.forms.findFirst({
+      where: eq(forms.id, formId),
+      columns: { id: true, acceptResponses: true, status: true, requireAuth: true },
+    });
+
+    if (!form) return { success: false, error: "Form not found" };
+
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    return {
+      success: true,
+      data: {
+        acceptResponses: form.acceptResponses,
+        status: form.status,
+        requireAuth: form.requireAuth,
+        isAuthenticated: !!user,
+      },
+    };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }

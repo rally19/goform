@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { usePathname } from "next/navigation";
 import type { FormField } from "@/db/schema";
 import type { Form } from "@/db/schema";
 import type { FormAnswer, BuilderSection } from "@/lib/form-types";
-import { submitFormResponse } from "@/lib/actions/responses";
+import { submitFormResponse, getPublicFormStatus } from "@/lib/actions/responses";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { Star, ChevronLeft, ChevronRight, Send, CheckCircle2, Loader2, Lock } from "lucide-react";
+import { Star, ChevronLeft, ChevronRight, Send, CheckCircle2, Loader2, Lock, UserX } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -22,11 +23,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { toast } from "sonner";
 
 interface FormRendererProps {
   form: Form;
   fields: FormField[];
   sections?: BuilderSection[];
+  mode?: "preview" | "public";
+  isAuthenticated?: boolean;
 }
 
 const PAGE_BREAK_TYPE = "page_break";
@@ -379,8 +383,9 @@ function FieldRenderer({
   }
 }
 
-export function FormRenderer({ form, fields, sections }: FormRendererProps) {
+export function FormRenderer({ form, fields, sections, mode = "public", isAuthenticated = false }: FormRendererProps) {
   const accentColor = form.accentColor ?? "#6366f1";
+  const pathname = usePathname();
   const pages = useMemo(() => groupIntoPages(fields, sections), [fields, sections]);
 
   const [currentPage, setCurrentPage] = useState(0);
@@ -431,6 +436,28 @@ export function FormRenderer({ form, fields, sections }: FormRendererProps) {
     if (currentPage < totalPages - 1) return; // safety: not on last page
     if (!validatePage()) return;
 
+    // Pre-submit status check
+    const statusResult = await getPublicFormStatus(form.id);
+    if (statusResult.success && statusResult.data) {
+      const { status, acceptResponses } = statusResult.data;
+      if (status === "draft") {
+        if (mode === "preview") {
+          toast.error("This form is not yet published");
+        } else {
+          setErrors({ _global: "This form is not yet published" });
+        }
+        return;
+      }
+      if (!acceptResponses || status === "closed") {
+        if (mode === "preview") {
+          toast.error("This form is not currently accepting responses");
+        } else {
+          setErrors({ _global: "This form is not currently accepting responses" });
+        }
+        return;
+      }
+    }
+
     setSubmitting(true);
     const timeTaken = Math.round((Date.now() - startTime.current) / 1000);
 
@@ -438,24 +465,70 @@ export function FormRenderer({ form, fields, sections }: FormRendererProps) {
     if (result.success) {
       setSubmitted(true);
     } else {
-      setErrors({ _global: result.error ?? "Submission failed" });
+      if (mode === "preview") {
+        toast.error(result.error ?? "Submission failed");
+      } else {
+        setErrors({ _global: result.error ?? "Submission failed" });
+      }
     }
     setSubmitting(false);
   };
 
-  // Closed form
-  if (!form.acceptResponses || form.status === "closed") {
-    return (
-      <div className="text-center space-y-3 py-8">
-        <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mx-auto">
-          <Lock className="h-6 w-6 text-muted-foreground" />
+  // In public mode: show static state screens based on form status
+  if (mode === "public") {
+    if (form.status === "draft") {
+      return (
+        <div className="text-center space-y-3 py-8">
+          <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mx-auto">
+            <Lock className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <h2 className="text-xl font-semibold">Form not available</h2>
+          <p className="text-sm text-muted-foreground">
+            This form is not currently available.
+          </p>
         </div>
-        <h2 className="text-xl font-semibold">This form is closed</h2>
-        <p className="text-sm text-muted-foreground">
-          This form is no longer accepting responses.
-        </p>
-      </div>
-    );
+      );
+    }
+    if (!form.acceptResponses || form.status === "closed") {
+      return (
+        <div className="text-center space-y-3 py-8">
+          <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mx-auto">
+            <Lock className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <h2 className="text-xl font-semibold">Not accepting responses</h2>
+          <p className="text-sm text-muted-foreground">
+            This form is not currently accepting responses.
+          </p>
+        </div>
+      );
+    }
+    if (form.requireAuth && !isAuthenticated) {
+      return (
+        <div className="text-center space-y-4 py-8">
+          <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mx-auto">
+            <UserX className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <h2 className="text-xl font-semibold">Sign in required</h2>
+          <p className="text-sm text-muted-foreground">
+            You need to sign in to submit this form.
+          </p>
+          <div className="flex gap-3 justify-center pt-1">
+            <a
+              href={`/login?next=${encodeURIComponent(pathname)}`}
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2"
+            >
+              Sign in
+            </a>
+            <a
+              href={`/register?next=${encodeURIComponent(pathname)}`}
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2"
+            >
+              Create account
+            </a>
+          </div>
+        </div>
+      );
+    }
   }
 
   // Success screen
