@@ -30,6 +30,17 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { MultiSelect } from "@/components/ui/multi-select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { ValueInput } from "./value-input";
 import { ConditionBuilder } from "./condition-builder";
 import {
@@ -38,6 +49,7 @@ import {
   Link2, Calculator, SkipForward, MousePointer2, Hash,
 } from "lucide-react";
 import { useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 import type { LogicIssue } from "@/lib/form-logic";
 
@@ -78,6 +90,7 @@ interface RuleCardProps {
   issues: LogicIssue[];
   index: number;
   totalRules: number;
+  defaultExpanded?: boolean;
   onChange: (patch: Partial<LogicRule>) => void;
   onDelete: () => void;
   onDuplicate: () => void;
@@ -91,12 +104,13 @@ export function RuleCard({
   issues,
   index,
   totalRules,
+  defaultExpanded = false,
   onChange,
   onDelete,
   onDuplicate,
   onMove,
 }: RuleCardProps) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const actionMeta = LOGIC_ACTION_META.find((m) => m.action === rule.action);
   const ActionIcon = ACTION_ICONS[rule.action];
   const errorCount = issues.filter((i) => i.severity === "error").length;
@@ -185,139 +199,204 @@ export function RuleCard({
         >
           <Copy className="h-3.5 w-3.5" />
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 text-muted-foreground hover:text-destructive"
-          onClick={onDelete}
-          title="Delete"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-destructive"
+              title="Delete"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete rule?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the rule
+                &quot;{rule.name || "Untitled"}&quot;.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={onDelete} variant="destructive">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CardHeader>
 
-      {expanded && (
-        <CardContent className="p-4 space-y-4">
-          {/* Issues banner */}
-          {issues.length > 0 && (
-            <div className="space-y-1">
-              {issues.map((issue, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "flex items-start gap-2 text-xs px-2.5 py-1.5 rounded-md border",
-                    issue.severity === "error"
-                      ? "bg-destructive/10 border-destructive/30 text-destructive"
-                      : "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400"
-                  )}
-                >
-                  <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                  <span>{issue.message}</span>
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+          >
+            <CardContent className="p-4 space-y-4">
+              {/* Issues banner */}
+              {issues.length > 0 && (
+                <div className="space-y-1">
+                  {issues.map((issue, i) => (
+                    <div
+                      key={i}
+                      className={cn(
+                        "flex items-start gap-2 text-xs px-2.5 py-1.5 rounded-md border",
+                        issue.severity === "error"
+                          ? "bg-destructive/10 border-destructive/30 text-destructive"
+                          : "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400"
+                      )}
+                    >
+                      <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                      <span>{issue.message}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
+
+              {/* IF (conditions) */}
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-mono font-semibold uppercase tracking-wider bg-muted/60"
+                  >
+                    IF
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    Evaluate these conditions against the respondent&apos;s answers
+                  </span>
+                </div>
+                <ConditionBuilder
+                  group={rule.conditions}
+                  fields={fields}
+                  onChange={(next) => onChange({ conditions: next })}
+                />
+              </div>
+
+              <Separator />
+
+              {/* DO (action) */}
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-mono font-semibold uppercase tracking-wider bg-muted/60"
+                  >
+                    DO
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {actionMeta?.description ?? "Select what happens when conditions are met"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-2 items-start">
+                  <Select value={rule.action} onValueChange={(v) => handleActionChange(v as LogicAction)}>
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(["visibility", "state", "value", "navigation"] as const).map((cat) => {
+                        const options = LOGIC_ACTION_META.filter((m) => m.category === cat);
+                        if (options.length === 0) return null;
+                        return (
+                          <SelectGroup key={cat}>
+                            <SelectLabel className="capitalize">{cat}</SelectLabel>
+                            {options.map((m) => (
+                              <SelectItem key={m.action} value={m.action}>
+                                {m.label}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+
+                  <TargetEditor
+                    rule={rule}
+                    fields={fields}
+                    sections={sections}
+                    onChange={onChange}
+                  />
+                </div>
+
+                {rule.action === "set_value" && (
+                  <SetValueEditor rule={rule} fields={fields} onChange={onChange} />
+                )}
+              </div>
+
+              {/* Footer: order controls inside expanded content */}
+              <div className="flex items-center justify-between pt-2">
+                <div className="text-[11px] text-muted-foreground">
+                  Rules run top-to-bottom. Later rules override earlier ones for the same field.
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => onMove("up")}
+                    disabled={index === 0}
+                  >
+                    Move up
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => onMove("down")}
+                    disabled={index === totalRules - 1}
+                  >
+                    Move down
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {!expanded && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            className="border-t border-border"
+          >
+            <div className="flex items-center justify-between px-3 py-2 bg-muted/20">
+              <div className="text-[11px] text-muted-foreground">
+                Rules run top-to-bottom. Later rules override earlier ones for the same field.
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => onMove("up")}
+                  disabled={index === 0}
+                >
+                  Move up
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => onMove("down")}
+                  disabled={index === totalRules - 1}
+                >
+                  Move down
+                </Button>
+              </div>
             </div>
-          )}
-
-          {/* IF (conditions) */}
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <Badge
-                variant="outline"
-                className="text-[10px] font-mono font-semibold uppercase tracking-wider bg-muted/60"
-              >
-                IF
-              </Badge>
-              <span className="text-xs text-muted-foreground">
-                Evaluate these conditions against the respondent&apos;s answers
-              </span>
-            </div>
-            <ConditionBuilder
-              group={rule.conditions}
-              fields={fields}
-              onChange={(next) => onChange({ conditions: next })}
-            />
-          </div>
-
-          <Separator />
-
-          {/* DO (action) */}
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <Badge
-                variant="outline"
-                className="text-[10px] font-mono font-semibold uppercase tracking-wider bg-muted/60"
-              >
-                DO
-              </Badge>
-              <span className="text-xs text-muted-foreground">
-                {actionMeta?.description ?? "Select what happens when conditions are met"}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-2 items-start">
-              <Select value={rule.action} onValueChange={(v) => handleActionChange(v as LogicAction)}>
-                <SelectTrigger className="h-9 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(["visibility", "state", "value", "navigation"] as const).map((cat) => {
-                    const options = LOGIC_ACTION_META.filter((m) => m.category === cat);
-                    if (options.length === 0) return null;
-                    return (
-                      <SelectGroup key={cat}>
-                        <SelectLabel className="capitalize">{cat}</SelectLabel>
-                        {options.map((m) => (
-                          <SelectItem key={m.action} value={m.action}>
-                            {m.label}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-
-              <TargetEditor
-                rule={rule}
-                fields={fields}
-                sections={sections}
-                onChange={onChange}
-              />
-            </div>
-
-            {rule.action === "set_value" && (
-              <SetValueEditor rule={rule} fields={fields} onChange={onChange} />
-            )}
-          </div>
-
-          {/* Footer: order controls */}
-          <div className="flex items-center justify-between pt-2">
-            <div className="text-[11px] text-muted-foreground">
-              Rules run top-to-bottom. Later rules override earlier ones for the same field.
-            </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => onMove("up")}
-                disabled={index === 0}
-              >
-                Move up
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => onMove("down")}
-                disabled={index === totalRules - 1}
-              >
-                Move down
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </Card>
   );
 }

@@ -36,6 +36,7 @@ export function LogicClient({
   const [rules, setRules] = useState<LogicRule[]>(initialLogic);
   const [savedRules, setSavedRules] = useState<LogicRule[]>(initialLogic);
   const [saving, setSaving] = useState(false);
+  const [lastAddedRuleId, setLastAddedRuleId] = useState<string | null>(null);
 
   const isDirty = useMemo(
     () => JSON.stringify(rules) !== JSON.stringify(savedRules),
@@ -61,7 +62,9 @@ export function LogicClient({
   const warnCount = issues.filter((i) => i.severity === "warning").length;
 
   const addRule = () => {
-    setRules((prev) => [...prev, createEmptyRule(prev.length)]);
+    const newRule = createEmptyRule(rules.length);
+    setLastAddedRuleId(newRule.id);
+    setRules((prev) => [...prev, newRule]);
   };
 
   const updateRule = useCallback((id: string, patch: Partial<LogicRule>) => {
@@ -281,6 +284,7 @@ export function LogicClient({
                   issues={issuesByRule.get(rule.id) ?? []}
                   index={index}
                   totalRules={rules.length}
+                  defaultExpanded={rule.id === lastAddedRuleId}
                   onChange={(patch) => updateRule(rule.id, patch)}
                   onDelete={() => deleteRule(rule.id)}
                   onDuplicate={() => duplicateRule(rule.id)}
