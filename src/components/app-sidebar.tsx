@@ -69,6 +69,7 @@ export function AppSidebar({
 
   const hideNav = pathname.includes('/forms/') && (
     pathname.endsWith('/edit') || 
+    pathname.endsWith('/logic') || 
     pathname.endsWith('/results') || 
     pathname.endsWith('/analytics') || 
     pathname.endsWith('/settings')
