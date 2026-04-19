@@ -234,6 +234,42 @@ export function FieldSettings({
                   onCheckedChange={(v) => onUpdate?.({ required: v })}
                 />
               </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-border p-3 bg-background/50">
+                <div>
+                  <p className="text-sm font-medium">Disabled by default</p>
+                  <p className="text-xs text-muted-foreground">
+                    Starts read-only. Use a Logic rule to enable it.
+                  </p>
+                </div>
+                <Switch
+                  checked={!!field.properties?.defaultDisabled}
+                  onCheckedChange={(v) =>
+                    onUpdate?.({
+                      properties: { ...(field.properties ?? {}), defaultDisabled: v },
+                    })
+                  }
+                />
+              </div>
+
+              {["short_text", "long_text", "email", "phone", "url", "number"].includes(field.type) && (
+                <div className="flex items-center justify-between rounded-lg border border-border p-3 bg-background/50">
+                  <div>
+                    <p className="text-sm font-medium">Masked by default</p>
+                    <p className="text-xs text-muted-foreground">
+                      Obscure input like a password. Use Logic to unmask.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={!!field.properties?.defaultMasked}
+                    onCheckedChange={(v) =>
+                      onUpdate?.({
+                        properties: { ...(field.properties ?? {}), defaultMasked: v },
+                      })
+                    }
+                  />
+                </div>
+              )}
             </>
           )}
 

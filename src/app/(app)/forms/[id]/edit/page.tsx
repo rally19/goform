@@ -27,7 +27,7 @@ async function BuilderData({ params }: { params: Promise<{ id: string }> }) {
     redirect("/forms");
   }
 
-  const { form, fields, sections, currentUserRole, currentUserId } = result.data;
+  const { form, fields, sections, logic, currentUserRole, currentUserId } = result.data;
   
   if (currentUserRole === "viewer") {
     redirect(`/forms/${id}/results`);
@@ -49,6 +49,7 @@ async function BuilderData({ params }: { params: Promise<{ id: string }> }) {
     autoSave: form.autoSave,
     collaborationEnabled: form.collaborationEnabled,
     lastToggledBy: (form as any).lastToggledBy,
+    logic,
   };
 
   const builderFields: BuilderField[] = fields.map((f) => ({

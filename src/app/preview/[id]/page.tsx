@@ -30,7 +30,7 @@ async function PreviewPageData({
     return forbidden();
   }
 
-  const { form, fields, sections } = result.data;
+  const { form, fields, sections, logic } = result.data;
   const accentColor = form.accentColor ?? "#6366f1";
 
   return (
@@ -69,7 +69,7 @@ async function PreviewPageData({
 
         {/* Form */}
         <div className="rounded-xl border border-border bg-card shadow-sm p-8">
-          <FormRenderer form={form} fields={fields} sections={sections} mode="preview" />
+          <FormRenderer form={form} fields={fields} sections={sections} logic={logic} mode="preview" />
         </div>
 
         <p className="text-center text-xs text-muted-foreground pb-8">

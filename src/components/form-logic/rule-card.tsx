@@ -1,0 +1,508 @@
+"use client";
+
+import type {
+  BuilderField,
+  BuilderSection,
+  LogicAction,
+  LogicRule,
+  LogicValueSource,
+  FormAnswer,
+} from "@/lib/form-types";
+import { LOGIC_ACTION_META } from "@/lib/form-types";
+import { actionNeedsTargets } from "@/lib/form-logic";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  SelectGroup,
+  SelectLabel,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { MultiSelect } from "@/components/ui/multi-select";
+import { ValueInput } from "./value-input";
+import { ConditionBuilder } from "./condition-builder";
+import {
+  Trash2, Copy, ChevronDown, ChevronRight,
+  AlertTriangle, Eye, EyeOff, Lock, Unlock, Asterisk, AsteriskSquare,
+  Link2, Calculator, SkipForward, MousePointer2, Hash,
+} from "lucide-react";
+import { useState } from "react";
+import { cn } from "@/lib/utils";
+import type { LogicIssue } from "@/lib/form-logic";
+
+const ACTION_ICONS: Record<LogicAction, React.ElementType> = {
+  show_field: Eye,
+  hide_field: EyeOff,
+  enable_field: Unlock,
+  disable_field: Lock,
+  require_field: Asterisk,
+  unrequire_field: AsteriskSquare,
+  mask_field: Lock,
+  unmask_field: Unlock,
+  set_value: Calculator,
+  skip_to_page: SkipForward,
+  skip_to_section: SkipForward,
+  jump_to_field: MousePointer2,
+};
+
+const ACTION_COLORS: Record<LogicAction, string> = {
+  show_field: "bg-green-500/15 text-green-600 dark:text-green-400",
+  hide_field: "bg-rose-500/15 text-rose-600 dark:text-rose-400",
+  enable_field: "bg-green-500/15 text-green-600 dark:text-green-400",
+  disable_field: "bg-slate-500/15 text-slate-600 dark:text-slate-400",
+  require_field: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  unrequire_field: "bg-slate-500/15 text-slate-600 dark:text-slate-400",
+  mask_field: "bg-purple-500/15 text-purple-600 dark:text-purple-400",
+  unmask_field: "bg-purple-500/15 text-purple-600 dark:text-purple-400",
+  set_value: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+  skip_to_page: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400",
+  skip_to_section: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400",
+  jump_to_field: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400",
+};
+
+interface RuleCardProps {
+  rule: LogicRule;
+  fields: BuilderField[];
+  sections: BuilderSection[];
+  issues: LogicIssue[];
+  index: number;
+  totalRules: number;
+  onChange: (patch: Partial<LogicRule>) => void;
+  onDelete: () => void;
+  onDuplicate: () => void;
+  onMove: (direction: "up" | "down") => void;
+}
+
+export function RuleCard({
+  rule,
+  fields,
+  sections,
+  issues,
+  index,
+  totalRules,
+  onChange,
+  onDelete,
+  onDuplicate,
+  onMove,
+}: RuleCardProps) {
+  const [expanded, setExpanded] = useState(true);
+  const actionMeta = LOGIC_ACTION_META.find((m) => m.action === rule.action);
+  const ActionIcon = ACTION_ICONS[rule.action];
+  const errorCount = issues.filter((i) => i.severity === "error").length;
+  const warnCount = issues.filter((i) => i.severity === "warning").length;
+
+  const handleActionChange = (next: LogicAction) => {
+    // Reset targets that no longer apply
+    const patch: Partial<LogicRule> = { action: next };
+    if (!actionNeedsTargets(next)) patch.targetFieldIds = [];
+    if (next !== "skip_to_page") patch.targetPageIndex = undefined;
+    if (next !== "skip_to_section") patch.targetSectionId = undefined;
+    if (next !== "jump_to_field") patch.targetFieldId = undefined;
+    if (next !== "set_value") patch.valueSource = undefined;
+    if (next === "set_value" && !rule.valueSource) {
+      patch.valueSource = { mode: "static", staticValue: "" };
+    }
+    onChange(patch);
+  };
+
+  return (
+    <Card
+      className={cn(
+        "transition-colors py-0 gap-0",
+        !rule.enabled && "opacity-60",
+        errorCount > 0 && "border-destructive/50",
+        errorCount === 0 && warnCount > 0 && "border-amber-500/50"
+      )}
+    >
+      <CardHeader className="flex flex-row items-center gap-2 p-3 [.border-b]:pb-3 border-b border-border">
+        <button
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
+          className="p-1 -m-1 text-muted-foreground hover:text-foreground"
+          aria-label={expanded ? "Collapse" : "Expand"}
+        >
+          {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        </button>
+
+        <div
+          className={cn(
+            "flex items-center justify-center h-7 w-7 rounded-md shrink-0",
+            ACTION_COLORS[rule.action]
+          )}
+        >
+          {ActionIcon && <ActionIcon className="h-3.5 w-3.5" />}
+        </div>
+
+        <Input
+          value={rule.name ?? ""}
+          onChange={(e) => onChange({ name: e.target.value })}
+          placeholder="Rule name"
+          className="h-8 text-sm flex-1 bg-transparent border-transparent hover:border-border focus-visible:border-ring"
+        />
+
+        <Badge variant="outline" className="text-[10px] font-mono shrink-0">
+          #{index + 1}
+        </Badge>
+
+        {errorCount > 0 && (
+          <Badge variant="destructive" className="text-[10px] gap-1 shrink-0">
+            <AlertTriangle className="h-3 w-3" />
+            {errorCount}
+          </Badge>
+        )}
+        {errorCount === 0 && warnCount > 0 && (
+          <Badge
+            variant="secondary"
+            className="text-[10px] gap-1 shrink-0 bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
+          >
+            <AlertTriangle className="h-3 w-3" />
+            {warnCount}
+          </Badge>
+        )}
+
+        <Switch
+          checked={rule.enabled}
+          onCheckedChange={(v) => onChange({ enabled: v })}
+        />
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground"
+          onClick={onDuplicate}
+          title="Duplicate"
+        >
+          <Copy className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+          onClick={onDelete}
+          title="Delete"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </CardHeader>
+
+      {expanded && (
+        <CardContent className="p-4 space-y-4">
+          {/* Issues banner */}
+          {issues.length > 0 && (
+            <div className="space-y-1">
+              {issues.map((issue, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "flex items-start gap-2 text-xs px-2.5 py-1.5 rounded-md border",
+                    issue.severity === "error"
+                      ? "bg-destructive/10 border-destructive/30 text-destructive"
+                      : "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400"
+                  )}
+                >
+                  <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  <span>{issue.message}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* IF (conditions) */}
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <Badge
+                variant="outline"
+                className="text-[10px] font-mono font-semibold uppercase tracking-wider bg-muted/60"
+              >
+                IF
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                Evaluate these conditions against the respondent&apos;s answers
+              </span>
+            </div>
+            <ConditionBuilder
+              group={rule.conditions}
+              fields={fields}
+              onChange={(next) => onChange({ conditions: next })}
+            />
+          </div>
+
+          <Separator />
+
+          {/* DO (action) */}
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <Badge
+                variant="outline"
+                className="text-[10px] font-mono font-semibold uppercase tracking-wider bg-muted/60"
+              >
+                DO
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                {actionMeta?.description ?? "Select what happens when conditions are met"}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-2 items-start">
+              <Select value={rule.action} onValueChange={(v) => handleActionChange(v as LogicAction)}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(["visibility", "state", "value", "navigation"] as const).map((cat) => {
+                    const options = LOGIC_ACTION_META.filter((m) => m.category === cat);
+                    if (options.length === 0) return null;
+                    return (
+                      <SelectGroup key={cat}>
+                        <SelectLabel className="capitalize">{cat}</SelectLabel>
+                        {options.map((m) => (
+                          <SelectItem key={m.action} value={m.action}>
+                            {m.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+
+              <TargetEditor
+                rule={rule}
+                fields={fields}
+                sections={sections}
+                onChange={onChange}
+              />
+            </div>
+
+            {rule.action === "set_value" && (
+              <SetValueEditor rule={rule} fields={fields} onChange={onChange} />
+            )}
+          </div>
+
+          {/* Footer: order controls */}
+          <div className="flex items-center justify-between pt-2">
+            <div className="text-[11px] text-muted-foreground">
+              Rules run top-to-bottom. Later rules override earlier ones for the same field.
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => onMove("up")}
+                disabled={index === 0}
+              >
+                Move up
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => onMove("down")}
+                disabled={index === totalRules - 1}
+              >
+                Move down
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
+// ─── Target editor ───────────────────────────────────────────────────────────
+
+function TargetEditor({
+  rule,
+  fields,
+  sections,
+  onChange,
+}: {
+  rule: LogicRule;
+  fields: BuilderField[];
+  sections: BuilderSection[];
+  onChange: (patch: Partial<LogicRule>) => void;
+}) {
+  const realFields = fields.filter((f) => f.type !== "page_break" && f.type !== "section");
+
+  if (actionNeedsTargets(rule.action)) {
+    return (
+      <MultiSelect
+        options={realFields.map((f) => ({ label: f.label || "(untitled)", value: f.id }))}
+        selected={rule.targetFieldIds ?? []}
+        onChange={(vals) => onChange({ targetFieldIds: vals })}
+        placeholder="Select target field(s)"
+      />
+    );
+  }
+
+  if (rule.action === "skip_to_section") {
+    return (
+      <Select
+        value={rule.targetSectionId ?? ""}
+        onValueChange={(v) => onChange({ targetSectionId: v })}
+      >
+        <SelectTrigger className="h-9 text-sm">
+          <SelectValue placeholder="Select section" />
+        </SelectTrigger>
+        <SelectContent>
+          {sections.map((s) => (
+            <SelectItem key={s.id} value={s.id}>
+              {s.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  }
+
+  if (rule.action === "skip_to_page") {
+    // Provide page picker based on sections as a simple proxy (page index = section order)
+    const totalPages = Math.max(sections.length, 1);
+    return (
+      <Select
+        value={rule.targetPageIndex != null ? String(rule.targetPageIndex) : ""}
+        onValueChange={(v) => onChange({ targetPageIndex: Number(v) })}
+      >
+        <SelectTrigger className="h-9 text-sm">
+          <SelectValue placeholder="Select page" />
+        </SelectTrigger>
+        <SelectContent>
+          {Array.from({ length: totalPages }).map((_, i) => (
+            <SelectItem key={i} value={String(i)}>
+              Page {i + 1}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  }
+
+  if (rule.action === "jump_to_field") {
+    return (
+      <Select
+        value={rule.targetFieldId ?? ""}
+        onValueChange={(v) => onChange({ targetFieldId: v })}
+      >
+        <SelectTrigger className="h-9 text-sm">
+          <SelectValue placeholder="Select field" />
+        </SelectTrigger>
+        <SelectContent>
+          {realFields.map((f) => (
+            <SelectItem key={f.id} value={f.id}>
+              {f.label || "(untitled)"}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  }
+
+  return null;
+}
+
+// ─── set_value editor ────────────────────────────────────────────────────────
+
+function SetValueEditor({
+  rule,
+  fields,
+  onChange,
+}: {
+  rule: LogicRule;
+  fields: BuilderField[];
+  onChange: (patch: Partial<LogicRule>) => void;
+}) {
+  const source = rule.valueSource ?? { mode: "static", staticValue: "" };
+  const primaryTarget = fields.find((f) => f.id === (rule.targetFieldIds ?? [])[0]);
+
+  const setMode = (mode: LogicValueSource["mode"]) => {
+    if (mode === "static") onChange({ valueSource: { mode, staticValue: "" } });
+    if (mode === "copy_field") onChange({ valueSource: { mode, sourceFieldId: "" } });
+    if (mode === "formula") onChange({ valueSource: { mode, formula: "" } });
+  };
+
+  return (
+    <div className="rounded-md border border-border bg-muted/30 p-2.5 space-y-2">
+      <div className="flex items-center gap-2">
+        <Badge
+          variant="outline"
+          className="text-[10px] font-mono font-semibold uppercase tracking-wider bg-background"
+        >
+          Value source
+        </Badge>
+        <Select value={source.mode} onValueChange={(v) => setMode(v as LogicValueSource["mode"])}>
+          <SelectTrigger className="h-7 text-xs w-[140px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="static">
+              <span className="flex items-center gap-2"><Hash className="h-3 w-3" /> Static value</span>
+            </SelectItem>
+            <SelectItem value="copy_field">
+              <span className="flex items-center gap-2"><Link2 className="h-3 w-3" /> Copy from field</span>
+            </SelectItem>
+            <SelectItem value="formula">
+              <span className="flex items-center gap-2"><Calculator className="h-3 w-3" /> Formula</span>
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {source.mode === "static" && (
+        <ValueInput
+          field={primaryTarget}
+          operator="equal"
+          value={source.staticValue}
+          onChange={(v: FormAnswer) => onChange({ valueSource: { mode: "static", staticValue: v } })}
+          placeholder="Value to set"
+        />
+      )}
+
+      {source.mode === "copy_field" && (
+        <Select
+          value={source.sourceFieldId ?? ""}
+          onValueChange={(v) => onChange({ valueSource: { mode: "copy_field", sourceFieldId: v } })}
+        >
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue placeholder="Select source field" />
+          </SelectTrigger>
+          <SelectContent>
+            {fields
+              .filter((f) => f.type !== "page_break" && f.type !== "section")
+              .map((f) => (
+                <SelectItem key={f.id} value={f.id}>
+                  {f.label || "(untitled)"}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+      )}
+
+      {source.mode === "formula" && (
+        <div className="space-y-1">
+          <Input
+            value={source.formula ?? ""}
+            onChange={(e) => onChange({ valueSource: { mode: "formula", formula: e.target.value } })}
+            placeholder="e.g. {fieldA} + {fieldB} * 2"
+            className="h-8 text-sm font-mono"
+          />
+          <p className="text-[10px] text-muted-foreground leading-tight">
+            Use <code className="bg-muted px-1 rounded">{"{fieldId}"}</code> to reference a field. Supports <code className="bg-muted px-1 rounded">+ - * / ( )</code> only.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}

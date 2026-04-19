@@ -4,7 +4,8 @@ import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import type { FormField } from "@/db/schema";
 import type { Form } from "@/db/schema";
-import type { FormAnswer, BuilderSection } from "@/lib/form-types";
+import type { FormAnswer, BuilderSection, LogicRule, BuilderField } from "@/lib/form-types";
+import { evaluateLogic, type FieldDynamicState } from "@/lib/form-logic";
 import { submitFormResponse, getPublicFormStatus } from "@/lib/actions/responses";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +30,7 @@ interface FormRendererProps {
   form: Form;
   fields: FormField[];
   sections?: BuilderSection[];
+  logic?: LogicRule[];
   mode?: "preview" | "public";
   isAuthenticated?: boolean;
 }
@@ -182,12 +184,16 @@ function FieldRenderer({
   onChange,
   error,
   accentColor,
+  disabled,
+  masked,
 }: {
   field: FormField;
   value: FormAnswer;
   onChange: (v: FormAnswer) => void;
   error?: string;
   accentColor: string;
+  disabled?: boolean;
+  masked?: boolean;
 }) {
   const options = field.options ?? [];
   const props = field.properties ?? {};
@@ -220,7 +226,8 @@ function FieldRenderer({
       return (
         <Input
           type={
-            field.type === "email" ? "email"
+            masked ? "password"
+            : field.type === "email" ? "email"
             : field.type === "phone" ? "tel"
             : field.type === "url" ? "url"
             : field.type === "number" ? "number"
@@ -234,6 +241,7 @@ function FieldRenderer({
           max={val.max}
           minLength={val.minLength}
           maxLength={val.maxLength}
+          disabled={disabled}
         />
       );
 
@@ -244,7 +252,8 @@ function FieldRenderer({
           onChange={(e) => onChange(e.target.value)}
           placeholder={field.placeholder ?? "Your answer"}
           rows={props.rows ?? 4}
-          className={inputClass}
+          className={cn(inputClass, masked && "[-webkit-text-security:disc]")}
+          disabled={disabled}
         />
       );
 
@@ -257,6 +266,7 @@ function FieldRenderer({
           value={(value as string) ?? ""}
           onChange={(e) => onChange(e.target.value)}
           className={cn("h-11 w-auto", inputClass)}
+          disabled={disabled}
         />
       );
 
@@ -266,12 +276,14 @@ function FieldRenderer({
           value={(value as string) ?? ""}
           onValueChange={onChange}
           className="space-y-2"
+          disabled={disabled}
         >
           {options.map((opt) => (
             <div key={opt.value} className="flex items-center gap-3">
               <RadioGroupItem 
                 value={opt.value} 
                 id={`${field.id}-${opt.value}`}
+                disabled={disabled}
                 onClick={(e) => {
                   if (!field.required && value === opt.value) {
                     onChange("");
@@ -305,6 +317,7 @@ function FieldRenderer({
               <Checkbox
                 id={`${field.id}-${opt.value}`}
                 checked={checked.includes(opt.value)}
+                disabled={disabled}
                 onCheckedChange={(ch) => {
                   if (ch) onChange([...checked, opt.value]);
                   else onChange(checked.filter((v) => v !== opt.value));
@@ -321,7 +334,7 @@ function FieldRenderer({
 
     case "select":
       return (
-        <Select value={(value as string) ?? ""} onValueChange={onChange}>
+        <Select value={(value as string) ?? ""} onValueChange={onChange} disabled={disabled}>
           <SelectTrigger className={cn("h-11", inputClass)}>
             <SelectValue placeholder={field.placeholder ?? "Select an option"} />
           </SelectTrigger>
@@ -383,7 +396,7 @@ function FieldRenderer({
   }
 }
 
-export function FormRenderer({ form, fields, sections, mode = "public", isAuthenticated = false }: FormRendererProps) {
+export function FormRenderer({ form, fields, sections, logic = [], mode = "public", isAuthenticated = false }: FormRendererProps) {
   const accentColor = form.accentColor ?? "#6366f1";
   const pathname = usePathname();
   const pages = useMemo(() => groupIntoPages(fields, sections), [fields, sections]);
@@ -394,6 +407,58 @@ export function FormRenderer({ form, fields, sections, mode = "public", isAuthen
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const startTime = useRef(0);
+
+  // ── Logic runtime ─────────────────────────────────────────────────────────
+  const builderFieldsForEngine = useMemo<BuilderField[]>(
+    () =>
+      fields.map((f) => ({
+        id: f.id,
+        type: f.type as BuilderField["type"],
+        label: f.label,
+        description: f.description ?? undefined,
+        placeholder: f.placeholder ?? undefined,
+        required: f.required,
+        orderIndex: f.orderIndex,
+        options: f.options ?? undefined,
+        validation: f.validation ?? undefined,
+        properties: f.properties ?? undefined,
+        sectionId: f.sectionId ?? undefined,
+      })),
+    [fields]
+  );
+
+  const engineResult = useMemo(
+    () => evaluateLogic(builderFieldsForEngine, logic, answers),
+    [builderFieldsForEngine, logic, answers]
+  );
+  const dynamicStates = engineResult.states;
+
+  // Apply set_value overrides to answers so they reflect in the UI
+  useEffect(() => {
+    const patch: Record<string, FormAnswer> = {};
+    for (const [id, state] of Object.entries(dynamicStates)) {
+      if (state.overriddenValue !== undefined && answers[id] !== state.overriddenValue) {
+        patch[id] = state.overriddenValue as FormAnswer;
+      }
+    }
+    if (Object.keys(patch).length > 0) {
+      setAnswers((prev) => ({ ...prev, ...patch }));
+    }
+    // answers intentionally excluded from deps: we want to sync only when
+    // dynamicStates change, not when the user edits a non-overridden field.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dynamicStates]);
+
+  const getDynamicState = useCallback(
+    (fieldId: string): FieldDynamicState =>
+      dynamicStates[fieldId] ?? {
+        visible: true,
+        enabled: true,
+        required: false,
+        masked: false,
+      },
+    [dynamicStates]
+  );
   
   useEffect(() => {
     startTime.current = Date.now();
@@ -408,7 +473,9 @@ export function FormRenderer({ form, fields, sections, mode = "public", isAuthen
     const newErrors: Record<string, string> = {};
     for (const field of currentFields as FormField[]) {
       if (field.type === "section" || field.type === "page_break") continue;
-      if (field.required) {
+      const state = getDynamicState(field.id);
+      if (!state.visible) continue; // hidden fields are never required
+      if (state.required) {
         const val = answers[field.id];
         const isEmpty =
           val === null ||
@@ -421,11 +488,48 @@ export function FormRenderer({ form, fields, sections, mode = "public", isAuthen
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [currentFields, answers]);
+  }, [currentFields, answers, getDynamicState]);
 
   const handleNext = (e: React.MouseEvent) => {
     e.preventDefault();
     if (!validatePage()) return;
+
+    // Logic navigation override
+    const nav = engineResult.navigation;
+    if (nav) {
+      if (nav.kind === "page" && typeof nav.targetPageIndex === "number") {
+        const idx = Math.max(0, Math.min(nav.targetPageIndex, totalPages - 1));
+        setCurrentPage(idx);
+        setErrors({});
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+      if (nav.kind === "section" && nav.targetSectionId) {
+        const idx = pages.findIndex((p) =>
+          p.fields.some((f) => (f as FormField).sectionId === nav.targetSectionId)
+        );
+        if (idx >= 0) {
+          setCurrentPage(idx);
+          setErrors({});
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          return;
+        }
+      }
+      if (nav.kind === "field" && nav.targetFieldId) {
+        const idx = pages.findIndex((p) =>
+          p.fields.some((f) => f.id === nav.targetFieldId)
+        );
+        if (idx >= 0) setCurrentPage(idx);
+        setErrors({});
+        // Defer to allow the page to render before scrolling
+        requestAnimationFrame(() => {
+          const el = document.getElementById(`field-${nav.targetFieldId}`);
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+        return;
+      }
+    }
+
     setCurrentPage((p) => Math.min(p + 1, totalPages - 1));
     setErrors({});
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -461,7 +565,16 @@ export function FormRenderer({ form, fields, sections, mode = "public", isAuthen
     setSubmitting(true);
     const timeTaken = Math.round((Date.now() - startTime.current) / 1000);
 
-    const result = await submitFormResponse(form.id, answers, { timeTaken });
+    // Strip answers for fields that are currently hidden by logic — they are
+    // treated as "not asked", so we don't send stale values to the server.
+    const cleanedAnswers: Record<string, FormAnswer> = {};
+    for (const [fid, value] of Object.entries(answers)) {
+      const state = dynamicStates[fid];
+      if (state && !state.visible) continue;
+      cleanedAnswers[fid] = value;
+    }
+
+    const result = await submitFormResponse(form.id, cleanedAnswers, { timeTaken });
     if (result.success) {
       setSubmitted(true);
     } else {
@@ -585,7 +698,7 @@ export function FormRenderer({ form, fields, sections, mode = "public", isAuthen
         {(currentFields as FormField[]).map((field) => {
           if (field.type === "section") {
             return (
-              <div key={field.id}>
+              <div key={field.id} id={`field-${field.id}`}>
                 <FieldRenderer
                   field={field}
                   value={null}
@@ -596,11 +709,14 @@ export function FormRenderer({ form, fields, sections, mode = "public", isAuthen
             );
           }
 
+          const state = getDynamicState(field.id);
+          if (!state.visible) return null;
+
           return (
-            <div key={field.id} className="space-y-2">
+            <div key={field.id} id={`field-${field.id}`} className="space-y-2">
               <Label className="text-sm font-medium">
                 {field.label}
-                {field.required && (
+                {state.required && (
                   <span className="text-destructive ml-1">*</span>
                 )}
               </Label>
@@ -615,6 +731,8 @@ export function FormRenderer({ form, fields, sections, mode = "public", isAuthen
                 }
                 error={errors[field.id]}
                 accentColor={accentColor}
+                disabled={!state.enabled}
+                masked={state.masked}
               />
               {errors[field.id] && (
                 <p className="text-xs text-destructive">{errors[field.id]}</p>

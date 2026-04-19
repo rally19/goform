@@ -271,6 +271,10 @@ export interface BuilderField {
     allowMultiple?: boolean;
     acceptedTypes?: string[];
     maxFileSize?: number;
+    // Default interactive state — used as a baseline for runtime state,
+    // can be overridden by logic rules (enable/disable, mask/unmask).
+    defaultDisabled?: boolean;
+    defaultMasked?: boolean;
     // Add any other dynamic text like placeholder overwrites
     [key: string]: unknown;
   };
@@ -302,9 +306,132 @@ export interface BuilderForm {
   autoSave: boolean;
   collaborationEnabled: boolean;
   lastToggledBy?: string | null;
+  logic?: LogicRule[];
   // Index signature for Liveblocks compatibility
   [key: string]: any;
 }
+
+// ─── Logic Types ──────────────────────────────────────────────────────────────
+
+export type LogicAction =
+  | "show_field"
+  | "hide_field"
+  | "enable_field"
+  | "disable_field"
+  | "require_field"
+  | "unrequire_field"
+  | "mask_field"
+  | "unmask_field"
+  | "set_value"
+  | "skip_to_page"
+  | "skip_to_section"
+  | "jump_to_field";
+
+export type LogicOperator =
+  | "equal"
+  | "not_equal"
+  | "contains"
+  | "not_contains"
+  | "starts_with"
+  | "ends_with"
+  | "empty"
+  | "filled"
+  | "greater_than"
+  | "less_than"
+  | "greater_than_or_equal"
+  | "less_than_or_equal"
+  | "between"
+  | "is_one_of"
+  | "is_none_of";
+
+export interface LogicCondition {
+  id: string;
+  fieldId: string;
+  operator: LogicOperator;
+  value?: FormAnswer;
+  value2?: FormAnswer; // for "between"
+}
+
+export interface LogicConditionGroup {
+  id: string;
+  combinator: "and" | "or";
+  conditions: LogicCondition[];
+  groups?: LogicConditionGroup[]; // nested groups
+}
+
+export type LogicValueSource =
+  | { mode: "static"; staticValue: FormAnswer }
+  | { mode: "copy_field"; sourceFieldId: string }
+  | { mode: "formula"; formula: string };
+
+export interface LogicRule {
+  id: string;
+  name?: string;
+  enabled: boolean;
+  action: LogicAction;
+  orderIndex: number;
+  // Targets for field-scoped actions
+  targetFieldIds?: string[];
+  // For skip_to_section
+  targetSectionId?: string;
+  // For skip_to_page
+  targetPageIndex?: number;
+  // For jump_to_field
+  targetFieldId?: string;
+  // For set_value
+  valueSource?: LogicValueSource;
+  // Condition tree
+  conditions: LogicConditionGroup;
+}
+
+// Meta information about each action type — used in the UI & validation
+export interface LogicActionMeta {
+  action: LogicAction;
+  label: string;
+  description: string;
+  category: "visibility" | "state" | "value" | "navigation";
+  conflictsWith: LogicAction[]; // sibling actions that are mutually exclusive
+}
+
+export const LOGIC_ACTION_META: LogicActionMeta[] = [
+  { action: "show_field", label: "Show field", description: "Make target field visible", category: "visibility", conflictsWith: ["hide_field"] },
+  { action: "hide_field", label: "Hide field", description: "Hide target field", category: "visibility", conflictsWith: ["show_field"] },
+  { action: "enable_field", label: "Enable field", description: "Allow user input", category: "state", conflictsWith: ["disable_field"] },
+  { action: "disable_field", label: "Disable field", description: "Prevent user input", category: "state", conflictsWith: ["enable_field"] },
+  { action: "require_field", label: "Require field", description: "Make field required", category: "state", conflictsWith: ["unrequire_field"] },
+  { action: "unrequire_field", label: "Unrequire field", description: "Make field optional", category: "state", conflictsWith: ["require_field"] },
+  { action: "mask_field", label: "Mask field", description: "Obscure input (like a password)", category: "state", conflictsWith: ["unmask_field"] },
+  { action: "unmask_field", label: "Unmask field", description: "Reveal a masked field", category: "state", conflictsWith: ["mask_field"] },
+  { action: "set_value", label: "Set / copy / calculate value", description: "Populate a field from another field, a formula, or a static value", category: "value", conflictsWith: [] },
+  { action: "skip_to_page", label: "Skip to page", description: "Jump to a specific page on Next", category: "navigation", conflictsWith: ["skip_to_section"] },
+  { action: "skip_to_section", label: "Skip to section", description: "Jump to a specific section on Next", category: "navigation", conflictsWith: ["skip_to_page"] },
+  { action: "jump_to_field", label: "Scroll to field", description: "Scroll to a specific field", category: "navigation", conflictsWith: [] },
+];
+
+export const LOGIC_OPERATOR_META: {
+  operator: LogicOperator;
+  label: string;
+  requiresValue: boolean;
+  requiresSecondValue?: boolean;
+  // Which field types this operator applies to; undefined = any
+  appliesTo?: FieldType[];
+}[] = [
+  { operator: "equal", label: "is equal to", requiresValue: true },
+  { operator: "not_equal", label: "is not equal to", requiresValue: true },
+  { operator: "empty", label: "is empty", requiresValue: false },
+  { operator: "filled", label: "is filled", requiresValue: false },
+  { operator: "contains", label: "contains", requiresValue: true, appliesTo: ["short_text", "long_text", "email", "phone", "url", "checkbox", "multi_select"] },
+  { operator: "not_contains", label: "does not contain", requiresValue: true, appliesTo: ["short_text", "long_text", "email", "phone", "url", "checkbox", "multi_select"] },
+  { operator: "starts_with", label: "starts with", requiresValue: true, appliesTo: ["short_text", "long_text", "email", "phone", "url"] },
+  { operator: "ends_with", label: "ends with", requiresValue: true, appliesTo: ["short_text", "long_text", "email", "phone", "url"] },
+  { operator: "greater_than", label: "is greater than", requiresValue: true, appliesTo: ["number", "rating", "scale", "date", "time", "datetime"] },
+  { operator: "less_than", label: "is less than", requiresValue: true, appliesTo: ["number", "rating", "scale", "date", "time", "datetime"] },
+  { operator: "greater_than_or_equal", label: "is ≥", requiresValue: true, appliesTo: ["number", "rating", "scale", "date", "time", "datetime"] },
+  { operator: "less_than_or_equal", label: "is ≤", requiresValue: true, appliesTo: ["number", "rating", "scale", "date", "time", "datetime"] },
+  { operator: "between", label: "is between", requiresValue: true, requiresSecondValue: true, appliesTo: ["number", "rating", "scale", "date", "time", "datetime"] },
+  { operator: "is_one_of", label: "is one of", requiresValue: true, appliesTo: ["radio", "select", "short_text", "number"] },
+  { operator: "is_none_of", label: "is none of", requiresValue: true, appliesTo: ["radio", "select", "short_text", "number"] },
+];
 
 // ─── Section Types ────────────────────────────────────────────────────────────
 

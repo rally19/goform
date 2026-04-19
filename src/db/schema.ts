@@ -164,6 +164,7 @@ export const forms = pgTable(
     collaborationEnabled: boolean("collaboration_enabled").notNull().default(false),
     lastToggledBy: text("last_toggled_by"),
     sections: jsonb("sections").$type<{ id: string; name: string; description: string; orderIndex: number }[]>().notNull().default([]),
+    logic: jsonb("logic").$type<unknown[]>().notNull().default([]),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

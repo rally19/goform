@@ -6,7 +6,7 @@ import { createClient } from "@/lib/server";
 import { liveblocks } from "@/lib/liveblocks";
 import { eq, desc, ilike, and, count, sql, isNull, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import type { ActionResult, BuilderField, BuilderForm, BuilderSection } from "@/lib/form-types";
+import type { ActionResult, BuilderField, BuilderForm, BuilderSection, LogicRule } from "@/lib/form-types";
 import { z } from "zod";
 import { getActiveWorkspace, verifyWorkspaceAccess } from "./organizations";
 import { PERSONAL_WORKSPACE_ID } from "../constants";
@@ -94,6 +94,7 @@ export async function getForm(id: string): Promise<ActionResult<{
   form: typeof forms.$inferSelect;
   fields: typeof formFields.$inferSelect[];
   sections: BuilderSection[];
+  logic: LogicRule[];
   currentUserRole: "owner" | "manager" | "administrator" | "editor" | "viewer";
   currentUserId: string;
 }>> {
@@ -127,7 +128,8 @@ export async function getForm(id: string): Promise<ActionResult<{
     const sections: BuilderSection[] = Array.isArray(form.sections) && form.sections.length > 0
       ? form.sections as BuilderSection[]
       : [];
-    return { success: true, data: { form: formData, fields, sections, currentUserRole, currentUserId: user.id } };
+    const logic: LogicRule[] = Array.isArray(form.logic) ? form.logic as LogicRule[] : [];
+    return { success: true, data: { form: formData, fields, sections, logic, currentUserRole, currentUserId: user.id } };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
@@ -139,6 +141,7 @@ export async function getFormBySlug(slug: string): Promise<ActionResult<{
   form: typeof forms.$inferSelect;
   fields: typeof formFields.$inferSelect[];
   sections: BuilderSection[];
+  logic: LogicRule[];
 }>> {
   try {
     const form = await db.query.forms.findFirst({
@@ -156,7 +159,30 @@ export async function getFormBySlug(slug: string): Promise<ActionResult<{
     const sections: BuilderSection[] = Array.isArray(form.sections) && form.sections.length > 0
       ? form.sections as BuilderSection[]
       : [];
-    return { success: true, data: { form: formData, fields, sections } };
+    const logic: LogicRule[] = Array.isArray(form.logic) ? form.logic as LogicRule[] : [];
+    return { success: true, data: { form: formData, fields, sections, logic } };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+// ─── Save Form Logic ──────────────────────────────────────────────────────────
+
+export async function saveFormLogic(
+  formId: string,
+  logic: LogicRule[]
+): Promise<ActionResult> {
+  try {
+    await enforceFormAccess(formId, "editor");
+
+    await db
+      .update(forms)
+      .set({ logic, updatedAt: new Date() })
+      .where(eq(forms.id, formId));
+
+    revalidatePath(`/forms/${formId}/logic`);
+    revalidatePath(`/forms/${formId}/edit`);
+    return { success: true };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
@@ -510,7 +536,7 @@ export async function duplicateForm(id: string): Promise<ActionResult<{ id: stri
       return { success: false, error: "Form not found" };
     }
 
-    const { form, fields, sections } = result.data;
+    const { form, fields, sections, logic } = result.data;
     
     // Ensure we can duplicate into the current active workspace
     const workspaceId = await getActiveWorkspace();
@@ -539,6 +565,7 @@ export async function duplicateForm(id: string): Promise<ActionResult<{ id: stri
         redirectUrl: form.redirectUrl,
         autoSave: form.autoSave,
         sections: sections.length > 0 ? sections : null,
+        logic: (logic ?? []) as any,
         updatedAt: new Date(),
       } as NewForm)
       .returning({ id: forms.id });

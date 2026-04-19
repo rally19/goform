@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, BarChart2, Settings, SquarePen, ClipboardList,
-  ExternalLink, ChevronLeft, ChevronRight, Loader2,
+  ExternalLink, ChevronLeft, ChevronRight, Loader2, GitBranch,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -54,6 +54,7 @@ function FormLayoutContent({
 
   const tabs = [
     { name: "Builder", href: `/forms/${formId}/edit`, icon: SquarePen },
+    { name: "Logic", href: `/forms/${formId}/logic`, icon: GitBranch },
     { name: "Results", href: `/forms/${formId}/results`, icon: ClipboardList },
     { name: "Analytics", href: `/forms/${formId}/analytics`, icon: BarChart2 },
     { name: "Settings", href: `/forms/${formId}/settings`, icon: Settings },
