@@ -41,7 +41,7 @@ export interface EngineResult {
 
 function baselineState(field: BuilderField): FieldDynamicState {
   return {
-    visible: true,
+    visible: !field.properties?.defaultHidden,
     enabled: !field.properties?.defaultDisabled,
     required: field.required,
     masked: !!field.properties?.defaultMasked,

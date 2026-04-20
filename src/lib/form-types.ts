@@ -275,6 +275,7 @@ export interface BuilderField {
     // can be overridden by logic rules (enable/disable, mask/unmask).
     defaultDisabled?: boolean;
     defaultMasked?: boolean;
+    defaultHidden?: boolean;
     // Add any other dynamic text like placeholder overwrites
     [key: string]: unknown;
   };

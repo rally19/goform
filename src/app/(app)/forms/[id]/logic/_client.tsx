@@ -13,7 +13,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { RuleCard } from "@/components/form-logic/rule-card";
 import {
   GitBranch, Plus, Loader2, AlertTriangle, Info,
-  ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -158,12 +157,6 @@ export function LogicClient({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/preview/${formId}`} target="_blank">
-                <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-                Test in Preview
-              </Link>
-            </Button>
             {isDirty && (
               <Button variant="outline" size="sm" onClick={handleDiscard} disabled={saving}>
                 Discard

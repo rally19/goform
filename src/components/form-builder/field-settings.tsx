@@ -237,6 +237,23 @@ export function FieldSettings({
 
               <div className="flex items-center justify-between rounded-lg border border-border p-3 bg-background/50">
                 <div>
+                  <p className="text-sm font-medium">Hidden by default</p>
+                  <p className="text-xs text-muted-foreground">
+                    Starts hidden. Use a Logic rule to show it.
+                  </p>
+                </div>
+                <Switch
+                  checked={!!field.properties?.defaultHidden}
+                  onCheckedChange={(v) =>
+                    onUpdate?.({
+                      properties: { ...(field.properties ?? {}), defaultHidden: v },
+                    })
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-border p-3 bg-background/50">
+                <div>
                   <p className="text-sm font-medium">Disabled by default</p>
                   <p className="text-xs text-muted-foreground">
                     Starts read-only. Use a Logic rule to enable it.
