@@ -5,8 +5,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
-import Link from "@tiptap/extension-link";
-import Underline from "@tiptap/extension-underline";
+// Link and Underline are now included in StarterKit v3
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -66,8 +65,15 @@ export function RichText({
         blockquote: multiline ? {} : false,
         heading: multiline ? {} : false,
         horizontalRule: multiline ? {} : false,
+        // Link and Underline are included in StarterKit v3, configure them here
+        underline: {},
+        link: {
+          openOnClick: false,
+          HTMLAttributes: {
+            class: "text-primary underline underline-offset-4 cursor-pointer",
+          },
+        },
       }),
-      Underline,
       Placeholder.configure({
         placeholder,
         emptyEditorClass: "before:content-[attr(data-placeholder)] before:text-muted-foreground/50 before:float-left before:pointer-events-none before:h-0",
@@ -75,12 +81,6 @@ export function RichText({
       Image.configure({
         HTMLAttributes: {
           class: "max-w-full h-auto rounded-lg my-2",
-        },
-      }),
-      Link.configure({
-        openOnClick: false,
-        HTMLAttributes: {
-          class: "text-primary underline underline-offset-4 cursor-pointer",
         },
       }),
     ],
