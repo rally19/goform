@@ -5,20 +5,26 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Upload, Trash2, Copy, Search, Image, FileText, Film,
-  Music, File, LayoutGrid, List, HardDrive, X, Check,
-  ChevronDown, Eye, Download, Pencil
+  Music, File, LayoutGrid, List, HardDrive, Check,
+  ChevronDown, Eye, Download, Pencil, MoveRight, Building2, User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { uploadAsset, deleteAsset, renameAsset } from "@/lib/actions/assets";
+import { uploadAsset, deleteAsset, renameAsset, deleteAssets, moveAssets } from "@/lib/actions/assets";
 import type { Asset } from "@/db/schema";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -110,13 +116,16 @@ type UsageData = {
   byType: Record<string, { bytes: number; count: number }>;
 };
 
+type TargetWorkspace = { id: string; name: string; type: "personal" | "organization" };
+
 interface Props {
   workspaceId: string;
   initialAssets: Asset[];
   usage: UsageData;
+  targetWorkspaces: TargetWorkspace[];
 }
 
-export function AssetsClient({ workspaceId, initialAssets, usage }: Props) {
+export function AssetsClient({ workspaceId, initialAssets, usage, targetWorkspaces }: Props) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
@@ -130,10 +139,17 @@ export function AssetsClient({ workspaceId, initialAssets, usage }: Props) {
   const [dragOver, setDragOver] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
+  // Multi-select
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [multiDeleteOpen, setMultiDeleteOpen] = useState(false);
+  const [isMoving, setIsMoving] = useState(false);
+  const [isDeletingBulk, setIsDeletingBulk] = useState(false);
+
   // Preview dialog
   const [preview, setPreview] = useState<Asset | null>(null);
 
-  // Delete confirm
+  // Delete confirm (single)
   const [toDelete, setToDelete] = useState<Asset | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -143,6 +159,43 @@ export function AssetsClient({ workspaceId, initialAssets, usage }: Props) {
   const [newName, setNewName] = useState("");
 
   // ─── Filtered list ──────────────────────────────────────────────────────────
+
+  const handleToggleSelect = (id: string, checked: boolean) =>
+    setSelectedIds((prev) => checked ? [...prev, id] : prev.filter((x) => x !== id));
+
+  const handleSelectAll = (checked: boolean) =>
+    setSelectedIds(checked ? filtered.map((a) => a.id) : []);
+
+  const handleMoveSelection = async (targetId: string) => {
+    setIsMoving(true);
+    const res = await moveAssets(selectedIds, targetId);
+    setIsMoving(false);
+    if (res.success) {
+      toast.success(`Moved ${selectedIds.length} asset(s)`);
+      setAssets((prev) => prev.filter((a) => !selectedIds.includes(a.id)));
+      setSelectedIds([]);
+      setMoveOpen(false);
+      router.refresh();
+    } else {
+      toast.error(res.error ?? "Failed to move assets");
+    }
+  };
+
+  const handleDeleteSelection = async () => {
+    setIsDeletingBulk(true);
+    const count = selectedIds.length;
+    const res = await deleteAssets(selectedIds);
+    setIsDeletingBulk(false);
+    if (res.success) {
+      toast.success(`Deleted ${count} asset(s)`);
+      setAssets((prev) => prev.filter((a) => !selectedIds.includes(a.id)));
+      setSelectedIds([]);
+      setMultiDeleteOpen(false);
+      router.refresh();
+    } else {
+      toast.error(res.error ?? "Failed to delete assets");
+    }
+  };
 
   const filtered = assets.filter((a) => {
     const matchSearch =
@@ -246,9 +299,32 @@ export function AssetsClient({ workspaceId, initialAssets, usage }: Props) {
   // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
+      {/* ─── Bulk Action Bar ─────────────────────────────────────────────────── */}
+      {selectedIds.length > 0 && (
+        <div className="absolute top-0 inset-x-0 h-14 bg-primary/5 border-b border-primary/20 flex items-center justify-between px-6 z-20 animate-in slide-in-from-top-2">
+          <div className="flex items-center gap-3">
+            <Checkbox
+              checked={selectedIds.length === filtered.length && filtered.length > 0}
+              onCheckedChange={(c) => handleSelectAll(c as boolean)}
+            />
+            <span className="text-sm font-medium">{selectedIds.length} selected</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
+              Cancel
+            </Button>
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setMoveOpen(true)}>
+              <MoveRight className="h-4 w-4" /> Move To…
+            </Button>
+            <Button size="sm" variant="destructive" className="gap-1.5" onClick={() => setMultiDeleteOpen(true)}>
+              <Trash2 className="h-4 w-4" /> Delete
+            </Button>
+          </div>
+        </div>
+      )}
       {/* ─── Header ────────────────────────────────────────────────────────── */}
-      <div className="border-b border-border bg-background/80 backdrop-blur-sm sticky top-0 z-10">
+      <div className={`border-b border-border bg-background/80 backdrop-blur-sm sticky z-10 transition-all ${selectedIds.length > 0 ? "top-14" : "top-0"}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 space-y-4">
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -380,6 +456,8 @@ export function AssetsClient({ workspaceId, initialAssets, usage }: Props) {
                 <AssetGridCard
                   key={asset.id}
                   asset={asset}
+                  isSelected={selectedIds.includes(asset.id)}
+                  onToggleSelect={handleToggleSelect}
                   copied={copied}
                   onPreview={() => setPreview(asset)}
                   onCopy={() => copyUrl(asset)}
@@ -396,6 +474,12 @@ export function AssetsClient({ workspaceId, initialAssets, usage }: Props) {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/50">
+                    <th className="px-4 py-2.5 w-8">
+                      <Checkbox
+                        checked={selectedIds.length === filtered.length && filtered.length > 0}
+                        onCheckedChange={(c) => handleSelectAll(c as boolean)}
+                      />
+                    </th>
                     <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Name</th>
                     <th className="text-left font-medium text-muted-foreground px-4 py-2.5 hidden sm:table-cell">Type</th>
                     <th className="text-left font-medium text-muted-foreground px-4 py-2.5 hidden md:table-cell">Size</th>
@@ -409,6 +493,8 @@ export function AssetsClient({ workspaceId, initialAssets, usage }: Props) {
                       key={asset.id}
                       asset={asset}
                       isLast={i === filtered.length - 1}
+                      isSelected={selectedIds.includes(asset.id)}
+                      onToggleSelect={handleToggleSelect}
                       copied={copied}
                       onPreview={() => setPreview(asset)}
                       onCopy={() => copyUrl(asset)}
@@ -422,6 +508,63 @@ export function AssetsClient({ workspaceId, initialAssets, usage }: Props) {
           )}
         </div>
       </div>
+
+      {/* ─── Move Dialog ────────────────────────────────────────────────────── */}
+      <Dialog open={moveOpen} onOpenChange={setMoveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Move Assets</DialogTitle>
+            <DialogDescription>
+              Move {selectedIds.length} asset(s) to a different workspace.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2 max-h-[300px] overflow-y-auto">
+            {targetWorkspaces.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">No other workspaces available.</p>
+            ) : (
+              targetWorkspaces.map((ws) => (
+                <Button
+                  key={ws.id}
+                  variant="outline"
+                  className="w-full justify-start py-6"
+                  onClick={() => handleMoveSelection(ws.id)}
+                  disabled={isMoving}
+                >
+                  <div className="mr-3 p-2 bg-muted rounded-md flex items-center justify-center">
+                    {ws.type === "personal" ? <User className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
+                  </div>
+                  <div className="flex flex-col items-start gap-0.5">
+                    <span className="font-medium">{ws.name}</span>
+                    <span className="text-xs text-muted-foreground">{ws.type === "personal" ? "Personal Workspace" : "Organization"}</span>
+                  </div>
+                </Button>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Bulk Delete AlertDialog ────────────────────────────────────────── */}
+      <AlertDialog open={multiDeleteOpen} onOpenChange={setMultiDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.length} asset(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the selected assets and their files. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingBulk}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteSelection}
+              disabled={isDeletingBulk}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeletingBulk ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ─── Preview Dialog ─────────────────────────────────────────────────── */}
       <Dialog open={!!preview} onOpenChange={(open) => !open && setPreview(null)}>
@@ -517,6 +660,8 @@ export function AssetsClient({ workspaceId, initialAssets, usage }: Props) {
 
 interface CardProps {
   asset: Asset;
+  isSelected: boolean;
+  onToggleSelect: (id: string, checked: boolean) => void;
   copied: string | null;
   onPreview: () => void;
   onCopy: () => void;
@@ -524,9 +669,19 @@ interface CardProps {
   onDelete: () => void;
 }
 
-function AssetGridCard({ asset, copied, onPreview, onCopy, onRename, onDelete }: CardProps) {
+function AssetGridCard({ asset, isSelected, onToggleSelect, copied, onPreview, onCopy, onRename, onDelete }: CardProps) {
   return (
-    <div className="group relative rounded-lg border border-border bg-card overflow-hidden hover:border-primary/50 hover:shadow-sm transition-all">
+    <div className={`group relative rounded-lg border bg-card overflow-hidden transition-all ${
+      isSelected ? "border-primary ring-1 ring-primary" : "border-border hover:border-primary/50 hover:shadow-sm"
+    }`}>
+      {/* Checkbox */}
+      <div className="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity" style={{ opacity: isSelected ? 1 : undefined }}>
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={(c) => onToggleSelect(asset.id, c as boolean)}
+          className="bg-background/80 backdrop-blur-sm"
+        />
+      </div>
       {/* Thumbnail */}
       <button
         onClick={onPreview}
@@ -582,11 +737,16 @@ interface RowProps extends CardProps {
   isLast: boolean;
 }
 
-function AssetListRow({ asset, isLast, copied, onPreview, onCopy, onRename, onDelete }: RowProps) {
+function AssetListRow({ asset, isLast, isSelected, onToggleSelect, copied, onPreview, onCopy, onRename, onDelete }: RowProps) {
   const Icon = TYPE_ICONS[asset.type] ?? File;
   return (
-    <tr className={`hover:bg-muted/40 transition-colors ${!isLast ? "border-b border-border" : ""}`}>
-      <td className="px-4 py-3">
+    <tr className={`hover:bg-muted/40 transition-colors ${!isLast ? "border-b border-border" : ""} ${isSelected ? "bg-primary/5" : ""}`}>
+      <td className="px-4 py-3 w-8">
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={(c) => onToggleSelect(asset.id, c as boolean)}
+        />
+      </td>
         <button onClick={onPreview} className="flex items-center gap-3 group">
           <div className="h-8 w-8 rounded bg-muted overflow-hidden flex items-center justify-center shrink-0">
             {asset.type === "image" ? (

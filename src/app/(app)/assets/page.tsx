@@ -1,9 +1,10 @@
 import { Suspense } from "react";
-import { getActiveWorkspace } from "@/lib/actions/organizations";
+import { getActiveWorkspace, getUserOrganizations } from "@/lib/actions/organizations";
 import { getWorkspaceAssets, getWorkspaceStorageUsage } from "@/lib/actions/assets";
+import { getCurrentUserProfile } from "@/lib/actions/users";
 import { AssetsClient } from "./assets-client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { HardDrive } from "lucide-react";
+import { PERSONAL_WORKSPACE_ID } from "@/lib/constants";
 
 export const metadata = {
   title: "Assets – GoForm",
@@ -35,10 +36,27 @@ export default function AssetsPage() {
 async function AssetsPageContent() {
   const workspaceId = await getActiveWorkspace();
 
-  const [assetsResult, usageResult] = await Promise.all([
+  const [assetsResult, usageResult, orgsResult, userResult] = await Promise.all([
     getWorkspaceAssets(workspaceId),
     getWorkspaceStorageUsage(workspaceId),
+    getUserOrganizations(),
+    getCurrentUserProfile(),
   ]);
+
+  // Build target workspace list (every workspace EXCEPT the current one)
+  const targetWorkspaces: { id: string; name: string; type: "personal" | "organization" }[] = [];
+
+  if (workspaceId !== PERSONAL_WORKSPACE_ID) {
+    targetWorkspaces.push({ id: PERSONAL_WORKSPACE_ID, name: "Personal Workspace", type: "personal" });
+  }
+
+  if (orgsResult.success && orgsResult.data) {
+    for (const org of orgsResult.data as any[]) {
+      if (org.id !== workspaceId) {
+        targetWorkspaces.push({ id: org.id, name: org.name, type: "organization" });
+      }
+    }
+  }
 
   return (
     <AssetsClient
@@ -49,6 +67,7 @@ async function AssetsPageContent() {
           ? usageResult.data
           : { totalBytes: 0, totalFiles: 0, byType: {} }
       }
+      targetWorkspaces={targetWorkspaces}
     />
   );
 }
@@ -56,7 +75,6 @@ async function AssetsPageContent() {
 function AssetsPageSkeleton() {
   return (
     <div className="flex flex-col h-full">
-      {/* Header skeleton */}
       <div className="border-b border-border bg-background/80 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 space-y-4">
           <div className="flex items-center justify-between gap-4">
@@ -77,7 +95,6 @@ function AssetsPageSkeleton() {
           </div>
         </div>
       </div>
-      {/* Grid skeleton */}
       <div className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full">
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {Array.from({ length: 12 }).map((_, i) => (

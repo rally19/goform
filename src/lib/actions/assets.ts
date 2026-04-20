@@ -281,3 +281,90 @@ export async function renameAsset(assetId: string, name: string) {
     return { success: false, error: (err as Error).message };
   }
 }
+
+// ─── Bulk Delete ──────────────────────────────────────────────────────────────
+
+export async function deleteAssets(assetIds: string[]) {
+  try {
+    const user = await getAuthUser();
+    if (assetIds.length === 0) return { success: true };
+
+    const rows = await db.query.assets.findMany({
+      where: (a, { inArray }) => inArray(a.id, assetIds),
+    });
+
+    // Permission check for every asset
+    for (const asset of rows) {
+      if (asset.organizationId) {
+        const access = await verifyWorkspaceAccess(asset.organizationId, "editor");
+        if (!access.success) throw new Error(`No permission to delete "${asset.name}"`);
+      } else if (asset.userId !== user.id) {
+        throw new Error(`No permission to delete "${asset.name}"`);
+      }
+    }
+
+    // Delete from storage (best-effort)
+    const supabase = await createClient();
+    const paths = rows.map((r) => r.storagePath);
+    if (paths.length > 0) {
+      const { error } = await supabase.storage.from(ASSETS_BUCKET).remove(paths);
+      if (error) console.error("Storage bulk-delete error:", error.message);
+    }
+
+    const { inArray } = await import("drizzle-orm");
+    await db.delete(assets).where(inArray(assets.id, assetIds));
+
+    revalidatePath("/assets");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+// ─── Bulk Move ────────────────────────────────────────────────────────────────
+
+export async function moveAssets(
+  assetIds: string[],
+  targetWorkspaceId: string
+) {
+  try {
+    const user = await getAuthUser();
+    if (assetIds.length === 0) return { success: true };
+
+    const isTargetPersonal = targetWorkspaceId === PERSONAL_WORKSPACE_ID;
+
+    // Verify access to target workspace
+    if (!isTargetPersonal) {
+      const access = await verifyWorkspaceAccess(targetWorkspaceId, "editor");
+      if (!access.success) throw new Error("No permission to move assets to that workspace");
+    }
+
+    const rows = await db.query.assets.findMany({
+      where: (a, { inArray }) => inArray(a.id, assetIds),
+    });
+
+    // Verify edit access for every source asset
+    for (const asset of rows) {
+      if (asset.organizationId) {
+        const access = await verifyWorkspaceAccess(asset.organizationId, "editor");
+        if (!access.success) throw new Error(`No permission to move "${asset.name}"`);
+      } else if (asset.userId !== user.id) {
+        throw new Error(`No permission to move "${asset.name}"`);
+      }
+    }
+
+    const { inArray } = await import("drizzle-orm");
+    await db
+      .update(assets)
+      .set({
+        userId: isTargetPersonal ? user.id : null,
+        organizationId: isTargetPersonal ? null : targetWorkspaceId,
+      })
+      .where(inArray(assets.id, assetIds));
+
+    revalidatePath("/assets");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
