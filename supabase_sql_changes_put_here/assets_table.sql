@@ -108,9 +108,9 @@ CREATE POLICY "storage_assets_insert" ON storage.objects
 -- Owners can update (upsert requires this)
 CREATE POLICY "storage_assets_update" ON storage.objects
   FOR UPDATE TO authenticated
-  USING (bucket_id = 'goform-assets' AND auth.uid()::text = owner);
+  USING (bucket_id = 'goform-assets' AND owner = auth.uid());
 
 -- Owners can delete
 CREATE POLICY "storage_assets_delete" ON storage.objects
   FOR DELETE TO authenticated
-  USING (bucket_id = 'goform-assets' AND auth.uid()::text = owner);
+  USING (bucket_id = 'goform-assets' AND owner = auth.uid());
