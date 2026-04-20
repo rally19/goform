@@ -158,8 +158,15 @@ export async function uploadAsset(workspaceId: string, formData: FormData) {
     const file = formData.get("file") as File | null;
     if (!file) throw new Error("No file provided");
 
-    const MAX_SIZE = 50 * 1024 * 1024; // 50 MB
-    if (file.size > MAX_SIZE) throw new Error("File size must be under 50 MB");
+    const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+    if (file.size > MAX_SIZE) throw new Error("File size must be under 5 MB");
+
+    // Check workspace limits
+    const usage = await getWorkspaceStorageUsage(workspaceId);
+    const currentBytes = usage.data?.totalBytes ?? 0;
+    if (currentBytes + file.size > 100 * 1024 * 1024) {
+      throw new Error("Workspace storage limit of 100 MB reached");
+    }
 
     // Ensure user exists in DB
     await db

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import {
   Upload, Trash2, Copy, Search, Image, FileText, Film,
   Music, File, LayoutGrid, List, HardDrive, Check,
-  ChevronDown, Eye, Download, Pencil, MoveRight, Building2, User,
+  ChevronDown, Eye, Download, Pencil, MoveRight, Building2, User, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,7 +43,7 @@ function formatDate(date: Date | string): string {
   });
 }
 
-const STORAGE_LIMIT = 500 * 1024 * 1024; // 500 MB per workspace (display only)
+const STORAGE_LIMIT = 100 * 1024 * 1024; // 100 MB per workspace
 
 const TYPE_ICONS: Record<string, React.ElementType> = {
   image: Image,
@@ -136,8 +136,12 @@ export function AssetsClient({ workspaceId, initialAssets, usage, targetWorkspac
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [uploading, setUploading] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+
+  // Upload dialog state
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [dragOverUpload, setDragOverUpload] = useState(false);
 
   // Multi-select
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -225,48 +229,65 @@ export function AssetsClient({ workspaceId, initialAssets, usage, targetWorkspac
 
   // ─── Upload handler ─────────────────────────────────────────────────────────
 
-  const handleUpload = useCallback(
-    async (files: FileList | File[]) => {
-      const fileArr = Array.from(files);
-      if (fileArr.length === 0) return;
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
-      setUploading(true);
-      let successCount = 0;
+  const handleFilesSelected = (files: FileList | File[]) => {
+    const fileArr = Array.from(files);
+    setSelectedFiles((prev) => [...prev, ...fileArr]);
+  };
 
-      for (const file of fileArr) {
-        const fd = new FormData();
-        fd.append("file", file);
-        const result = await uploadAsset(workspaceId, fd);
-        if (result.success && result.data) {
-          setAssets((prev) => [result.data as Asset, ...prev]);
-          successCount++;
-        } else {
-          toast.error(`Failed to upload ${file.name}: ${result.error}`);
-        }
+  const removeSelectedFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const executeUpload = async () => {
+    if (selectedFiles.length === 0) return;
+
+    // Filter valid files
+    const validFiles = selectedFiles.filter(f => f.size <= MAX_FILE_SIZE);
+    if (validFiles.length < selectedFiles.length) {
+      toast.error(`${selectedFiles.length - validFiles.length} file(s) exceeded the 5MB limit and were skipped.`);
+    }
+
+    if (validFiles.length === 0) return;
+
+    setUploading(true);
+    let successCount = 0;
+
+    for (const file of validFiles) {
+      const fd = new FormData();
+      fd.append("file", file);
+      const result = await uploadAsset(workspaceId, fd);
+      if (result.success && result.data) {
+        setAssets((prev) => [result.data as Asset, ...prev]);
+        successCount++;
+      } else {
+        toast.error(`Failed to upload ${file.name}: ${result.error}`);
       }
+    }
 
-      setUploading(false);
-      if (successCount > 0) {
-        toast.success(
-          successCount === 1
-            ? "File uploaded successfully"
-            : `${successCount} files uploaded`
-        );
-        router.refresh();
-      }
-    },
-    [workspaceId, router]
-  );
+    setUploading(false);
+    setSelectedFiles([]);
+    setUploadDialogOpen(false);
+    if (successCount > 0) {
+      toast.success(
+        successCount === 1
+          ? "File uploaded successfully"
+          : `${successCount} files uploaded`
+      );
+      router.refresh();
+    }
+  };
 
   const onFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) handleUpload(e.target.files);
+    if (e.target.files) handleFilesSelected(e.target.files);
     e.target.value = "";
   };
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    setDragOver(false);
-    if (e.dataTransfer.files) handleUpload(e.dataTransfer.files);
+    setDragOverUpload(false);
+    if (e.dataTransfer.files) handleFilesSelected(e.dataTransfer.files);
   };
 
   // ─── Copy URL ───────────────────────────────────────────────────────────────
@@ -355,25 +376,12 @@ export function AssetsClient({ workspaceId, initialAssets, usage, targetWorkspac
               </p>
             </div>
             <Button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
+              onClick={() => setUploadDialogOpen(true)}
               className="gap-2 shrink-0"
             >
-              {uploading ? (
-                <span className="h-4 w-4 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground animate-spin" />
-              ) : (
-                <Upload className="h-4 w-4" />
-              )}
-              {uploading ? "Uploading…" : "Upload"}
+              <Upload className="h-4 w-4" />
+              Upload
             </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept={ACCEPTED_TYPES}
-              className="hidden"
-              onChange={onFileInput}
-            />
           </div>
 
           {/* Storage bar */}
@@ -431,21 +439,8 @@ export function AssetsClient({ workspaceId, initialAssets, usage, targetWorkspac
       {/* ─── Drop zone + content ────────────────────────────────────────────── */}
       <div
         className={`flex-1 overflow-y-auto transition-all ${selectedIds.length > 0 ? "mt-14" : "mt-0"}`}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={onDrop}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-          {/* Drag overlay */}
-          {dragOver && (
-            <div className="fixed inset-0 z-50 bg-primary/10 border-2 border-dashed border-primary flex items-center justify-center pointer-events-none">
-              <div className="text-center">
-                <Upload className="h-12 w-12 text-primary mx-auto mb-3" />
-                <p className="text-lg font-semibold text-primary">Drop files to upload</p>
-              </div>
-            </div>
-          )}
-
           {/* Empty state */}
           {filtered.length === 0 && (
             <div className="flex flex-col items-center justify-center py-24 text-center">
@@ -461,7 +456,7 @@ export function AssetsClient({ workspaceId, initialAssets, usage, targetWorkspac
                   : "Upload images, videos, documents, and more to use across your workspace."}
               </p>
               {!search && typeFilter === "all" && (
-                <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="gap-2">
+                <Button onClick={() => setUploadDialogOpen(true)} variant="outline" className="gap-2">
                   <Upload className="h-4 w-4" />
                   Upload your first asset
                 </Button>
@@ -673,6 +668,104 @@ export function AssetsClient({ workspaceId, initialAssets, usage, targetWorkspac
                 <Download className="h-4 w-4" />
                 Download
               </a>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Upload Dialog ──────────────────────────────────────────────────── */}
+      <Dialog open={uploadDialogOpen} onOpenChange={(open) => {
+        if (!open && uploading) return; // Prevent closing while uploading
+        setUploadDialogOpen(open);
+        if (!open) setSelectedFiles([]); // Clear on close
+      }}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Upload Assets</DialogTitle>
+            <DialogDescription>
+              Select or drag and drop files. Maximum file size is 5 MB per file.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div
+            className={`mt-4 border-2 border-dashed rounded-xl p-8 text-center transition-colors relative
+              ${dragOverUpload ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}
+            onDragOver={(e) => { e.preventDefault(); setDragOverUpload(true); }}
+            onDragLeave={() => setDragOverUpload(false)}
+            onDrop={onDrop}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept={ACCEPTED_TYPES}
+              className="hidden"
+              onChange={onFileInput}
+            />
+            <div className="flex flex-col items-center justify-center gap-2 pointer-events-none">
+              <div className="p-3 bg-muted rounded-full">
+                <Upload className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <h4 className="text-sm font-semibold mt-2">Click or drag files here</h4>
+              <p className="text-xs text-muted-foreground">
+                Supports images, videos, audio, PDFs, and documents
+              </p>
+            </div>
+            {/* Click overlay */}
+            <div
+              className="absolute inset-0 cursor-pointer"
+              onClick={() => fileInputRef.current?.click()}
+            />
+          </div>
+
+          {selectedFiles.length > 0 && (
+            <div className="mt-6 space-y-3">
+              <div className="flex items-center justify-between text-sm font-medium">
+                <span>Selected Files ({selectedFiles.length})</span>
+                <span className="text-muted-foreground text-xs">
+                  {formatBytes(selectedFiles.reduce((acc, f) => acc + f.size, 0))} total
+                </span>
+              </div>
+              <div className="max-h-[200px] overflow-y-auto space-y-2 pr-2">
+                {selectedFiles.map((f, i) => {
+                  const isTooLarge = f.size > MAX_FILE_SIZE;
+                  return (
+                    <div key={i} className={`flex items-center justify-between p-2 rounded-lg border text-sm ${isTooLarge ? "border-destructive bg-destructive/5" : "border-border bg-card"}`}>
+                      <div className="flex items-center gap-3 truncate">
+                        <File className={`h-4 w-4 shrink-0 ${isTooLarge ? "text-destructive" : "text-muted-foreground"}`} />
+                        <span className="truncate max-w-[250px]" title={f.name}>{f.name}</span>
+                        {isTooLarge && (
+                          <span className="text-[10px] text-destructive bg-destructive/10 px-1.5 py-0.5 rounded uppercase font-semibold shrink-0">
+                            Too Large
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className={`text-xs ${isTooLarge ? "text-destructive" : "text-muted-foreground"}`}>
+                          {formatBytes(f.size)}
+                        </span>
+                        <button onClick={() => removeSelectedFile(i)} className="text-muted-foreground hover:text-destructive transition-colors">
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="mt-6">
+            <Button variant="outline" onClick={() => setUploadDialogOpen(false)} disabled={uploading}>
+              Cancel
+            </Button>
+            <Button onClick={executeUpload} disabled={uploading || selectedFiles.length === 0} className="gap-2">
+              {uploading ? (
+                <span className="h-4 w-4 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
+              {uploading ? "Uploading…" : `Upload ${selectedFiles.length} file(s)`}
             </Button>
           </DialogFooter>
         </DialogContent>
