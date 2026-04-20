@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { BuilderField, BuilderForm, BuilderSection } from "@/lib/form-types";
 import { SectionBar } from "./section-bar";
 import { setFormStatus } from "@/lib/actions/forms";
+import { sanitize, stripHtml } from "@/lib/sanitize";
 import { toast } from "sonner";
 import {
   DndContext,
@@ -354,6 +355,8 @@ export function BuilderCanvas({
   const [isSectionReorderOpen, setIsSectionReorderOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
 
+  const workspaceId = form.organizationId || form.userId || "";
+
   const mouseSensor = useSensor(MouseSensor, { activationConstraint: { distance: 8 } });
   // Touch: require 200ms hold on the drag handle (data-dnd-handle) before activating.
   // Non-handle areas are excluded via the canStartDragging check so normal scroll works.
@@ -485,9 +488,10 @@ export function BuilderCanvas({
                   {form.status}
                 </Badge>
                 <div className="flex flex-col">
-                  <h1 className="text-xs font-semibold truncate max-w-[120px] sm:max-w-[200px] leading-none">
-                    {form.title}
-                  </h1>
+                  <div 
+                    className="text-xs font-semibold prose-xs max-w-full truncate leading-none"
+                    dangerouslySetInnerHTML={{ __html: sanitize(form.title) }}
+                  />
                 </div>
               </div>
             </div>
@@ -499,7 +503,7 @@ export function BuilderCanvas({
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2 max-w-[140px] sm:max-w-[200px]">
                       <Layers className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate text-xs font-medium">{currentSection?.name ?? "Section"}</span>
+                      <span className="truncate text-xs font-medium">{currentSection ? stripHtml(currentSection.name) : "Section"}</span>
                       <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -519,7 +523,7 @@ export function BuilderCanvas({
                         >
                           {idx + 1}
                         </span>
-                        <span className="truncate">{sec.name}</span>
+                        <span className="truncate">{stripHtml(sec.name)}</span>
                         {sec.id === activeSectionId && (
                           <span className="ml-auto h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: accentColor }} />
                         )}
@@ -578,6 +582,7 @@ export function BuilderCanvas({
                         title={form?.title}
                         description={form?.description}
                         onUpdate={(changes) => collabUpdateFormMeta(changes)}
+                        workspaceId={workspaceId}
                       />
                     </div>
 
@@ -926,6 +931,7 @@ export function BuilderCanvas({
                 }
               }}
               onMobileClose={() => setIsSettingsOpen(false)}
+              workspaceId={workspaceId}
             />
           </CursorArea>
         </SheetContent>

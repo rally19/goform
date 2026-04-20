@@ -33,7 +33,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useState, memo } from "react";
+import { useState, memo, useMemo } from "react";
+import { sanitize } from "@/lib/sanitize";
 
 const FIELD_ICONS: Record<string, React.ElementType> = {
   short_text: Type, long_text: AlignLeft, number: Hash, email: Mail,
@@ -103,9 +104,15 @@ export const FieldCard = memo(function FieldCard({
     if (field.type === "section") {
       return (
         <div className="border-l-2 pl-3" style={{ borderColor: accentColor }}>
-          <h3 className="font-semibold text-base text-foreground">{field.label}</h3>
+          <h3 
+            className="font-semibold text-base text-foreground prose-sm max-w-full"
+            dangerouslySetInnerHTML={{ __html: sanitize(field.label) }}
+          />
           {field.description && (
-            <p className="text-sm text-muted-foreground mt-0.5">{field.description}</p>
+            <div 
+              className="text-sm text-muted-foreground mt-0.5 prose-sm max-w-full"
+              dangerouslySetInnerHTML={{ __html: sanitize(field.description) }}
+            />
           )}
         </div>
       );
@@ -330,9 +337,10 @@ export const FieldCard = memo(function FieldCard({
           <div className="flex flex-row items-center gap-2">
             <div className="flex items-center gap-1.5 min-w-0 flex-1">
               <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <span className="font-medium text-sm text-foreground truncate">
-                {field.label}
-              </span>
+              <div 
+                className="font-medium text-sm text-foreground prose-sm max-w-full"
+                dangerouslySetInnerHTML={{ __html: sanitize(field.label) }}
+              />
               {field.required && (
                 <span className="text-destructive text-sm leading-none shrink-0">*</span>
               )}
@@ -345,7 +353,10 @@ export const FieldCard = memo(function FieldCard({
           </div>
 
           {field.description && (
-            <p className="text-xs text-muted-foreground -mt-1 text-balance">{field.description}</p>
+            <div 
+              className="text-xs text-muted-foreground -mt-1 text-balance prose-xs max-w-full"
+              dangerouslySetInnerHTML={{ __html: sanitize(field.description) }}
+            />
           )}
 
           {renderFieldPreview()}

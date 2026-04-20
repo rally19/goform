@@ -14,6 +14,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { GripVertical, MoveRight } from "lucide-react";
+import { sanitize } from "@/lib/sanitize";
 import { cn } from "@/lib/utils";
 import type { BuilderSection } from "@/lib/form-types";
 import {
@@ -103,7 +104,10 @@ function SortableRow({ section, index, total, isCurrent, accentColor, viewers }:
       </span>
 
       {/* Name */}
-      <span className="flex-1 text-sm font-medium truncate">{section.name}</span>
+      <div 
+        className="flex-1 text-sm font-medium truncate prose-sm max-w-full"
+        dangerouslySetInnerHTML={{ __html: sanitize(section.name) }}
+      />
 
       {/* Live presence avatars */}
       {viewers.length > 0 && (

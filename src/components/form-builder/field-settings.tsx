@@ -1,34 +1,26 @@
-"use client";
-
-import { BuilderField, BuilderSection } from "@/lib/form-types";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import {
-  GripVertical, Plus, Trash2, X,
-  Settings2,
-} from "lucide-react";
+import { RichText } from "@/components/ui/rich-text";
 import { useFormBuilder } from "@/hooks/use-form-builder";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
+import { X, Settings2, Plus, GripVertical, Trash2 } from "lucide-react";
+import { BuilderField, BuilderSection } from "@/lib/form-types";
+import { cn } from "@/lib/utils";
 import {
   DndContext,
   closestCenter,
-  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
   DragEndEvent,
 } from "@dnd-kit/core";
 import {
-  arrayMove,
   SortableContext,
-  sortableKeyboardCoordinates,
   verticalListSortingStrategy,
   useSortable,
 } from "@dnd-kit/sortable";
@@ -45,6 +37,7 @@ interface FieldSettingsProps {
   onMobileClose?: () => void;
   selectedSection?: BuilderSection;
   onUpdateSection?: (changes: Partial<BuilderSection>) => void;
+  workspaceId?: string;
 }
 
 export function FieldSettings({ 
@@ -58,6 +51,7 @@ export function FieldSettings({
   onMobileClose,
   selectedSection,
   onUpdateSection,
+  workspaceId,
 }: FieldSettingsProps) {
   const { selectField, selectSection } = useFormBuilder();
 
@@ -94,21 +88,23 @@ export function FieldSettings({
             <div className="space-y-3" data-cursor-id="section-basic-info">
               <div className="space-y-1.5" data-cursor-id="section-name" data-cursor-type="field">
                 <Label className="text-xs font-medium">Section Name</Label>
-                <Input
+                <RichText
                   value={selectedSection.name ?? ""}
-                  onChange={(e) => onUpdateSection?.({ name: e.target.value })}
-                  className="h-8 text-sm"
+                  onChange={(val) => onUpdateSection?.({ name: val })}
                   placeholder="Section name"
+                  workspaceId={workspaceId}
+                  minHeight="min-h-[32px]"
+                  multiline={false}
                 />
               </div>
               <div className="space-y-1.5" data-cursor-id="section-description" data-cursor-type="field">
                 <Label className="text-xs font-medium">Description (optional)</Label>
-                <Textarea
+                <RichText
                   value={selectedSection.description ?? ""}
-                  onChange={(e) => onUpdateSection?.({ description: e.target.value })}
-                  className="text-sm resize-none"
-                  rows={2}
+                  onChange={(val) => onUpdateSection?.({ description: val })}
                   placeholder="Section description"
+                  workspaceId={workspaceId}
+                  minHeight="min-h-[60px]"
                 />
               </div>
             </div>
@@ -190,21 +186,23 @@ export function FieldSettings({
           <div className="space-y-3" data-cursor-id="basic-info">
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Label</Label>
-              <Input
+              <RichText
                 value={field.label ?? ""}
-                onChange={(e) => onUpdate?.({ label: e.target.value })}
-                className="h-8 text-sm"
+                onChange={(val) => onUpdate?.({ label: val })}
                 placeholder="Question label"
+                workspaceId={workspaceId}
+                minHeight="min-h-[32px]"
+                multiline={false}
               />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Description (optional)</Label>
-              <Textarea
+              <RichText
                 value={field.description ?? ""}
-                onChange={(e) => onUpdate?.({ description: e.target.value })}
-                className="text-sm resize-none"
-                rows={2}
+                onChange={(val) => onUpdate?.({ description: val })}
                 placeholder="Helper text for respondents"
+                workspaceId={workspaceId}
+                minHeight="min-h-[60px]"
               />
             </div>
           </div>
@@ -327,6 +325,7 @@ export function FieldSettings({
                           onUpdate={onUpdateOption}
                           onRemove={onRemoveOption}
                           disabled={(field.options?.length ?? 0) <= 1}
+                          workspaceId={workspaceId}
                         />
                       ))}
                     </div>
@@ -441,7 +440,8 @@ function SortableOption({
   label, 
   onUpdate, 
   onRemove, 
-  disabled 
+  disabled,
+  workspaceId
 }: { 
   id: string; 
   idx: number; 
@@ -449,6 +449,7 @@ function SortableOption({
   onUpdate?: (idx: number, label: string) => void;
   onRemove?: (idx: number) => void;
   disabled: boolean;
+  workspaceId?: string;
 }) {
   const {
     attributes,
@@ -480,11 +481,14 @@ function SortableOption({
       >
         <GripVertical className="h-3.5 w-3.5" />
       </div>
-      <Input
+      <RichText
         value={label}
-        onChange={(e) => onUpdate?.(idx, e.target.value)}
-        className="h-7 text-sm flex-1 bg-transparent hover:bg-muted/30 focus:bg-background transition-colors"
+        onChange={(val) => onUpdate?.(idx, val)}
         placeholder={`Option ${idx + 1}`}
+        workspaceId={workspaceId}
+        className="flex-1"
+        minHeight="min-h-[28px]"
+        multiline={false}
       />
       <Button
         variant="ghost"

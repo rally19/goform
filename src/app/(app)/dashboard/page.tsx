@@ -17,6 +17,7 @@ import {
   CheckCircle2, Clock, TrendingUp, FileText, Building2,
 } from "lucide-react";
 import { formatDistanceToNow } from "../forms/_components/date-utils";
+import { sanitize } from "@/lib/sanitize";
 import Link from "next/link";
 import { Suspense } from "react";
 
@@ -189,7 +190,10 @@ async function DashboardRecentForms() {
                     style={{ backgroundColor: form.accentColor }}
                   />
                   <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{form.title}</p>
+                    <div 
+                      className="text-sm font-medium truncate prose-sm max-w-full"
+                      dangerouslySetInnerHTML={{ __html: sanitize(form.title) }}
+                    />
                     <div className="flex items-center gap-2 mt-0.5">
                       <Badge
                         variant={form.status === "active" ? "default" : "secondary"}

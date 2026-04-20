@@ -32,6 +32,8 @@ import {
 import { useState } from "react";
 import { SectionReorderDialog } from "./section-reorder-dialog";
 
+import { sanitize } from "@/lib/sanitize";
+
 interface SectionEditorInfo {
   connectionId: number;
   info: { name: string; avatar: string; color: string };
@@ -148,12 +150,11 @@ export function SectionBar({
         >
           {/* Left: section name + settings */}
           <div className="flex items-center gap-1.5 min-w-0">
-            <span
-              className="text-xs font-semibold truncate max-w-[120px] sm:max-w-[180px]"
+            <div
+              className="text-xs font-semibold prose-sm max-w-full"
               style={{ color: accentColor }}
-            >
-              {currentSection.name}
-            </span>
+              dangerouslySetInnerHTML={{ __html: sanitize(currentSection.name) }}
+            />
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -224,9 +225,9 @@ export function SectionBar({
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete Section?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will permanently delete &ldquo;{currentSection.name}&rdquo; and all its fields. This cannot be undone.
-                  </AlertDialogDescription>
+                  <div className="text-sm text-muted-foreground">
+                    This will permanently delete <strong dangerouslySetInnerHTML={{ __html: sanitize(currentSection.name) }} /> and all its fields. This cannot be undone.
+                  </div>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>

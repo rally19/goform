@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { sanitize, stripHtml } from "@/lib/sanitize";
 
 interface ResultsClientProps {
   formId: string;
@@ -112,7 +113,7 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${form.title}-responses.csv`;
+      a.download = `${stripHtml(form.title)}-responses.csv`;
       a.click();
       URL.revokeObjectURL(url);
       toast.success("Exported successfully");
@@ -161,7 +162,7 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
                   <TableHead className="w-[160px]">Respondent</TableHead>
                   {dataFields.slice(0, 3).map((f) => (
                     <TableHead key={f.id} className="max-w-[200px]">
-                      <span className="truncate block">{f.label}</span>
+                      <span className="truncate block">{stripHtml(f.label)}</span>
                     </TableHead>
                   ))}
                   <TableHead className="w-[80px]" />
@@ -244,10 +245,10 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
                 const answer = selectedResponse.answers[field.id] ?? null;
                 return (
                   <div key={field.id} className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      {field.label}
-                      {field.required && <span className="text-destructive ml-1">*</span>}
-                    </p>
+                    <div 
+                      className="text-xs font-medium text-muted-foreground uppercase tracking-wider prose prose-sm dark:prose-invert max-w-none"
+                      dangerouslySetInnerHTML={{ __html: sanitize(field.label) + (field.required ? ' <span class="text-destructive">*</span>' : '') }}
+                    />
                     <div className="text-sm">
                       {answer === null || answer === "" || (Array.isArray(answer) && answer.length === 0) ? (
                         <span className="text-muted-foreground italic">No answer</span>

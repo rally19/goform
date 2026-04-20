@@ -1,5 +1,4 @@
-"use client";
-
+import { RichText } from "@/components/ui/rich-text";
 import { useFormBuilder } from "@/hooks/use-form-builder";
 
 interface FormHeaderEditorProps {
@@ -7,13 +6,15 @@ interface FormHeaderEditorProps {
   title?: string;
   description?: string;
   onUpdate?: (changes: { title?: string; description?: string }) => void;
+  workspaceId?: string;
 }
 
 export function FormHeaderEditor({ 
   accentColor = "#6366f1",
   title = "Untitled Form",
   description = "",
-  onUpdate
+  onUpdate,
+  workspaceId
 }: FormHeaderEditorProps) {
   const { selectField } = useFormBuilder();
 
@@ -25,22 +26,25 @@ export function FormHeaderEditor({
       {/* Color accent bar */}
       <div className="h-2" style={{ backgroundColor: accentColor }} />
 
-      <div className="p-4 md:p-8 space-y-3">
-        <input
-          type="text"
+      <div className="p-4 md:p-8 space-y-4">
+        <RichText
           value={title}
-          onChange={(e) => onUpdate?.({ title: e.target.value })}
-          className="w-full text-xl sm:text-2xl md:text-3xl font-bold bg-transparent border-0 outline-none focus:bg-muted/30 transition-colors rounded px-1 -mx-1 text-foreground placeholder:text-muted-foreground/40"
+          onChange={(val) => onUpdate?.({ title: val })}
           placeholder="Untitled Form"
-          onClick={(e) => e.stopPropagation()}
+          workspaceId={workspaceId}
+          className="w-full text-foreground"
+          minHeight="min-h-[40px]"
+          multiline={false}
+          onFocus={() => selectField(null)}
         />
-        <textarea
+        <RichText
           value={description}
-          onChange={(e) => onUpdate?.({ description: e.target.value })}
-          className="w-full text-sm text-muted-foreground bg-transparent border-0 outline-none focus:bg-muted/30 transition-colors rounded px-1 -mx-1 resize-none placeholder:text-muted-foreground/30"
+          onChange={(val) => onUpdate?.({ description: val })}
           placeholder="Form description (optional)"
-          rows={2}
-          onClick={(e) => e.stopPropagation()}
+          workspaceId={workspaceId}
+          className="w-full"
+          minHeight="min-h-[60px]"
+          onFocus={() => selectField(null)}
         />
       </div>
     </div>

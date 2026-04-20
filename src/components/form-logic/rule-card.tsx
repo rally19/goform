@@ -51,6 +51,7 @@ import {
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
+import { stripHtml } from "@/lib/sanitize";
 import type { LogicIssue } from "@/lib/form-logic";
 
 const ACTION_ICONS: Record<LogicAction, React.ElementType> = {
@@ -441,7 +442,7 @@ function TargetEditor({
         <SelectContent>
           {sections.map((s) => (
             <SelectItem key={s.id} value={s.id}>
-              {s.name}
+              {stripHtml(s.name)}
             </SelectItem>
           ))}
         </SelectContent>

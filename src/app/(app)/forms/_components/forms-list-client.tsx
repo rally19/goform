@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
+import { sanitize } from "@/lib/sanitize";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -164,7 +165,10 @@ function FormCard({
               onNavigate(form.id, "enter", `/forms/${form.id}/edit`);
             }}
           >
-            {form.title}
+            <div 
+              className="prose-sm max-w-full truncate"
+              dangerouslySetInnerHTML={{ __html: sanitize(form.title) }}
+            />
           </Link>
           {isLocked && (
             <Badge variant="outline" className="h-5 px-1.5 gap-1 text-[10px] bg-amber-500/10 text-amber-600 border-amber-200">

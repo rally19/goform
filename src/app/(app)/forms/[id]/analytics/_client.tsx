@@ -17,6 +17,7 @@ import {
   Type, SlidersHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { sanitize, stripHtml } from "@/lib/sanitize";
 
 const COLORS = ["#6366f1", "#8b5cf6", "#f43f5e", "#f97316", "#10b981", "#0ea5e9", "#f59e0b", "#64748b"];
 
@@ -55,7 +56,7 @@ function ChoiceFieldChart({ stat, accentColor }: { stat: FieldStat; accentColor:
       <CardHeader>
         <div className="flex items-center gap-2">
           <CheckSquare className="h-4 w-4 text-muted-foreground" />
-          <CardTitle className="text-sm font-medium">{stat.label}</CardTitle>
+          <CardTitle className="text-sm font-medium">{stripHtml(stat.label)}</CardTitle>
         </div>
         <CardDescription>{stat.responseCount} responses</CardDescription>
       </CardHeader>
@@ -66,7 +67,7 @@ function ChoiceFieldChart({ stat, accentColor }: { stat: FieldStat; accentColor:
             return (
               <div key={i} className="space-y-1">
                 <div className="flex justify-between text-xs">
-                  <span className="truncate text-foreground">{item.label}</span>
+                  <span className="truncate text-foreground">{stripHtml(item.label)}</span>
                   <span className="text-muted-foreground shrink-0 ml-2">{item.count} ({pct}%)</span>
                 </div>
                 <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -94,7 +95,7 @@ function RatingChart({ stat, accentColor }: { stat: FieldStat; accentColor: stri
       <CardHeader>
         <div className="flex items-center gap-2">
           <Star className="h-4 w-4 text-muted-foreground" />
-          <CardTitle className="text-sm font-medium">{stat.label}</CardTitle>
+          <CardTitle className="text-sm font-medium">{stripHtml(stat.label)}</CardTitle>
         </div>
         <CardDescription>
           Average: {stat.average ?? "—"} · {stat.responseCount} responses
@@ -124,7 +125,7 @@ function TextFieldStat({ stat }: { stat: FieldStat }) {
       <CardHeader>
         <div className="flex items-center gap-2">
           <Type className="h-4 w-4 text-muted-foreground" />
-          <CardTitle className="text-sm font-medium">{stat.label}</CardTitle>
+          <CardTitle className="text-sm font-medium">{stripHtml(stat.label)}</CardTitle>
         </div>
         <CardDescription>{stat.responseCount} responses</CardDescription>
       </CardHeader>
@@ -195,9 +196,10 @@ export function AnalyticsDashboard({ formId, form, analytics }: AnalyticsDashboa
     <div className="p-4 pt-6 md:p-8 space-y-6 overflow-y-auto h-full">
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Analytics</h2>
-        <p className="text-muted-foreground text-sm mt-0.5">
-          {form.title}
-        </p>
+        <div 
+          className="text-muted-foreground text-sm mt-0.5 prose prose-sm dark:prose-invert max-w-none"
+          dangerouslySetInnerHTML={{ __html: sanitize(form.title) }}
+        />
       </div>
 
       {/* Stats row */}

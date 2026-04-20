@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { usePathname } from "next/navigation";
+import { sanitize } from "@/lib/sanitize";
 import type { FormField } from "@/db/schema";
 import type { Form } from "@/db/schema";
 import type { FormAnswer, BuilderSection, LogicRule, BuilderField } from "@/lib/form-types";
@@ -201,12 +202,17 @@ function FieldRenderer({
 
   if (field.type === "section") {
     return (
-      <div>
-        <h3 className="text-lg font-semibold" style={{ color: accentColor }}>
-          {field.label}
-        </h3>
+      <div className="space-y-4">
+        <h3 
+          className="text-lg font-semibold" 
+          style={{ color: accentColor }}
+          dangerouslySetInnerHTML={{ __html: sanitize(field.label) }}
+        />
         {field.description && (
-          <p className="text-sm text-muted-foreground mt-1">{field.description}</p>
+          <div 
+            className="text-sm text-muted-foreground prose-sm max-w-full"
+            dangerouslySetInnerHTML={{ __html: sanitize(field.description) }}
+          />
         )}
       </div>
     );
@@ -655,7 +661,10 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
           <CheckCircle2 className="h-8 w-8" style={{ color: accentColor }} />
         </div>
         <h2 className="text-2xl font-bold">Thank you!</h2>
-        <p className="text-muted-foreground">{form.successMessage}</p>
+        <div 
+          className="text-muted-foreground prose-neutral max-w-full"
+          dangerouslySetInnerHTML={{ __html: sanitize(form.successMessage ?? "Your response has been recorded.") }}
+        />
       </div>
     );
   }
@@ -681,14 +690,19 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
 
       {/* Section header — shown when the page represents a named section */}
       {(currentPageData.sectionName || currentPageData.sectionDescription) && (
-        <div className="mb-6 pb-4 border-b border-border">
+        <div className="mb-6 pb-4 border-b border-border space-y-2">
           {currentPageData.sectionName && (
-            <h2 className="text-lg font-semibold" style={{ color: accentColor }}>
-              {currentPageData.sectionName}
-            </h2>
+            <h2 
+              className="text-lg font-semibold prose prose-sm dark:prose-invert max-w-none" 
+              style={{ color: accentColor }}
+              dangerouslySetInnerHTML={{ __html: sanitize(currentPageData.sectionName) }}
+            />
           )}
           {currentPageData.sectionDescription && (
-            <p className="text-sm text-muted-foreground mt-1">{currentPageData.sectionDescription}</p>
+            <div 
+              className="text-sm text-muted-foreground prose-sm max-w-full"
+              dangerouslySetInnerHTML={{ __html: sanitize(currentPageData.sectionDescription) }}
+            />
           )}
         </div>
       )}
@@ -714,15 +728,21 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
 
           return (
             <div key={field.id} id={`field-${field.id}`} className="space-y-2">
-              <Label className="text-sm font-medium">
-                {field.label}
-                {state.required && (
-                  <span className="text-destructive ml-1">*</span>
-                )}
-              </Label>
-              {field.description && (
-                <p className="text-xs text-muted-foreground -mt-1">{field.description}</p>
+              <Label className="text-sm font-medium flex items-center gap-1">
+              <div 
+                className="prose-sm max-w-full"
+                dangerouslySetInnerHTML={{ __html: sanitize(field.label) }}
+              />
+              {state.required && (
+                <span className="text-destructive">*</span>
               )}
+            </Label>
+            {field.description && (
+              <div 
+                className="text-xs text-muted-foreground -mt-1 prose-xs max-w-full"
+                dangerouslySetInnerHTML={{ __html: sanitize(field.description) }}
+              />
+            )}
               <FieldRenderer
                 field={field}
                 value={answers[field.id] ?? null}

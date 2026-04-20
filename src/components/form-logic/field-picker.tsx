@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { stripHtml } from "@/lib/sanitize";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -97,7 +98,7 @@ export function FieldPicker({
   const filtered = useMemo(() => filterGroups(groups, search), [groups, search]);
 
   const selectedField = fields.find((f) => f.id === value);
-  const label = selectedField ? (selectedField.label || "(untitled)") : null;
+  const label = selectedField ? (stripHtml(selectedField.label) || "(untitled)") : null;
 
   const toggleSection = (id: string) => {
     setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -158,7 +159,7 @@ export function FieldPicker({
                       <ChevronDown className="h-3 w-3 shrink-0" />
                     )}
                     <span className="truncate">
-                      {group.section?.name ?? "Unsectioned"}
+                      {group.section ? stripHtml(group.section.name) : "Unsectioned"}
                     </span>
                     <span className="ml-auto text-[10px] font-normal text-muted-foreground/60">
                       {group.fields.length}
@@ -186,7 +187,7 @@ export function FieldPicker({
                           {f.id === value && (
                             <Check className="h-3 w-3 shrink-0" />
                           )}
-                          <span className="truncate">{f.label || "(untitled)"}</span>
+                          <span className="truncate">{stripHtml(f.label) || "(untitled)"}</span>
                           <span className="ml-auto text-[10px] text-muted-foreground/60 font-mono">
                             {f.type}
                           </span>
@@ -277,7 +278,7 @@ export function FieldMultiPicker({
                       removeField(id);
                     }}
                   >
-                    {f?.label || "(untitled)"}
+                    {stripHtml(f?.label) || "(untitled)"}
                     <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
                   </Badge>
                 );
@@ -325,7 +326,7 @@ export function FieldMultiPicker({
                       <ChevronDown className="h-3 w-3 shrink-0" />
                     )}
                     <span className="truncate">
-                      {group.section?.name ?? "Unsectioned"}
+                      {group.section ? stripHtml(group.section.name) : "Unsectioned"}
                     </span>
                     <span className="ml-auto text-[10px] font-normal text-muted-foreground/60">
                       {selectedInGroup > 0
@@ -360,7 +361,7 @@ export function FieldMultiPicker({
                             >
                               <Check className="h-3 w-3" />
                             </div>
-                            <span className="truncate">{f.label || "(untitled)"}</span>
+                            <span className="truncate">{stripHtml(f.label) || "(untitled)"}</span>
                             <span className="ml-auto text-[10px] text-muted-foreground/60 font-mono">
                               {f.type}
                             </span>

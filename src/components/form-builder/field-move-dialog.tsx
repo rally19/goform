@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils";
 import { MoveRight } from "lucide-react";
 import type { BuilderSection } from "@/lib/form-types";
 
+import { sanitize } from "@/lib/sanitize";
+
 interface FieldMoveDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -84,7 +86,10 @@ export function FieldMoveDialog({
                 >
                   {idx + 1}
                 </span>
-                <span className="flex-1 text-sm font-medium truncate">{section.name}</span>
+                <div 
+                  className="flex-1 text-sm font-medium truncate prose-sm max-w-full"
+                  dangerouslySetInnerHTML={{ __html: sanitize(section.name) }}
+                />
                 {isCurrent && (
                   <span className="text-[10px] text-muted-foreground shrink-0">current</span>
                 )}
