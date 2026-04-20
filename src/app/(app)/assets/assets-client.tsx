@@ -726,7 +726,7 @@ export function AssetsClient({ workspaceId, initialAssets, usage, targetWorkspac
                   {formatBytes(selectedFiles.reduce((acc, f) => acc + f.size, 0))} total
                 </span>
               </div>
-              <div className="max-h-[30vh] overflow-y-auto space-y-1.5 pr-2">
+              <div className="space-y-1.5 pr-2">
                 {selectedFiles.map((f, i) => {
                   const isTooLarge = f.size > MAX_FILE_SIZE;
                   return (
