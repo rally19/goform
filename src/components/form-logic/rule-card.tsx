@@ -29,7 +29,7 @@ import {
   SelectLabel,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { MultiSelect } from "@/components/ui/multi-select";
+import { FieldPicker, FieldMultiPicker } from "./field-picker";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -273,6 +273,7 @@ export function RuleCard({
                 <ConditionBuilder
                   group={rule.conditions}
                   fields={fields}
+                  sections={sections}
                   onChange={(next) => onChange({ conditions: next })}
                 />
               </div>
@@ -325,7 +326,7 @@ export function RuleCard({
                 </div>
 
                 {rule.action === "set_value" && (
-                  <SetValueEditor rule={rule} fields={fields} onChange={onChange} />
+                  <SetValueEditor rule={rule} fields={fields} sections={sections} onChange={onChange} />
                 )}
               </div>
 
@@ -418,8 +419,9 @@ function TargetEditor({
 
   if (actionNeedsTargets(rule.action)) {
     return (
-      <MultiSelect
-        options={realFields.map((f) => ({ label: f.label || "(untitled)", value: f.id }))}
+      <FieldMultiPicker
+        fields={realFields}
+        sections={sections}
         selected={rule.targetFieldIds ?? []}
         onChange={(vals) => onChange({ targetFieldIds: vals })}
         placeholder="Select target field(s)"
@@ -471,21 +473,13 @@ function TargetEditor({
 
   if (rule.action === "jump_to_field") {
     return (
-      <Select
+      <FieldPicker
+        fields={realFields}
+        sections={sections}
         value={rule.targetFieldId ?? ""}
-        onValueChange={(v) => onChange({ targetFieldId: v })}
-      >
-        <SelectTrigger className="h-9 text-sm">
-          <SelectValue placeholder="Select field" />
-        </SelectTrigger>
-        <SelectContent>
-          {realFields.map((f) => (
-            <SelectItem key={f.id} value={f.id}>
-              {f.label || "(untitled)"}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        onChange={(v) => onChange({ targetFieldId: v })}
+        placeholder="Select field"
+      />
     );
   }
 
@@ -497,10 +491,12 @@ function TargetEditor({
 function SetValueEditor({
   rule,
   fields,
+  sections,
   onChange,
 }: {
   rule: LogicRule;
   fields: BuilderField[];
+  sections: BuilderSection[];
   onChange: (patch: Partial<LogicRule>) => void;
 }) {
   const source = rule.valueSource ?? { mode: "static", staticValue: "" };
@@ -550,23 +546,13 @@ function SetValueEditor({
       )}
 
       {source.mode === "copy_field" && (
-        <Select
+        <FieldPicker
+          fields={fields.filter((f) => f.type !== "page_break" && f.type !== "section")}
+          sections={sections}
           value={source.sourceFieldId ?? ""}
-          onValueChange={(v) => onChange({ valueSource: { mode: "copy_field", sourceFieldId: v } })}
-        >
-          <SelectTrigger className="h-8 text-sm">
-            <SelectValue placeholder="Select source field" />
-          </SelectTrigger>
-          <SelectContent>
-            {fields
-              .filter((f) => f.type !== "page_break" && f.type !== "section")
-              .map((f) => (
-                <SelectItem key={f.id} value={f.id}>
-                  {f.label || "(untitled)"}
-                </SelectItem>
-              ))}
-          </SelectContent>
-        </Select>
+          onChange={(v) => onChange({ valueSource: { mode: "copy_field", sourceFieldId: v } })}
+          placeholder="Select source field"
+        />
       )}
 
       {source.mode === "formula" && (

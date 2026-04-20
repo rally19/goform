@@ -2,6 +2,7 @@
 
 import type {
   BuilderField,
+  BuilderSection,
   LogicCondition,
   LogicConditionGroup,
   LogicOperator,
@@ -21,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { FieldPicker } from "./field-picker";
 import { ValueInput } from "./value-input";
 import { Plus, Trash2, Folders } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -28,11 +30,12 @@ import { cn } from "@/lib/utils";
 interface ConditionBuilderProps {
   group: LogicConditionGroup;
   fields: BuilderField[];
+  sections: BuilderSection[];
   onChange: (group: LogicConditionGroup) => void;
   depth?: number;
 }
 
-export function ConditionBuilder({ group, fields, onChange, depth = 0 }: ConditionBuilderProps) {
+export function ConditionBuilder({ group, fields, sections, onChange, depth = 0 }: ConditionBuilderProps) {
   const updateCondition = (idx: number, patch: Partial<LogicCondition>) => {
     const next = [...group.conditions];
     next[idx] = { ...next[idx], ...patch };
@@ -109,6 +112,7 @@ export function ConditionBuilder({ group, fields, onChange, depth = 0 }: Conditi
           key={cond.id}
           condition={cond}
           fields={fields}
+          sections={sections}
           onChange={(patch) => updateCondition(idx, patch)}
           onRemove={() => removeCondition(idx)}
         />
@@ -129,6 +133,7 @@ export function ConditionBuilder({ group, fields, onChange, depth = 0 }: Conditi
           <ConditionBuilder
             group={sub}
             fields={fields}
+            sections={sections}
             onChange={(next) => updateSubGroup(idx, next)}
             depth={depth + 1}
           />
@@ -166,11 +171,13 @@ export function ConditionBuilder({ group, fields, onChange, depth = 0 }: Conditi
 function ConditionRow({
   condition,
   fields,
+  sections,
   onChange,
   onRemove,
 }: {
   condition: LogicCondition;
   fields: BuilderField[];
+  sections: BuilderSection[];
   onChange: (patch: Partial<LogicCondition>) => void;
   onRemove: () => void;
 }) {
@@ -189,31 +196,15 @@ function ConditionRow({
   return (
     <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] gap-1.5 items-center">
       {/* Field picker */}
-      <Select
+      <FieldPicker
+        fields={fields}
+        sections={sections}
         value={condition.fieldId}
-        onValueChange={(v) => onChange({ fieldId: v, value: "", value2: undefined })}
-      >
-        <SelectTrigger
-          className={cn(
-            "h-8 text-sm w-full",
-            fieldMissing && "border-destructive/50 text-destructive"
-          )}
-        >
-          <SelectValue placeholder="Select field" />
-        </SelectTrigger>
-        <SelectContent>
-          {fields.map((f) => (
-            <SelectItem key={f.id} value={f.id}>
-              <span className="truncate">{f.label || "(untitled)"}</span>
-            </SelectItem>
-          ))}
-          {fieldMissing && (
-            <SelectItem value={condition.fieldId} disabled>
-              <span className="text-destructive">Deleted field</span>
-            </SelectItem>
-          )}
-        </SelectContent>
-      </Select>
+        onChange={(v) => onChange({ fieldId: v, value: "", value2: undefined })}
+        placeholder="Select field"
+        showDeleted={!!fieldMissing}
+        deletedFieldId={fieldMissing ? condition.fieldId : undefined}
+      />
 
       {/* Operator */}
       <Select
