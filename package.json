@@ -17,6 +17,8 @@
     "@liveblocks/client": "^3.18.0",
     "@liveblocks/node": "^3.18.0",
     "@liveblocks/react": "^3.18.0",
+    "@liveblocks/react-tiptap": "^3.18.3",
+    "@liveblocks/react-ui": "^3.18.3",
     "@supabase/ssr": "^0.10.0",
     "@supabase/supabase-js": "^2.102.0",
     "@tailwindcss/cli": "^4.2.2",
