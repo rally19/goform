@@ -24,7 +24,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { uploadAsset, deleteAsset, renameAsset, deleteAssets, moveAssets } from "@/lib/actions/assets";
+import { uploadAsset, deleteAsset, renameAsset, deleteAssets, moveAssets, copyAssets } from "@/lib/actions/assets";
 import type { Asset } from "@/db/schema";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -142,8 +142,10 @@ export function AssetsClient({ workspaceId, initialAssets, usage, targetWorkspac
   // Multi-select
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [moveOpen, setMoveOpen] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(false);
   const [multiDeleteOpen, setMultiDeleteOpen] = useState(false);
   const [isMoving, setIsMoving] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
   const [isDeletingBulk, setIsDeletingBulk] = useState(false);
 
   // Preview dialog
@@ -178,6 +180,21 @@ export function AssetsClient({ workspaceId, initialAssets, usage, targetWorkspac
       router.refresh();
     } else {
       toast.error(res.error ?? "Failed to move assets");
+    }
+  };
+
+  const handleCopySelection = async (targetId: string) => {
+    setIsCopying(true);
+    const toastId = toast.loading(`Copying ${selectedIds.length} asset(s)...`);
+    const res = await copyAssets(selectedIds, targetId);
+    setIsCopying(false);
+    if (res.success) {
+      toast.success(`Copied ${selectedIds.length} asset(s)`, { id: toastId });
+      setSelectedIds([]);
+      setCopyOpen(false);
+      router.refresh(); // This will pull the new assets if copied to the current workspace
+    } else {
+      toast.error(res.error ?? "Failed to copy assets", { id: toastId });
     }
   };
 
@@ -313,6 +330,9 @@ export function AssetsClient({ workspaceId, initialAssets, usage, targetWorkspac
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
               Cancel
+            </Button>
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setCopyOpen(true)}>
+              <Copy className="h-4 w-4" /> Copy To…
             </Button>
             <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setMoveOpen(true)}>
               <MoveRight className="h-4 w-4" /> Move To…
@@ -540,6 +560,51 @@ export function AssetsClient({ workspaceId, initialAssets, usage, targetWorkspac
                 </Button>
               ))
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Copy Dialog ────────────────────────────────────────────────────── */}
+      <Dialog open={copyOpen} onOpenChange={setCopyOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Copy Assets</DialogTitle>
+            <DialogDescription>
+              Copy {selectedIds.length} asset(s) to a workspace.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2 max-h-[300px] overflow-y-auto">
+            <Button
+              variant="outline"
+              className="w-full justify-start py-6"
+              onClick={() => handleCopySelection(workspaceId)}
+              disabled={isCopying}
+            >
+              <div className="mr-3 p-2 bg-muted rounded-md flex items-center justify-center">
+                <Copy className="h-4 w-4" />
+              </div>
+              <div className="flex flex-col items-start gap-0.5">
+                <span className="font-medium">Current Workspace</span>
+                <span className="text-xs text-muted-foreground">Duplicate here</span>
+              </div>
+            </Button>
+            {targetWorkspaces.map((ws) => (
+              <Button
+                key={ws.id}
+                variant="outline"
+                className="w-full justify-start py-6"
+                onClick={() => handleCopySelection(ws.id)}
+                disabled={isCopying}
+              >
+                <div className="mr-3 p-2 bg-muted rounded-md flex items-center justify-center">
+                  {ws.type === "personal" ? <User className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
+                </div>
+                <div className="flex flex-col items-start gap-0.5">
+                  <span className="font-medium">{ws.name}</span>
+                  <span className="text-xs text-muted-foreground">{ws.type === "personal" ? "Personal Workspace" : "Organization"}</span>
+                </div>
+              </Button>
+            ))}
           </div>
         </DialogContent>
       </Dialog>

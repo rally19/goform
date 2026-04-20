@@ -368,3 +368,80 @@ export async function moveAssets(
     return { success: false, error: (err as Error).message };
   }
 }
+
+// ─── Bulk Copy ────────────────────────────────────────────────────────────────
+
+export async function copyAssets(
+  assetIds: string[],
+  targetWorkspaceId: string
+) {
+  try {
+    const user = await getAuthUser();
+    if (assetIds.length === 0) return { success: true };
+
+    const isTargetPersonal = targetWorkspaceId === PERSONAL_WORKSPACE_ID;
+
+    // Verify access to target workspace
+    if (!isTargetPersonal) {
+      const access = await verifyWorkspaceAccess(targetWorkspaceId, "editor");
+      if (!access.success) throw new Error("No permission to copy assets to that workspace");
+    }
+
+    const rows = await db.query.assets.findMany({
+      where: (a, { inArray }) => inArray(a.id, assetIds),
+    });
+
+    // Verify read access for every source asset
+    for (const asset of rows) {
+      if (asset.organizationId) {
+        const access = await verifyWorkspaceAccess(asset.organizationId, "viewer");
+        if (!access.success) throw new Error(`No permission to read "${asset.name}"`);
+      } else if (asset.userId !== user.id) {
+        throw new Error(`No permission to read "${asset.name}"`);
+      }
+    }
+
+    const supabase = await createClient();
+
+    // Copy each asset
+    for (const asset of rows) {
+      // For generateStoragePath, we need to pass PERSONAL_WORKSPACE_ID or the org id.
+      // But generateStoragePath uses the workspaceId to prefix the path.
+      // We will use the targetWorkspaceId for the prefix.
+      const targetPathPrefix = isTargetPersonal ? "personal" : targetWorkspaceId;
+      const newStoragePath = generateStoragePath(targetPathPrefix, user.id, asset.originalName);
+
+      const { error: copyError } = await supabase.storage
+        .from(ASSETS_BUCKET)
+        .copy(asset.storagePath, newStoragePath);
+
+      if (copyError) {
+        console.error("Storage copy error for", asset.name, ":", copyError.message);
+        continue;
+      }
+
+      const { data: urlData } = supabase.storage
+        .from(ASSETS_BUCKET)
+        .getPublicUrl(newStoragePath);
+
+      await db.insert(assets).values({
+        userId: isTargetPersonal ? user.id : null,
+        organizationId: isTargetPersonal ? null : targetWorkspaceId,
+        name: asset.name + " (Copy)",
+        originalName: asset.originalName,
+        mimeType: asset.mimeType,
+        size: asset.size,
+        type: asset.type,
+        storagePath: newStoragePath,
+        url: urlData.publicUrl,
+        uploadedBy: user.id,
+      });
+    }
+
+    revalidatePath("/assets");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
