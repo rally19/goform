@@ -204,7 +204,7 @@ function SidebarGhost() {
         <div className="px-2 py-4 space-y-6">
           <div className="space-y-3">
             <Skeleton className="h-3 w-12 bg-sidebar-accent/10 ml-2 mb-4" />
-            {[1, 2, 3].map((i) => (
+            {[1, 2, 3, 4].map((i) => (
               <div key={i} className="flex items-center gap-3 px-2">
                 <Skeleton className="h-4 w-4 rounded bg-sidebar-accent/20 shrink-0" />
                 <Skeleton className="h-4 w-full bg-sidebar-accent/10" />

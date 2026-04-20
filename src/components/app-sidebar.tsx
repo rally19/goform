@@ -19,6 +19,7 @@ import {
   Building2,
   LayoutDashboard,
   SquarePen,
+  HardDrive,
   Loader2,
 } from "lucide-react";
 import { UserAccountWidget } from "@/components/user-account-widget";
@@ -36,6 +37,11 @@ const navigation = [
     name: "Forms",
     href: "/forms",
     icon: SquarePen,
+  },
+  {
+    name: "Assets",
+    href: "/assets",
+    icon: HardDrive,
   },
   {
     name: "Organizations",

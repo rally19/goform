@@ -21,6 +21,14 @@ export const formStatusEnum = pgEnum("form_status", [
   "closed",
 ]);
 
+export const assetTypeEnum = pgEnum("asset_type", [
+  "image",
+  "video",
+  "document",
+  "audio",
+  "other",
+]);
+
 export const fieldTypeEnum = pgEnum("field_type", [
   "short_text",
   "long_text",
@@ -287,17 +295,54 @@ export const formResponses = pgTable(
   ]
 );
 
+// ─── Assets ───────────────────────────────────────────────────────────────────
+
+export const assets = pgTable(
+  "assets",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    // Workspace ownership — exactly one of these is set
+    userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id").references(() => organizations.id, { onDelete: "cascade" }),
+    // File metadata
+    name: text("name").notNull(),
+    originalName: text("original_name").notNull(),
+    mimeType: text("mime_type").notNull(),
+    size: integer("size").notNull(), // bytes
+    type: assetTypeEnum("type").notNull().default("other"),
+    // Supabase storage path (bucket key)
+    storagePath: text("storage_path").notNull(),
+    // Public URL for direct access
+    url: text("url").notNull(),
+    // Optional alt text / description
+    altText: text("alt_text"),
+    // Uploaded by
+    uploadedBy: varchar("uploaded_by").notNull().references(() => users.id),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("assets_user_id_idx").on(table.userId),
+    index("assets_org_id_idx").on(table.organizationId),
+    index("assets_type_idx").on(table.type),
+    index("assets_created_at_idx").on(table.createdAt),
+  ]
+);
+
 // ─── Relations ────────────────────────────────────────────────────────────────
 
 export const usersRelations = relations(users, ({ many }) => ({
   forms: many(forms),
   organizationMemberships: many(organizationMembers),
+  assets: many(assets),
 }));
 
 export const organizationsRelations = relations(organizations, ({ many }) => ({
   members: many(organizationMembers),
   invites: many(organizationInvites),
   forms: many(forms),
+  assets: many(assets),
 }));
 
 export const organizationMembersRelations = relations(organizationMembers, ({ one }) => ({
@@ -333,6 +378,12 @@ export const formResponsesRelations = relations(formResponses, ({ one }) => ({
   form: one(forms, { fields: [formResponses.formId], references: [forms.id] }),
 }));
 
+export const assetsRelations = relations(assets, ({ one }) => ({
+  user: one(users, { fields: [assets.userId], references: [users.id] }),
+  organization: one(organizations, { fields: [assets.organizationId], references: [organizations.id] }),
+  uploader: one(users, { fields: [assets.uploadedBy], references: [users.id] }),
+}));
+
 // ─── Type Exports ─────────────────────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
@@ -342,6 +393,8 @@ export type OrganizationInvite = typeof organizationInvites.$inferSelect;
 export type Form = typeof forms.$inferSelect;
 export type FormField = typeof formFields.$inferSelect;
 export type FormResponse = typeof formResponses.$inferSelect;
+export type Asset = typeof assets.$inferSelect;
 export type NewForm = typeof forms.$inferInsert;
 export type NewFormField = typeof formFields.$inferInsert;
 export type NewFormResponse = typeof formResponses.$inferInsert;
+export type NewAsset = typeof assets.$inferInsert;
