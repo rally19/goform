@@ -27,10 +27,6 @@ import {
   Copy,
   Trash2,
   PlusCircle,
-  ChevronsLeft,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsRight,
   MoveRight,
 } from "lucide-react";
 import { useState } from "react";
@@ -47,7 +43,6 @@ interface SectionBarProps {
   currentIndex: number;
   isSelected: boolean;
   onSelect: (id: string) => void;
-  onSelectSection: (id: string) => void;
   onOpenSettings: (id: string) => void;
   onReorder: (id: string, toIndex: number) => void;
   onDuplicate: (id: string) => void;
@@ -64,7 +59,6 @@ export function SectionBar({
   currentIndex,
   isSelected,
   onSelect,
-  onSelectSection,
   onOpenSettings,
   onReorder,
   onDuplicate,
@@ -77,19 +71,6 @@ export function SectionBar({
   const total = sections.length;
   const isOnly = total === 1;
   const [reorderOpen, setReorderOpen] = useState(false);
-
-  const goFirst = () => onSelectSection(sections[0].id);
-  const goPrev = () => currentIndex > 0 && onSelectSection(sections[currentIndex - 1].id);
-  const goNext = () => currentIndex < total - 1 && onSelectSection(sections[currentIndex + 1].id);
-  const goLast = () => onSelectSection(sections[total - 1].id);
-
-  const MAX_VISIBLE = 5;
-  let pageStart = Math.max(0, currentIndex - Math.floor(MAX_VISIBLE / 2));
-  const pageEnd = Math.min(total, pageStart + MAX_VISIBLE);
-  if (pageEnd - pageStart < MAX_VISIBLE) {
-    pageStart = Math.max(0, pageEnd - MAX_VISIBLE);
-  }
-  const visiblePages = sections.slice(pageStart, pageEnd);
 
   // Presence: others viewing this section's settings
   const editors: SectionEditorInfo[] = others
@@ -277,46 +258,6 @@ export function SectionBar({
           </div>
         </div>
 
-        {/* Pagination row — NO stopPropagation so clicks on empty space bubble up to canvas deselect */}
-        <div className="flex items-center justify-center gap-0.5">
-          <Button variant="ghost" size="icon" className="h-6 w-6" disabled={currentIndex === 0} onClick={(e) => { e.stopPropagation(); goFirst(); }}>
-            <ChevronsLeft className="h-3 w-3" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-6 w-6" disabled={currentIndex === 0} onClick={(e) => { e.stopPropagation(); goPrev(); }}>
-            <ChevronLeft className="h-3 w-3" />
-          </Button>
-
-          {pageStart > 0 && <span className="text-[10px] text-muted-foreground px-1">…</span>}
-
-          {visiblePages.map((sec, vi) => {
-            const absIdx = pageStart + vi;
-            const isCurrent = sec.id === currentSection.id;
-            return (
-              <button
-                key={sec.id}
-                onClick={(e) => { e.stopPropagation(); onSelectSection(sec.id); }}
-                className={cn(
-                  "h-6 min-w-[24px] px-1.5 rounded text-[11px] font-medium transition-colors",
-                  isCurrent
-                    ? "text-white shadow-sm"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-                style={isCurrent ? { backgroundColor: accentColor } : undefined}
-              >
-                {absIdx + 1}
-              </button>
-            );
-          })}
-
-          {pageEnd < total && <span className="text-[10px] text-muted-foreground px-1">…</span>}
-
-          <Button variant="ghost" size="icon" className="h-6 w-6" disabled={currentIndex === total - 1} onClick={(e) => { e.stopPropagation(); goNext(); }}>
-            <ChevronRight className="h-3 w-3" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-6 w-6" disabled={currentIndex === total - 1} onClick={(e) => { e.stopPropagation(); goLast(); }}>
-            <ChevronsRight className="h-3 w-3" />
-          </Button>
-        </div>
       </div>
 
       <SectionReorderDialog

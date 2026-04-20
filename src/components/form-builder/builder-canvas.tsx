@@ -36,7 +36,7 @@ import {
 import {
   PlusCircle, Settings2, Palette,
   Plus, Loader2,
-  GripVertical, Copy, Trash2, ChevronDown, MoveRight
+  GripVertical, Copy, Trash2, ChevronDown, MoveRight, Layers
 } from "lucide-react";
 import { FieldMoveDialog } from "./field-move-dialog";
 import { SectionReorderDialog } from "./section-reorder-dialog";
@@ -493,6 +493,43 @@ export function BuilderCanvas({
             </div>
 
             <div className="flex items-center gap-1 sm:gap-2">
+              {/* Section picker */}
+              {sortedSections.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2 max-w-[140px] sm:max-w-[200px]">
+                      <Layers className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate text-xs font-medium">{currentSection?.name ?? "Section"}</span>
+                      <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-[180px] max-h-72 overflow-y-auto">
+                    {sortedSections.map((sec, idx) => (
+                      <DropdownMenuItem
+                        key={sec.id}
+                        onClick={() => handleNavigateSection(sec.id)}
+                        className={cn(
+                          "flex items-center gap-2 cursor-pointer",
+                          sec.id === activeSectionId && "font-semibold"
+                        )}
+                      >
+                        <span
+                          className="h-5 min-w-[20px] px-1.5 rounded text-[10px] font-bold flex items-center justify-center shrink-0"
+                          style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
+                        >
+                          {idx + 1}
+                        </span>
+                        <span className="truncate">{sec.name}</span>
+                        {sec.id === activeSectionId && (
+                          <span className="ml-auto h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: accentColor }} />
+                        )}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+
+              {/* Accent colour picker */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -557,7 +594,6 @@ export function BuilderCanvas({
                             currentIndex={currentSectionIndex}
                             isSelected={selectedSectionId === currentSection.id}
                             onSelect={handleOpenSectionSettings}
-                            onSelectSection={handleNavigateSection}
                             onOpenSettings={handleOpenSectionSettings}
                             onReorder={handleReorderSection}
                             onDuplicate={handleDuplicateSection}
@@ -618,7 +654,6 @@ export function BuilderCanvas({
                             currentIndex={currentSectionIndex}
                             isSelected={selectedSectionId === currentSection.id}
                             onSelect={handleOpenSectionSettings}
-                            onSelectSection={handleNavigateSection}
                             onOpenSettings={handleOpenSectionSettings}
                             onReorder={handleReorderSection}
                             onDuplicate={handleDuplicateSection}
@@ -910,6 +945,8 @@ export function BuilderCanvas({
             field={fields.find(f => f.id === activeId)!}
             accentColor={accentColor}
             currentUserId={currentUserId}
+            sections={sortedSections}
+            onMove={handleMoveField}
             isSelected
             isOverlay
             others={[]}
