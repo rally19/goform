@@ -747,6 +747,7 @@ function AssetListRow({ asset, isLast, isSelected, onToggleSelect, copied, onPre
           onCheckedChange={(c) => onToggleSelect(asset.id, c as boolean)}
         />
       </td>
+      <td className="px-4 py-3">
         <button onClick={onPreview} className="flex items-center gap-3 group">
           <div className="h-8 w-8 rounded bg-muted overflow-hidden flex items-center justify-center shrink-0">
             {asset.type === "image" ? (
