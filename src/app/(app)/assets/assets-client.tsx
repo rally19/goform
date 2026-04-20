@@ -410,7 +410,7 @@ export function AssetsClient({ workspaceId, initialAssets, usage, targetWorkspac
 
       {/* ─── Drop zone + content ────────────────────────────────────────────── */}
       <div
-        className="flex-1 overflow-y-auto"
+        className={`flex-1 overflow-y-auto transition-all ${selectedIds.length > 0 ? "mt-14" : "mt-0"}`}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
@@ -691,8 +691,8 @@ function AssetGridCard({ asset, isSelected, onToggleSelect, copied, onPreview, o
       </button>
 
       {/* Hover overlay */}
-      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 rounded-lg">
-        <button onClick={onPreview} className="p-2 bg-white/20 backdrop-blur-sm rounded-full hover:bg-white/30 transition-colors">
+      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 rounded-lg pointer-events-none">
+        <button onClick={onPreview} className="p-2 bg-white/20 backdrop-blur-sm rounded-full hover:bg-white/30 transition-colors pointer-events-auto">
           <Eye className="h-4 w-4 text-white" />
         </button>
       </div>
@@ -704,7 +704,7 @@ function AssetGridCard({ asset, isSelected, onToggleSelect, copied, onPreview, o
           <span className="text-[10px] text-muted-foreground">{formatBytes(asset.size)}</span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="h-5 w-5 flex items-center justify-center rounded hover:bg-accent transition-colors">
+              <button className="h-5 w-5 flex items-center justify-center rounded hover:bg-accent transition-colors relative z-20">
                 <ChevronDown className="h-3 w-3 text-muted-foreground" />
               </button>
             </DropdownMenuTrigger>
