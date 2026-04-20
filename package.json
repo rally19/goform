@@ -14,9 +14,9 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@hookform/resolvers": "^5.2.2",
-    "@liveblocks/client": "^3.18.0",
-    "@liveblocks/node": "^3.18.0",
-    "@liveblocks/react": "^3.18.0",
+    "@liveblocks/client": "^3.18.3",
+    "@liveblocks/node": "^3.18.3",
+    "@liveblocks/react": "^3.18.3",
     "@liveblocks/react-tiptap": "^3.18.3",
     "@liveblocks/react-ui": "^3.18.3",
     "@supabase/ssr": "^0.10.0",
@@ -64,5 +64,8 @@
     "tailwindcss": "^4.2.2",
     "tsx": "^4.21.0",
     "typescript": "^5"
+  },
+  "overrides": {
+    "@liveblocks/core": "3.18.3"
   }
 }
