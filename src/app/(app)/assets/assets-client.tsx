@@ -679,7 +679,7 @@ export function AssetsClient({ workspaceId, initialAssets, usage, targetWorkspac
         setUploadDialogOpen(open);
         if (!open) setSelectedFiles([]); // Clear on close
       }}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Upload Assets</DialogTitle>
             <DialogDescription>
@@ -688,7 +688,7 @@ export function AssetsClient({ workspaceId, initialAssets, usage, targetWorkspac
           </DialogHeader>
 
           <div
-            className={`mt-4 border-2 border-dashed rounded-xl p-8 text-center transition-colors relative
+            className={`mt-2 border-2 border-dashed rounded-xl py-6 px-8 text-center transition-colors relative
               ${dragOverUpload ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}
             onDragOver={(e) => { e.preventDefault(); setDragOverUpload(true); }}
             onDragLeave={() => setDragOverUpload(false)}
@@ -719,14 +719,14 @@ export function AssetsClient({ workspaceId, initialAssets, usage, targetWorkspac
           </div>
 
           {selectedFiles.length > 0 && (
-            <div className="mt-6 space-y-3">
+            <div className="mt-4 space-y-2">
               <div className="flex items-center justify-between text-sm font-medium">
                 <span>Selected Files ({selectedFiles.length})</span>
                 <span className="text-muted-foreground text-xs">
                   {formatBytes(selectedFiles.reduce((acc, f) => acc + f.size, 0))} total
                 </span>
               </div>
-              <div className="max-h-[200px] overflow-y-auto space-y-2 pr-2">
+              <div className="max-h-[30vh] overflow-y-auto space-y-1.5 pr-2">
                 {selectedFiles.map((f, i) => {
                   const isTooLarge = f.size > MAX_FILE_SIZE;
                   return (
