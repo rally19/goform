@@ -673,7 +673,7 @@ export function BuilderCanvas({
                         {/* Section action button indicator */}
                         {currentSection.type !== "success" && (() => {
                           const isSubmit = currentSection.type === "submit";
-                          const destSection = !isSubmit && currentSection.nextSectionId
+                          const destSection = currentSection.nextSectionId && currentSection.nextSectionId !== "__auto__"
                             ? sortedSections.find(s => s.id === currentSection.nextSectionId)
                             : null;
                           const destLabel = destSection
@@ -703,7 +703,7 @@ export function BuilderCanvas({
                                   </>
                                 )}
                               </button>
-                              {!isSubmit && destLabel && (
+                              {destLabel && (
                                 <span className="text-[10px] text-muted-foreground">
                                   → {destLabel}
                                 </span>

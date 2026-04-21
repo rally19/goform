@@ -161,15 +161,15 @@ export function FieldSettings({
                   <div className="space-y-1.5" data-cursor-id="section-destination" data-cursor-type="field">
                     <Label className="text-xs font-medium">Next Destination</Label>
                     <SelectPrimitive
-                      value={selectedSection.nextSectionId ?? "__auto__"}
-                      onValueChange={(v) => onUpdateSection?.({ nextSectionId: v === "__auto__" ? undefined : v })}
+                      value={selectedSection.nextSectionId || "__auto__"}
+                      onValueChange={(v) => onUpdateSection?.({ nextSectionId: v })}
                     >
                       <SelectTriggerPrimitive className="h-9 text-sm">
                         <SelectValuePrimitive />
                       </SelectTriggerPrimitive>
                       <SelectContentPrimitive>
                         <SelectItemPrimitive value="__auto__">
-                          Next in order (default)
+                          Default (next section in order)
                         </SelectItemPrimitive>
                         {[...sections]
                           .sort((a, b) => a.orderIndex - b.orderIndex)
@@ -183,6 +183,38 @@ export function FieldSettings({
                     </SelectPrimitive>
                     <p className="text-[10px] text-muted-foreground leading-tight">
                       Where the &ldquo;Next&rdquo; button takes the user. Logic rules can override this at runtime.
+                    </p>
+                  </div>
+                </>
+              )}
+              {selectedSection.type === "submit" && (
+                <>
+                  <Separator />
+                  <div className="space-y-1.5" data-cursor-id="section-destination" data-cursor-type="field">
+                    <Label className="text-xs font-medium">Success Destination</Label>
+                    <SelectPrimitive
+                      value={selectedSection.nextSectionId || "__auto__"}
+                      onValueChange={(v) => onUpdateSection?.({ nextSectionId: v })}
+                    >
+                      <SelectTriggerPrimitive className="h-9 text-sm">
+                        <SelectValuePrimitive />
+                      </SelectTriggerPrimitive>
+                      <SelectContentPrimitive>
+                        <SelectItemPrimitive value="__auto__">
+                          Default (first success page in order)
+                        </SelectItemPrimitive>
+                        {[...sections]
+                          .sort((a, b) => a.orderIndex - b.orderIndex)
+                          .filter((s) => s.type === "success")
+                          .map((s) => (
+                            <SelectItemPrimitive key={s.id} value={s.id}>
+                              {stripHtml(s.name) || "(untitled)"}
+                            </SelectItemPrimitive>
+                          ))}
+                      </SelectContentPrimitive>
+                    </SelectPrimitive>
+                    <p className="text-[10px] text-muted-foreground leading-tight">
+                      Which success page to show after submission. Logic rules can override this at runtime.
                     </p>
                   </div>
                 </>

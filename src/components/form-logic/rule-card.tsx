@@ -531,7 +531,9 @@ function ActionTargetEditor({
   }
 
   if (ruleAction.action === "skip_to_page") {
-    const totalPages = Math.max(sections.length, 1);
+    const sorted = [...sections]
+      .filter((s) => s.type !== "success")
+      .sort((a, b) => a.orderIndex - b.orderIndex);
     return (
       <Select
         value={ruleAction.targetPageIndex != null ? String(ruleAction.targetPageIndex) : ""}
@@ -541,9 +543,9 @@ function ActionTargetEditor({
           <SelectValue placeholder="Select page" />
         </SelectTrigger>
         <SelectContent>
-          {Array.from({ length: totalPages }).map((_, i) => (
-            <SelectItem key={i} value={String(i)}>
-              Page {i + 1}
+          {sorted.map((s, i) => (
+            <SelectItem key={s.id} value={String(i)}>
+              {stripHtml(s.name) || `Page ${i + 1}`}
             </SelectItem>
           ))}
         </SelectContent>

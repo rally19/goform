@@ -548,12 +548,25 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
   const pathname = usePathname();
   const pages = useMemo(() => groupIntoPages(fields, sections), [fields, sections]);
 
-  // Find the first success-type section for the post-submit screen
+  // Find the submit section that was used (for resolving its nextSectionId → success section)
+  const submitSection = useMemo(() => {
+    if (!sections) return null;
+    const sorted = [...sections].sort((a, b) => a.orderIndex - b.orderIndex);
+    return sorted.find((s) => s.type === "submit") ?? null;
+  }, [sections]);
+
+  // Find the success section for the post-submit screen.
+  // If the submit section has a nextSectionId pointing to a specific success section, use that.
+  // Otherwise fall back to the first success section in order.
   const successSection = useMemo(() => {
     if (!sections) return null;
     const sorted = [...sections].sort((a, b) => a.orderIndex - b.orderIndex);
+    if (submitSection?.nextSectionId && submitSection.nextSectionId !== "__auto__") {
+      const target = sorted.find((s) => s.id === submitSection.nextSectionId && s.type === "success");
+      if (target) return target;
+    }
     return sorted.find((s) => s.type === "success") ?? null;
-  }, [sections]);
+  }, [sections, submitSection]);
 
   // Fields belonging to the success section (for a custom success page)
   const successFields = useMemo(() => {
@@ -707,7 +720,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
     }
 
     // Section-level default destination (nextSectionId)
-    if (currentPageData.nextSectionId) {
+    if (currentPageData.nextSectionId && currentPageData.nextSectionId !== "__auto__") {
       const idx = pages.findIndex((p) => p.sectionId === currentPageData.nextSectionId);
       if (idx >= 0) {
         setCurrentPage(idx);
