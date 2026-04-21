@@ -4,7 +4,7 @@ import Link from "next/link";
 
 export default function ForbiddenPage() {
   return (
-    <main className="min-h-screen flex items-center justify-center bg-background p-4 bg-[radial-gradient(ellipse_at_bottom,_var(--tw-gradient-stops))] from-destructive/10 via-background to-background">
+    <main className="flex-1 flex items-center justify-center bg-background p-4 bg-[radial-gradient(ellipse_at_bottom,_var(--tw-gradient-stops))] from-destructive/10 via-background to-background">
       <div className="max-w-md w-full text-center space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
         <div className="flex justify-center">
           <div className="relative">

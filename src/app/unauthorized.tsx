@@ -4,7 +4,7 @@ import Link from "next/link";
 
 export default function UnauthorizedPage() {
   return (
-    <main className="min-h-screen flex items-center justify-center bg-background p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background">
+    <main className="flex-1 flex items-center justify-center bg-background p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background">
       <div className="max-w-md w-full text-center space-y-8 animate-in fade-in zoom-in duration-500">
         <div className="flex justify-center">
           <div className="relative">

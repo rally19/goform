@@ -45,7 +45,7 @@ async function FormPageData({ params }: PageProps) {
   const isAuthenticated = !!user;
 
   return (
-    <div className="min-h-screen bg-muted/20 py-10 px-4 animate-in fade-in duration-500">
+    <div className="flex-1 bg-muted/20 py-10 px-4 animate-in fade-in duration-500">
       <div className="fixed top-4 right-4 z-50">
         <ThemeToggle />
       </div>
@@ -89,7 +89,7 @@ async function FormPageData({ params }: PageProps) {
 
 function FormSkeleton() {
   return (
-    <div className="min-h-screen bg-muted/20 py-10 px-4 animate-pulse">
+    <div className="flex-1 bg-muted/20 py-10 px-4 animate-pulse">
       <div className="max-w-2xl mx-auto space-y-4">
         {/* Header card skeleton */}
         <div className="rounded-xl border border-border bg-card/50 shadow-sm overflow-hidden">
