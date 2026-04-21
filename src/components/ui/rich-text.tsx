@@ -6,7 +6,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
 // Link and Underline are now included in StarterKit v3
-import { useState, useEffect } from "react";
+import { useState, useEffect, useId, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { 
@@ -23,7 +23,19 @@ import { Button } from "./button";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
 import { Input } from "./input";
 import { Label } from "./label";
-import { AssetPicker } from "../assets/asset-picker";
+import { ScrollArea } from "./scroll-area";
+import { Separator } from "./separator";
+import { getWorkspaceAssets, uploadAsset } from "@/lib/actions/assets";
+import type { Asset } from "@/db/schema";
+import { 
+  Upload, 
+  Search, 
+  Loader2, 
+  X,
+  Plus,
+  Check
+} from "lucide-react";
+import { toast } from "sonner";
 
 interface RichTextProps {
   value: string;
@@ -48,14 +60,24 @@ export function RichText({
   onBlur,
   multiline = true,
 }: RichTextProps) {
-  const [assetPickerOpen, setAssetPickerOpen] = useState(false);
+  const uploadInputId = useId();
   const [isFocused, setIsFocused] = useState(false);
+  const blurTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   
   // Link state
   const [linkUrl, setLinkUrl] = useState("");
   const [linkText, setLinkText] = useState("");
   const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
   const [hasLinkInRange, setHasLinkInRange] = useState(false);
+
+  // Image management state
+  const [imagePopoverOpen, setImagePopoverOpen] = useState(false);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [assetsLoading, setAssetsLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [imageSearch, setImageSearch] = useState("");
+  const [externalUrl, setExternalUrl] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
 
 
   const editor = useEditor({
@@ -96,16 +118,19 @@ export function RichText({
       }
     },
     onFocus: () => {
+      if (blurTimeoutRef.current) {
+        clearTimeout(blurTimeoutRef.current);
+      }
       setIsFocused(true);
       onFocus?.();
     },
     onBlur: () => {
-      // Small timeout to allow clicking inside popower without immediately blurring
-      setTimeout(() => {
+      // Small timeout to allow clicking inside popover without immediately blurring
+      blurTimeoutRef.current = setTimeout(() => {
         if (!document.activeElement?.closest('[data-slot="popover-content"]')) {
           setIsFocused(false);
         }
-      }, 100);
+      }, 150);
       onBlur?.();
     },
     editorProps: {
@@ -163,6 +188,70 @@ export function RichText({
     setLinkPopoverOpen(open);
   };
 
+  const fetchAssets = async () => {
+    if (!workspaceId) return;
+    setAssetsLoading(true);
+    try {
+      const result = await getWorkspaceAssets(workspaceId, { type: "image" });
+      if (result.success && result.data) {
+        setAssets(result.data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setAssetsLoading(false);
+    }
+  };
+
+  const handleImagePopoverOpen = (open: boolean) => {
+    if (open) {
+      fetchAssets();
+      setImageSearch("");
+      setExternalUrl("");
+    }
+    setImagePopoverOpen(open);
+  };
+
+  const handleFileUpload = async (file: File) => {
+    if (!workspaceId) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload an image file");
+      return;
+    }
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const result = await uploadAsset(workspaceId, formData);
+      if (result.success && result.data) {
+        editor?.chain().focus().setImage({ src: result.data.url }).run();
+        setImagePopoverOpen(false);
+        toast.success("Image uploaded and inserted");
+      } else {
+        toast.error(result.error || "Upload failed");
+      }
+    } catch (err) {
+      toast.error("An error occurred during upload");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleExternalUrlSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (externalUrl) {
+      editor?.chain().focus().setImage({ src: externalUrl }).run();
+      setImagePopoverOpen(false);
+      setExternalUrl("");
+    }
+  };
+
+  const filteredAssets = assets.filter((a) =>
+    a.name.toLowerCase().includes(imageSearch.toLowerCase())
+  );
+
   useEffect(() => {
     if (editor && value !== editor.getHTML()) {
       if (!editor.isFocused) {
@@ -182,7 +271,7 @@ export function RichText({
       )}
     >
       <AnimatePresence>
-        {editor && isFocused && (
+        {editor && (isFocused || linkPopoverOpen || imagePopoverOpen) && (
           <motion.div 
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
@@ -229,7 +318,7 @@ export function RichText({
                     onClick={() => {}} // Handled by PopoverTrigger
                   />
                 </PopoverTrigger>
-                <PopoverContent className="w-80 p-4" align="start" side="top">
+                <PopoverContent className="w-80 p-4" align="start" side="top" data-slot="popover-content">
                   <form onSubmit={handleLinkSubmit} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="link-url">URL</Label>
@@ -294,11 +383,134 @@ export function RichText({
                   </form>
                 </PopoverContent>
               </Popover>
-              {workspaceId && multiline && (
-                <ToolbarButton
-                  onClick={() => setAssetPickerOpen(true)}
-                  icon={<ImageIcon className="h-4 w-4" />}
-                />
+              {workspaceId && (
+                <Popover open={imagePopoverOpen} onOpenChange={handleImagePopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <ToolbarButton
+                      active={imagePopoverOpen}
+                      icon={<ImageIcon className="h-4 w-4" />}
+                      onClick={() => {}} 
+                    />
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 p-0 overflow-hidden" align="start" side="top" data-slot="popover-content">
+                    <div className="flex flex-col max-h-[450px]">
+                      {/* Upload Section */}
+                      <div className="p-3 border-b bg-muted/30">
+                        <div 
+                          className={cn(
+                            "relative border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center gap-2 transition-colors cursor-pointer",
+                            isDragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/50",
+                            uploading && "opacity-50 pointer-events-none"
+                          )}
+                          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                          onDragLeave={() => setIsDragging(false)}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            setIsDragging(false);
+                            const file = e.dataTransfer.files?.[0];
+                            if (file) handleFileUpload(file);
+                          }}
+                          onClick={() => document.getElementById(uploadInputId)?.click()}
+                        >
+                          <input
+                            id={uploadInputId}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleFileUpload(file);
+                            }}
+                          />
+                          {uploading ? (
+                            <>
+                              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                              <span className="text-xs font-medium">Uploading...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="h-5 w-5 text-muted-foreground" />
+                              <div className="text-center">
+                                <p className="text-xs font-semibold">Click or drag image</p>
+                                <p className="text-[10px] text-muted-foreground">PNG, JPG, GIF up to 5MB</p>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* URL Section */}
+                      <div className="p-3 border-b">
+                        <form onSubmit={handleExternalUrlSubmit} className="flex gap-2">
+                          <div className="relative flex-1">
+                            <LinkIcon className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                            <Input
+                              placeholder="Insert image URL..."
+                              value={externalUrl}
+                              onChange={(e) => setExternalUrl(e.target.value)}
+                              className="pl-8 h-8 text-xs"
+                            />
+                          </div>
+                          <Button type="submit" size="sm" className="h-8 px-3" disabled={!externalUrl}>
+                            Insert
+                          </Button>
+                        </form>
+                      </div>
+
+                      {/* Asset Browser */}
+                      <div className="flex flex-col flex-1 min-h-0">
+                        <div className="px-3 py-2 border-b flex items-center gap-2">
+                          <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <Input
+                            placeholder="Search library..."
+                            value={imageSearch}
+                            onChange={(e) => setImageSearch(e.target.value)}
+                            className="h-7 text-xs border-none shadow-none focus-visible:ring-0 p-0"
+                          />
+                        </div>
+                        <ScrollArea className="flex-1">
+                          <div className="p-2">
+                            {assetsLoading ? (
+                              <div className="flex items-center justify-center py-8">
+                                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/40" />
+                              </div>
+                            ) : filteredAssets.length === 0 ? (
+                              <div className="text-center py-8 text-muted-foreground">
+                                <ImageIcon className="h-8 w-8 mx-auto mb-2 opacity-10" />
+                                <p className="text-[10px]">No images found</p>
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-3 gap-2">
+                                {filteredAssets.map((asset) => (
+                                  <button
+                                    key={asset.id}
+                                    onClick={() => {
+                                      editor.chain().focus().setImage({ src: asset.url }).run();
+                                      setImagePopoverOpen(false);
+                                    }}
+                                    className="group relative aspect-square rounded-md overflow-hidden bg-muted border border-border hover:border-primary transition-all"
+                                  >
+                                    <img
+                                      src={asset.url}
+                                      alt={asset.name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                      <Plus className="h-4 w-4 text-white" />
+                                    </div>
+                                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-1.5 opacity-100 group-hover:opacity-0 transition-opacity">
+                                      <p className="text-[9px] text-white truncate font-medium">{asset.name}</p>
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
               )}
             </div>
           </motion.div>
@@ -347,16 +559,6 @@ export function RichText({
         />
       </div>
 
-      {workspaceId && (
-        <AssetPicker
-          open={assetPickerOpen}
-          onOpenChange={setAssetPickerOpen}
-          workspaceId={workspaceId}
-          onSelect={(url) => {
-            editor.chain().focus().setImage({ src: url }).run();
-          }}
-        />
-      )}
     </div>
   );
 }

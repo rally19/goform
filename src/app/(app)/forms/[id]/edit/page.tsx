@@ -4,6 +4,7 @@ import { Room } from "@/components/form-builder/room";
 import type { BuilderField, BuilderForm } from "@/lib/form-types";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { PERSONAL_WORKSPACE_ID } from "@/lib/constants";
 export const unstable_instant = false;
 import { Loader2 } from "lucide-react";
 
@@ -71,6 +72,8 @@ async function BuilderData({ params }: { params: Promise<{ id: string }> }) {
     currentUserRole === "manager" || 
     currentUserRole === "administrator";
 
+  const workspaceId = form.organizationId || PERSONAL_WORKSPACE_ID;
+
   return (
     <Room roomId={id} initialForm={builderForm} initialFields={builderFields} initialSections={sections}>
       <BuilderCanvas
@@ -80,6 +83,7 @@ async function BuilderData({ params }: { params: Promise<{ id: string }> }) {
         initialSections={sections}
         currentUserId={currentUserId}
         canManageCollab={canManageCollab}
+        workspaceId={workspaceId}
       />
     </Room>
   );

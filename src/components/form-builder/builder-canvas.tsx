@@ -82,6 +82,7 @@ interface BuilderCanvasProps {
   initialSections?: BuilderSection[];
   currentUserId: string;
   canManageCollab: boolean;
+  workspaceId: string;
 }
 
 function getInitials(name: string): string {
@@ -222,6 +223,7 @@ export function BuilderCanvas({
   initialSections,
   currentUserId,
   canManageCollab,
+  workspaceId,
 }: BuilderCanvasProps) {
   const {
     selectedFieldId,
@@ -355,7 +357,6 @@ export function BuilderCanvas({
   const [isSectionReorderOpen, setIsSectionReorderOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  const workspaceId = form.organizationId || form.userId || "";
 
   const mouseSensor = useSensor(MouseSensor, { activationConstraint: { distance: 8 } });
   // Touch: require 200ms hold on the drag handle (data-dnd-handle) before activating.
