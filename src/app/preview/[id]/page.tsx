@@ -4,6 +4,7 @@ import { sanitize } from "@/lib/sanitize";
 import { forbidden } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export const unstable_instant = false;
 
@@ -36,6 +37,9 @@ async function PreviewPageData({
 
   return (
     <div className="min-h-screen bg-muted/20 py-10 px-4 animate-in fade-in duration-500">
+      <div className="fixed top-4 right-4 z-50">
+        <ThemeToggle />
+      </div>
       {/* Preview banner */}
       <div className="max-w-2xl mx-auto mb-4">
         <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 px-4 py-2.5 flex items-center justify-between text-sm shadow-sm ring-1 ring-amber-900/5">

@@ -308,7 +308,7 @@ function FieldRenderer({
                 }}
               >
                 <div 
-                  className="prose-sm max-w-full"
+                  className="prose-sm max-w-full [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-md"
                   dangerouslySetInnerHTML={{ __html: sanitize(opt.label) }}
                 />
               </Label>
@@ -334,7 +334,7 @@ function FieldRenderer({
               />
               <Label htmlFor={`${field.id}-${opt.value}`} className="cursor-pointer font-normal flex-1">
                 <div 
-                  className="prose-sm max-w-full"
+                  className="prose-sm max-w-full [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-md"
                   dangerouslySetInnerHTML={{ __html: sanitize(opt.label) }}
                 />
               </Label>
@@ -354,7 +354,7 @@ function FieldRenderer({
             {options.map((opt) => (
               <SelectItem key={opt.value} value={opt.value}>
                 <div 
-                  className="prose-sm max-w-full"
+                  className="prose-sm max-w-full [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-md"
                   dangerouslySetInnerHTML={{ __html: sanitize(opt.label) }}
                 />
               </SelectItem>

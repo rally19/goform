@@ -136,7 +136,7 @@ export const FieldCard = memo(function FieldCard({
                 field.type === "radio" ? "rounded-full" : "rounded-[3px]"
               )} />
               <div 
-                className="prose-sm max-w-full"
+                className="prose-sm max-w-full [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-md"
                 dangerouslySetInnerHTML={{ __html: sanitize(opt.label) }}
               />
             </div>
@@ -157,7 +157,7 @@ export const FieldCard = memo(function FieldCard({
                 <div key={i} className="flex items-start gap-2 text-[11px] text-muted-foreground/80">
                   <div className="h-1 w-1 rounded-full bg-muted-foreground/30 mt-1.5 shrink-0" />
                   <div 
-                    className="prose-xs max-w-full opacity-80"
+                    className="prose-xs max-w-full opacity-80 [&_img]:max-h-24 [&_img]:w-auto [&_img]:rounded-sm"
                     dangerouslySetInnerHTML={{ __html: sanitize(opt.label) }}
                   />
                 </div>

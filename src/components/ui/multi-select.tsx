@@ -121,7 +121,7 @@ export function MultiSelect({
                     <Check className="h-3 w-3" />
                   </div>
                   <div 
-                    className="flex-1 prose-sm max-w-full"
+                    className="flex-1 prose-sm max-w-full [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-md"
                     dangerouslySetInnerHTML={{ __html: sanitize(option.label) }}
                   />
                 </CommandItem>

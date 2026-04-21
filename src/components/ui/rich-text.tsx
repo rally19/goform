@@ -560,6 +560,10 @@ export function RichText({
           .ProseMirror img {
             display: block;
             margin: 0.5rem 0;
+            max-width: 100%;
+            max-height: 300px;
+            object-fit: contain;
+            border-radius: 0.375rem;
           }
         `}} />
         <EditorContent 
