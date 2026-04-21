@@ -36,7 +36,7 @@ async function PreviewPageData({
   const accentColor = form.accentColor ?? "#6366f1";
 
   return (
-    <div className="flex-1 bg-muted/20 py-10 px-4 animate-in fade-in duration-500">
+    <div className="min-h-screen bg-muted/20 py-10 px-4 animate-in fade-in duration-500">
       <div className="fixed top-4 right-4 z-50">
         <ThemeToggle />
       </div>
@@ -93,7 +93,7 @@ async function PreviewPageData({
 
 function PreviewSkeleton() {
   return (
-    <div className="flex-1 bg-muted/20 py-10 px-4 animate-pulse">
+    <div className="min-h-screen bg-muted/20 py-10 px-4 animate-pulse">
       {/* Banner placeholder */}
       <div className="max-w-2xl mx-auto mb-4">
         <div className="h-10 w-full bg-amber-50/50 dark:bg-amber-950/10 rounded-lg border border-amber-200/50 dark:border-amber-900/30" />
