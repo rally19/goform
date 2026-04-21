@@ -55,6 +55,8 @@ export function RichText({
   const [linkUrl, setLinkUrl] = useState("");
   const [linkText, setLinkText] = useState("");
   const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
+  const [hasLinkInRange, setHasLinkInRange] = useState(false);
+
 
   const editor = useEditor({
     extensions: [
@@ -124,14 +126,19 @@ export function RichText({
     if (linkUrl === "") {
       editor.chain().focus().extendMarkRange("link").unsetLink().run();
     } else {
-      editor.chain().focus()
-        .extendMarkRange("link")
-        .insertContent({
-          type: "text",
-          text: linkText || linkUrl,
-          marks: [{ type: "link", attrs: { href: linkUrl } }]
-        })
-        .run();
+      if (editor.isActive("link")) {
+        // Just update the URL of the existing link mark
+        editor.chain().focus().extendMarkRange("link").setLink({ href: linkUrl }).run();
+      } else {
+        // Insert new link
+        editor.chain().focus()
+          .insertContent({
+            type: "text",
+            text: linkText || linkUrl,
+            marks: [{ type: "link", attrs: { href: linkUrl } }]
+          })
+          .run();
+      }
     }
     setLinkPopoverOpen(false);
   };
@@ -140,9 +147,13 @@ export function RichText({
     if (open && editor) {
       const { from, to } = editor.state.selection;
       const selectedText = editor.state.doc.textBetween(from, to, " ");
-      const isLink = editor.isActive("link");
+      const isExactlyLink = editor.isActive("link");
       
-      if (isLink) {
+      // Check if ANY part of the selection contains a link
+      const anyLinkInRange = editor.state.doc.rangeHasMark(from, to, editor.schema.marks.link);
+      setHasLinkInRange(anyLinkInRange);
+      
+      if (anyLinkInRange || isExactlyLink) {
         setLinkUrl(editor.getAttributes("link").href || "");
       } else {
         setLinkUrl("");
@@ -237,10 +248,12 @@ export function RichText({
                         placeholder="Link text"
                         value={linkText}
                         onChange={(e) => setLinkText(e.target.value)}
+                        disabled={hasLinkInRange}
                       />
                     </div>
+
                     <div className="flex justify-between items-center gap-2">
-                      {editor.isActive("link") ? (
+                      {hasLinkInRange ? (
                         <Button
                           type="button"
                           variant="ghost"
@@ -272,6 +285,7 @@ export function RichText({
                           type="submit" 
                           size="sm"
                           onMouseDown={(e) => e.preventDefault()}
+                          disabled={hasLinkInRange && !editor.isActive("link")}
                         >
                           {editor.isActive("link") ? "Update" : "Insert"}
                         </Button>
