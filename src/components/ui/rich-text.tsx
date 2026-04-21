@@ -176,7 +176,7 @@ export function RichText({
   return (
     <div 
       className={cn(
-        "relative flex flex-col w-full rounded-lg border border-input transition-all ring-offset-background bg-card",
+        "relative flex flex-col-reverse lg:flex-col w-full rounded-lg border border-input transition-all ring-offset-background bg-card",
         isFocused && "ring-2 ring-ring/50 border-ring",
         className
       )}
@@ -187,7 +187,7 @@ export function RichText({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden bg-muted/40 border-b border-border p-1 rounded-t-lg"
+            className="overflow-hidden bg-muted/40 border-t lg:border-t-0 lg:border-b border-border p-1 rounded-b-lg lg:rounded-b-none lg:rounded-t-lg"
           >
             <div className="flex items-center gap-0.5">
               <ToolbarButton
