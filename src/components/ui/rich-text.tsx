@@ -280,7 +280,7 @@ export function RichText({
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden bg-muted/40 border-t lg:border-t-0 lg:border-b border-border p-1 rounded-b-lg lg:rounded-b-none lg:rounded-t-lg"
           >
-            <div className="flex items-center gap-0.5">
+            <div className="flex flex-wrap items-center gap-0.5">
               <ToolbarButton
                 active={editor.isActive("bold")}
                 onClick={() => editor.chain().focus().toggleBold().run()}
@@ -394,8 +394,15 @@ export function RichText({
                       onClick={() => {}} 
                     />
                   </PopoverTrigger>
-                  <PopoverContent className="w-80 p-0 overflow-hidden" align="start" side="top" data-slot="popover-content">
-                    <div className="flex flex-col max-h-[450px]">
+                  <PopoverContent 
+                    className="w-80 p-0 overflow-hidden" 
+                    align="start" 
+                    side="bottom" 
+                    sideOffset={8}
+                    data-slot="popover-content"
+                    style={{ maxHeight: 'var(--radix-popover-content-available-height)' }}
+                  >
+                    <div className="flex flex-col max-h-[inherit] overflow-y-auto">
                       {/* Upload Section */}
                       <div className="p-3 border-b bg-muted/30">
                         <div 

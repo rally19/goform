@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { sanitize, stripHtml } from "@/lib/sanitize";
 
 export interface Option {
   label: string;
@@ -81,7 +82,9 @@ export function MultiSelect({
                       handleUnselect(value);
                     }}
                   >
-                    {option?.label ?? value}
+                    <span className="max-w-[150px] truncate text-xs">
+                      {stripHtml(option?.label ?? value)}
+                    </span>
                     <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
                   </Badge>
                 );
@@ -117,7 +120,10 @@ export function MultiSelect({
                   >
                     <Check className="h-3 w-3" />
                   </div>
-                  <span className="flex-1">{option.label}</span>
+                  <div 
+                    className="flex-1 prose-sm max-w-full"
+                    dangerouslySetInnerHTML={{ __html: sanitize(option.label) }}
+                  />
                 </CommandItem>
               ))}
             </CommandGroup>

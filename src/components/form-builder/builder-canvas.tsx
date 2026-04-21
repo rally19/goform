@@ -856,6 +856,7 @@ export function BuilderCanvas({
               }
             }}
             onMobileClose={() => {}}
+            workspaceId={workspaceId}
           />
         </CursorArea>
       </div>

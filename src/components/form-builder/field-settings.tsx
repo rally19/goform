@@ -95,6 +95,7 @@ export function FieldSettings({
                   workspaceId={workspaceId}
                   minHeight="min-h-[32px]"
                   multiline={false}
+                  allowImages={false}
                 />
               </div>
               <div className="space-y-1.5" data-cursor-id="section-description" data-cursor-type="field">
@@ -193,6 +194,7 @@ export function FieldSettings({
                 workspaceId={workspaceId}
                 minHeight="min-h-[32px]"
                 multiline={false}
+                allowImages={false}
               />
             </div>
             <div className="space-y-1.5">
@@ -488,7 +490,7 @@ function SortableOption({
         workspaceId={workspaceId}
         className="flex-1"
         minHeight="min-h-[28px]"
-        multiline={false}
+        multiline={true}
       />
       <Button
         variant="ghost"

@@ -129,36 +129,41 @@ export const FieldCard = memo(function FieldCard({
     if (["radio", "checkbox"].includes(field.type)) {
       return (
         <div className="space-y-1.5">
-          {(field.options ?? []).slice(0, 3).map((opt, i) => (
-            <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
+          {(field.options ?? []).map((opt, i) => (
+            <div key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
               <div className={cn(
-                "h-3.5 w-3.5 border border-muted-foreground/40 pointer-events-none shrink-0",
+                "h-3.5 w-3.5 border border-muted-foreground/40 pointer-events-none shrink-0 mt-0.5",
                 field.type === "radio" ? "rounded-full" : "rounded-[3px]"
               )} />
-              <span>{opt.label}</span>
+              <div 
+                className="prose-sm max-w-full"
+                dangerouslySetInnerHTML={{ __html: sanitize(opt.label) }}
+              />
             </div>
           ))}
-          {(field.options?.length ?? 0) > 3 && (
-            <p className="text-xs text-muted-foreground pl-5">
-              +{(field.options?.length ?? 0) - 3} more options
-            </p>
+        </div>
+      );
+    }
+    if (["select", "multi_select"].includes(field.type)) {
+      return (
+        <div className="space-y-2">
+          <div className="h-9 w-full rounded-md border border-input bg-muted/50 px-3 text-sm text-muted-foreground flex items-center justify-between pointer-events-none">
+            <span>{field.placeholder || (field.type === "select" ? "Select an option..." : "Select options...")}</span>
+            <ChevronDown className="h-4 w-4 shrink-0" />
+          </div>
+          {field.options && field.options.length > 0 && (
+            <div className="space-y-1.5 pl-2 border-l border-border/50 ml-1.5">
+              {field.options.map((opt, i) => (
+                <div key={i} className="flex items-start gap-2 text-[11px] text-muted-foreground/80">
+                  <div className="h-1 w-1 rounded-full bg-muted-foreground/30 mt-1.5 shrink-0" />
+                  <div 
+                    className="prose-xs max-w-full opacity-80"
+                    dangerouslySetInnerHTML={{ __html: sanitize(opt.label) }}
+                  />
+                </div>
+              ))}
+            </div>
           )}
-        </div>
-      );
-    }
-    if (field.type === "select") {
-      return (
-        <div className="h-9 w-full rounded-md border border-input bg-muted/50 px-3 text-sm text-muted-foreground flex items-center justify-between pointer-events-none">
-          <span>{field.placeholder || "Select an option..."}</span>
-          <ChevronDown className="h-4 w-4 shrink-0" />
-        </div>
-      );
-    }
-    if (field.type === "multi_select") {
-      return (
-        <div className="min-h-9 w-full rounded-md border border-input bg-muted/50 px-3 py-1.5 text-sm text-muted-foreground flex items-center justify-between pointer-events-none">
-          <span>{field.placeholder || "Select options..."}</span>
-          <ChevronDown className="h-4 w-4 shrink-0" />
         </div>
       );
     }

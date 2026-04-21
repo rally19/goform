@@ -298,7 +298,7 @@ function FieldRenderer({
               />
               <Label 
                 htmlFor={`${field.id}-${opt.value}`} 
-                className="cursor-pointer font-normal"
+                className="cursor-pointer font-normal flex-1"
                 onClick={(e) => {
                   // Standard behavior selects it; if already selected and not required, unselect it.
                   if (!field.required && value === opt.value) {
@@ -307,7 +307,10 @@ function FieldRenderer({
                   }
                 }}
               >
-                {opt.label}
+                <div 
+                  className="prose-sm max-w-full"
+                  dangerouslySetInnerHTML={{ __html: sanitize(opt.label) }}
+                />
               </Label>
             </div>
           ))}
@@ -329,8 +332,11 @@ function FieldRenderer({
                   else onChange(checked.filter((v) => v !== opt.value));
                 }}
               />
-              <Label htmlFor={`${field.id}-${opt.value}`} className="cursor-pointer font-normal">
-                {opt.label}
+              <Label htmlFor={`${field.id}-${opt.value}`} className="cursor-pointer font-normal flex-1">
+                <div 
+                  className="prose-sm max-w-full"
+                  dangerouslySetInnerHTML={{ __html: sanitize(opt.label) }}
+                />
               </Label>
             </div>
           ))}
@@ -347,7 +353,10 @@ function FieldRenderer({
           <SelectContent>
             {options.map((opt) => (
               <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
+                <div 
+                  className="prose-sm max-w-full"
+                  dangerouslySetInnerHTML={{ __html: sanitize(opt.label) }}
+                />
               </SelectItem>
             ))}
           </SelectContent>
