@@ -47,6 +47,7 @@ interface RichTextProps {
   onFocus?: () => void;
   onBlur?: () => void;
   multiline?: boolean;
+  allowImages?: boolean;
 }
 
 export function RichText({ 
@@ -59,6 +60,7 @@ export function RichText({
   onFocus,
   onBlur,
   multiline = true,
+  allowImages = true,
 }: RichTextProps) {
   const uploadInputId = useId();
   const [isFocused, setIsFocused] = useState(false);
@@ -383,7 +385,7 @@ export function RichText({
                   </form>
                 </PopoverContent>
               </Popover>
-              {workspaceId && (
+              {workspaceId && allowImages && (
                 <Popover open={imagePopoverOpen} onOpenChange={handleImagePopoverOpen}>
                   <PopoverTrigger asChild>
                     <ToolbarButton

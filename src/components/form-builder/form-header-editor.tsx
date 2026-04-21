@@ -35,6 +35,7 @@ export function FormHeaderEditor({
           className="w-full text-foreground"
           minHeight="min-h-[40px]"
           multiline={false}
+          allowImages={false}
           onFocus={() => selectField(null)}
         />
         <RichText
