@@ -193,7 +193,7 @@ function FileUploadField({
   disabled?: boolean;
   error?: string;
 }) {
-  const props = field.properties ?? {};
+  const props = (field.properties as any) ?? {};
   const allowMultiple = props.allowMultiple ?? false;
   const maxFiles = props.maxFiles ?? 5;
   const maxFileSizeMB = props.maxFileSize ?? 2;
@@ -702,11 +702,11 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
       
       const fieldDef = fields.find(f => f.id === fid);
       
-      if (fieldDef?.type === "file" && Array.isArray(value) && value.length > 0 && value[0] instanceof File) {
+      if (fieldDef?.type === "file" && Array.isArray(value) && value.length > 0 && (value[0] as any) instanceof File) {
         // Upload files
         const filePaths: string[] = [];
         for (let i = 0; i < value.length; i++) {
-          const file = value[i] as File;
+          const file = value[i] as unknown as File;
           const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
           const filePath = `forms/${form.id}/responses/${tempId}/${fileName}`;
           

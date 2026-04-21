@@ -269,6 +269,7 @@ export interface BuilderField {
     scaleMinLabel?: string;
     scaleMaxLabel?: string;
     allowMultiple?: boolean;
+    maxFiles?: number;
     acceptedTypes?: string[];
     maxFileSize?: number;
     // Default interactive state — used as a baseline for runtime state,
