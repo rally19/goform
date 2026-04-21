@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { X, Settings2, Plus, GripVertical, Trash2 } from "lucide-react";
 import { BuilderField, BuilderSection, SECTION_TYPE_META, type SectionType } from "@/lib/form-types";
+import { stripHtml } from "@/lib/sanitize";
 import {
   Select as SelectPrimitive,
   SelectContent as SelectContentPrimitive,
@@ -44,6 +45,7 @@ interface FieldSettingsProps {
   onMobileClose?: () => void;
   selectedSection?: BuilderSection;
   onUpdateSection?: (changes: Partial<BuilderSection>) => void;
+  sections?: BuilderSection[];
   workspaceId?: string;
 }
 
@@ -58,6 +60,7 @@ export function FieldSettings({
   onMobileClose,
   selectedSection,
   onUpdateSection,
+  sections = [],
   workspaceId,
 }: FieldSettingsProps) {
   const { selectField, selectSection } = useFormBuilder();
@@ -152,6 +155,38 @@ export function FieldSettings({
                   </div>
                 )}
               </div>
+              {(selectedSection.type ?? "next") === "next" && (
+                <>
+                  <Separator />
+                  <div className="space-y-1.5" data-cursor-id="section-destination" data-cursor-type="field">
+                    <Label className="text-xs font-medium">Next Destination</Label>
+                    <SelectPrimitive
+                      value={selectedSection.nextSectionId ?? "__auto__"}
+                      onValueChange={(v) => onUpdateSection?.({ nextSectionId: v === "__auto__" ? undefined : v })}
+                    >
+                      <SelectTriggerPrimitive className="h-9 text-sm">
+                        <SelectValuePrimitive />
+                      </SelectTriggerPrimitive>
+                      <SelectContentPrimitive>
+                        <SelectItemPrimitive value="__auto__">
+                          Next in order (default)
+                        </SelectItemPrimitive>
+                        {[...sections]
+                          .sort((a, b) => a.orderIndex - b.orderIndex)
+                          .filter((s) => s.id !== selectedSection.id && s.type !== "success")
+                          .map((s) => (
+                            <SelectItemPrimitive key={s.id} value={s.id}>
+                              {stripHtml(s.name) || "(untitled)"}
+                            </SelectItemPrimitive>
+                          ))}
+                      </SelectContentPrimitive>
+                    </SelectPrimitive>
+                    <p className="text-[10px] text-muted-foreground leading-tight">
+                      Where the &ldquo;Next&rdquo; button takes the user. Logic rules can override this at runtime.
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </ScrollArea>

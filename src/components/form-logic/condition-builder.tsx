@@ -8,7 +8,7 @@ import type {
   LogicOperator,
   FormAnswer,
 } from "@/lib/form-types";
-import { LOGIC_OPERATOR_META } from "@/lib/form-types";
+import { LOGIC_OPERATOR_META, isNavTrigger } from "@/lib/form-types";
 import {
   createEmptyCondition,
   createEmptyGroup,
@@ -181,6 +181,7 @@ function ConditionRow({
   onChange: (patch: Partial<LogicCondition>) => void;
   onRemove: () => void;
 }) {
+  const isNav = isNavTrigger(condition.fieldId);
   const selectedField = fields.find((f) => f.id === condition.fieldId);
   const meta = LOGIC_OPERATOR_META.find((m) => m.operator === condition.operator);
   const allowed = LOGIC_OPERATOR_META.filter((m) => {
@@ -191,7 +192,7 @@ function ConditionRow({
   const needsValue = !!meta?.requiresValue;
   const needsSecondValue = !!meta?.requiresSecondValue;
 
-  const fieldMissing = condition.fieldId && !selectedField;
+  const fieldMissing = condition.fieldId && !selectedField && !isNav;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] gap-1.5 items-center">
@@ -206,55 +207,64 @@ function ConditionRow({
         deletedFieldId={fieldMissing ? condition.fieldId : undefined}
       />
 
-      {/* Operator */}
-      <Select
-        value={condition.operator}
-        onValueChange={(v) => onChange({ operator: v as LogicOperator })}
-      >
-        <SelectTrigger className="h-8 text-sm min-w-[110px]">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {allowed.map((m) => (
-            <SelectItem key={m.operator} value={m.operator}>
-              {m.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {isNav ? (
+        /* Nav triggers have no operator / value — they fire when the button is clicked */
+        <Badge variant="secondary" className="h-8 px-3 text-xs font-normal col-span-1 md:col-span-2 whitespace-nowrap">
+          is clicked
+        </Badge>
+      ) : (
+        <>
+          {/* Operator */}
+          <Select
+            value={condition.operator}
+            onValueChange={(v) => onChange({ operator: v as LogicOperator })}
+          >
+            <SelectTrigger className="h-8 text-sm min-w-[110px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {allowed.map((m) => (
+                <SelectItem key={m.operator} value={m.operator}>
+                  {m.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-      {/* Value(s) */}
-      <div className="flex gap-1.5 min-w-0">
-        {needsValue ? (
-          <>
-            <div className="flex-1 min-w-0">
-              <ValueInput
-                field={selectedField}
-                operator={condition.operator}
-                value={condition.value}
-                onChange={(v: FormAnswer) => onChange({ value: v })}
-              />
-            </div>
-            {needsSecondValue && (
+          {/* Value(s) */}
+          <div className="flex gap-1.5 min-w-0">
+            {needsValue ? (
               <>
-                <span className="text-xs text-muted-foreground self-center">and</span>
                 <div className="flex-1 min-w-0">
                   <ValueInput
                     field={selectedField}
                     operator={condition.operator}
-                    value={condition.value2}
-                    onChange={(v: FormAnswer) => onChange({ value2: v })}
+                    value={condition.value}
+                    onChange={(v: FormAnswer) => onChange({ value: v })}
                   />
                 </div>
+                {needsSecondValue && (
+                  <>
+                    <span className="text-xs text-muted-foreground self-center">and</span>
+                    <div className="flex-1 min-w-0">
+                      <ValueInput
+                        field={selectedField}
+                        operator={condition.operator}
+                        value={condition.value2}
+                        onChange={(v: FormAnswer) => onChange({ value2: v })}
+                      />
+                    </div>
+                  </>
+                )}
               </>
+            ) : (
+              <Badge variant="secondary" className="h-8 px-2 text-xs font-normal">
+                no value needed
+              </Badge>
             )}
-          </>
-        ) : (
-          <Badge variant="secondary" className="h-8 px-2 text-xs font-normal">
-            no value needed
-          </Badge>
-        )}
-      </div>
+          </div>
+        </>
+      )}
 
       <Button
         variant="ghost"

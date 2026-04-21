@@ -39,7 +39,14 @@ interface FormRendererProps {
 
 const PAGE_BREAK_TYPE = "page_break";
 
-type RendererPage = { sectionName?: string; sectionDescription?: string; sectionType?: SectionType; fields: FormField[] };
+type RendererPage = {
+  sectionId?: string;
+  sectionName?: string;
+  sectionDescription?: string;
+  sectionType?: SectionType;
+  nextSectionId?: string;
+  fields: FormField[];
+};
 
 function groupIntoPages(fields: FormField[], sections?: BuilderSection[]): RendererPage[] {
   const sortedSections = sections && sections.length > 0
@@ -63,9 +70,11 @@ function groupIntoPages(fields: FormField[], sections?: BuilderSection[]): Rende
       for (const field of sectionFields) {
         if (field.type === PAGE_BREAK_TYPE) {
           pages.push({
+            sectionId: section.id,
             sectionName: firstChunk ? section.name : undefined,
             sectionDescription: firstChunk ? section.description : undefined,
             sectionType: section.type ?? "next",
+            nextSectionId: section.nextSectionId,
             fields: currentChunk,
           });
           currentChunk = [];
@@ -75,9 +84,11 @@ function groupIntoPages(fields: FormField[], sections?: BuilderSection[]): Rende
         }
       }
       pages.push({
+        sectionId: section.id,
         sectionName: firstChunk ? section.name : undefined,
         sectionDescription: firstChunk ? section.description : undefined,
         sectionType: section.type ?? "next",
+        nextSectionId: section.nextSectionId,
         fields: currentChunk,
       });
     }
@@ -656,8 +667,10 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
     e.preventDefault();
     if (!validatePage()) return;
 
-    // Logic navigation override
-    const nav = engineResult.navigation;
+    // Re-evaluate logic with the current section as the active nav trigger
+    const navResult = evaluateLogic(builderFieldsForEngine, logic, answers, currentPageData.sectionId);
+    const nav = navResult.navigation;
+
     if (nav) {
       if (nav.kind === "page" && typeof nav.targetPageIndex === "number") {
         const idx = Math.max(0, Math.min(nav.targetPageIndex, totalPages - 1));
@@ -667,9 +680,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
         return;
       }
       if (nav.kind === "section" && nav.targetSectionId) {
-        const idx = pages.findIndex((p) =>
-          p.fields.some((f) => (f as FormField).sectionId === nav.targetSectionId)
-        );
+        const idx = pages.findIndex((p) => p.sectionId === nav.targetSectionId);
         if (idx >= 0) {
           setCurrentPage(idx);
           setErrors({});
@@ -683,15 +694,30 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
         );
         if (idx >= 0) setCurrentPage(idx);
         setErrors({});
-        // Defer to allow the page to render before scrolling
         requestAnimationFrame(() => {
           const el = document.getElementById(`field-${nav.targetFieldId}`);
           if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
         });
         return;
       }
+      if (nav.kind === "url" && nav.targetUrl) {
+        window.location.href = nav.targetUrl;
+        return;
+      }
     }
 
+    // Section-level default destination (nextSectionId)
+    if (currentPageData.nextSectionId) {
+      const idx = pages.findIndex((p) => p.sectionId === currentPageData.nextSectionId);
+      if (idx >= 0) {
+        setCurrentPage(idx);
+        setErrors({});
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+    }
+
+    // Fallback: next sequential page
     setCurrentPage((p) => Math.min(p + 1, totalPages - 1));
     setErrors({});
     window.scrollTo({ top: 0, behavior: "smooth" });

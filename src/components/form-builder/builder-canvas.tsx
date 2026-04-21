@@ -671,30 +671,46 @@ export function BuilderCanvas({
                         )}
 
                         {/* Section action button indicator */}
-                        {currentSection.type !== "success" && (
-                          <div className="flex justify-center">
-                            <div
-                              className={cn(
-                                "inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium pointer-events-none select-none",
-                                currentSection.type === "submit"
-                                  ? "border-green-500/30 bg-green-500/10 text-green-600 dark:text-green-400"
-                                  : "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                              )}
-                            >
-                              {currentSection.type === "submit" ? (
-                                <>
-                                  <Send className="h-3.5 w-3.5" />
-                                  Submit
-                                </>
-                              ) : (
-                                <>
-                                  Next
-                                  <ChevronRight className="h-3.5 w-3.5" />
-                                </>
+                        {currentSection.type !== "success" && (() => {
+                          const isSubmit = currentSection.type === "submit";
+                          const destSection = !isSubmit && currentSection.nextSectionId
+                            ? sortedSections.find(s => s.id === currentSection.nextSectionId)
+                            : null;
+                          const destLabel = destSection
+                            ? stripHtml(destSection.name) || "(untitled)"
+                            : null;
+                          return (
+                            <div className="flex flex-col items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenSectionSettings(currentSection.id)}
+                                className={cn(
+                                  "inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors cursor-pointer",
+                                  isSubmit
+                                    ? "border-green-500/30 bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20"
+                                    : "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20"
+                                )}
+                              >
+                                {isSubmit ? (
+                                  <>
+                                    <Send className="h-3.5 w-3.5" />
+                                    Submit
+                                  </>
+                                ) : (
+                                  <>
+                                    Next
+                                    <ChevronRight className="h-3.5 w-3.5" />
+                                  </>
+                                )}
+                              </button>
+                              {!isSubmit && destLabel && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  → {destLabel}
+                                </span>
                               )}
                             </div>
-                          </div>
-                        )}
+                          );
+                        })()}
 
                         {/* Row: Section navigation bar (bottom) */}
                         <div
@@ -868,6 +884,7 @@ export function BuilderCanvas({
             field={fields.find(f => f.id === selectedFieldId)}
             selectedSection={selectedSectionId ? sections.find(s => s.id === selectedSectionId) : undefined}
             onUpdateSection={(changes) => selectedSectionId && collabUpdateSection(selectedSectionId, changes)}
+            sections={sortedSections}
             onUpdate={(changes) => selectedFieldId && collabUpdateField(selectedFieldId, changes)}
             onAddOption={() => {
               if (selectedFieldId) {
@@ -945,6 +962,7 @@ export function BuilderCanvas({
               field={fields.find(f => f.id === selectedFieldId)}
               selectedSection={selectedSectionId ? sections.find(s => s.id === selectedSectionId) : undefined}
               onUpdateSection={(changes) => selectedSectionId && collabUpdateSection(selectedSectionId, changes)}
+              sections={sortedSections}
               onUpdate={(changes) => selectedFieldId && collabUpdateField(selectedFieldId, changes)}
               onAddOption={() => {
                 if (selectedFieldId) {

@@ -3,7 +3,8 @@
 import * as React from "react";
 import { useState, useMemo } from "react";
 import type { BuilderField, BuilderSection } from "@/lib/form-types";
-import { Check, ChevronsUpDown, ChevronRight, ChevronDown, X } from "lucide-react";
+import { navTriggerId, isNavTrigger, navTriggerSectionId } from "@/lib/form-types";
+import { Check, ChevronsUpDown, ChevronRight, ChevronDown, X, Send } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Popover,
@@ -40,9 +41,8 @@ function groupFieldsBySections(
     const sectionFields = fields
       .filter((f) => f.sectionId === sec.id && f.type !== "page_break" && f.type !== "section")
       .sort((a, b) => a.orderIndex - b.orderIndex);
-    if (sectionFields.length > 0) {
-      grouped.push({ section: sec, fields: sectionFields });
-    }
+    // Always include sections (even with 0 fields) so the nav trigger is visible
+    grouped.push({ section: sec, fields: sectionFields });
   }
 
   return grouped;
@@ -63,7 +63,10 @@ function filterGroups(groups: SectionGroup[], query: string): SectionGroup[] {
     .filter(
       (g) =>
         g.fields.length > 0 ||
-        (g.section?.name || "").toLowerCase().includes(q)
+        (g.section?.name || "").toLowerCase().includes(q) ||
+        // Keep sections whose nav trigger label matches the search
+        (g.section && g.section.type !== "success" &&
+          ((g.section.type === "submit" ? "submit" : "next").includes(q) || "nav".includes(q)))
     );
 }
 
@@ -98,7 +101,19 @@ export function FieldPicker({
   const filtered = useMemo(() => filterGroups(groups, search), [groups, search]);
 
   const selectedField = fields.find((f) => f.id === value);
-  const label = selectedField ? (stripHtml(selectedField.label) || "(untitled)") : null;
+  // Resolve label for regular fields or nav-trigger synthetic IDs
+  const label = (() => {
+    if (selectedField) return stripHtml(selectedField.label) || "(untitled)";
+    if (isNavTrigger(value)) {
+      const secId = navTriggerSectionId(value);
+      const sec = sections.find((s) => s.id === secId);
+      if (sec) {
+        const btnLabel = sec.type === "submit" ? "Submit" : "Next";
+        return `${btnLabel} — ${stripHtml(sec.name) || "(untitled)"}`;
+      }
+    }
+    return null;
+  })();
 
   const toggleSection = (id: string) => {
     setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -193,6 +208,38 @@ export function FieldPicker({
                           </span>
                         </button>
                       ))}
+                      {/* Nav trigger: Next / Submit button for this section */}
+                      {group.section && group.section.type !== "success" && (() => {
+                        const navId = navTriggerId(group.section.id);
+                        const btnLabel = group.section.type === "submit" ? "Submit" : "Next";
+                        const isSelected = value === navId;
+                        return (
+                          <button
+                            key={navId}
+                            type="button"
+                            onClick={() => {
+                              onChange(navId);
+                              setOpen(false);
+                              setSearch("");
+                            }}
+                            className={cn(
+                              "flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm transition-colors",
+                              isSelected
+                                ? "bg-primary/10 text-primary font-medium"
+                                : "text-muted-foreground hover:bg-muted/50"
+                            )}
+                          >
+                            {isSelected && (
+                              <Check className="h-3 w-3 shrink-0" />
+                            )}
+                            <Send className="h-3 w-3 shrink-0" />
+                            <span className="truncate text-xs italic">{btnLabel}</span>
+                            <span className="ml-auto text-[10px] text-muted-foreground/60 font-mono">
+                              nav
+                            </span>
+                          </button>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>

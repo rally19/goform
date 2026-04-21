@@ -47,7 +47,7 @@ import { ConditionBuilder } from "./condition-builder";
 import {
   Trash2, Copy, ChevronDown, ChevronRight, Plus,
   AlertTriangle, Eye, EyeOff, Lock, Unlock, Asterisk, AsteriskSquare,
-  Link2, Calculator, SkipForward, MousePointer2, Hash,
+  Link2, Calculator, SkipForward, MousePointer2, Hash, ExternalLink,
 } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -68,6 +68,7 @@ const ACTION_ICONS: Record<LogicAction, React.ElementType> = {
   skip_to_page: SkipForward,
   skip_to_section: SkipForward,
   jump_to_field: MousePointer2,
+  redirect_to_url: ExternalLink,
 };
 
 const ACTION_COLORS: Record<LogicAction, string> = {
@@ -83,6 +84,7 @@ const ACTION_COLORS: Record<LogicAction, string> = {
   skip_to_page: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400",
   skip_to_section: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400",
   jump_to_field: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400",
+  redirect_to_url: "bg-teal-500/15 text-teal-600 dark:text-teal-400",
 };
 
 interface RuleCardProps {
@@ -134,6 +136,7 @@ export function RuleCard({
     if (next !== "skip_to_section") patch.targetSectionId = undefined;
     if (next !== "jump_to_field") patch.targetFieldId = undefined;
     if (next !== "set_value") patch.valueSource = undefined;
+    if (next !== "redirect_to_url") patch.targetUrl = undefined;
     if (next === "set_value") {
       const existing = rule.actions.find((a) => a.id === actionId);
       if (!existing?.valueSource) patch.valueSource = { mode: "static", staticValue: "" };
@@ -556,6 +559,17 @@ function ActionTargetEditor({
         value={ruleAction.targetFieldId ?? ""}
         onChange={(v) => onChange({ targetFieldId: v })}
         placeholder="Select field"
+      />
+    );
+  }
+
+  if (ruleAction.action === "redirect_to_url") {
+    return (
+      <Input
+        value={ruleAction.targetUrl ?? ""}
+        onChange={(e) => onChange({ targetUrl: e.target.value })}
+        placeholder="https://example.com"
+        className="h-9 text-sm"
       />
     );
   }

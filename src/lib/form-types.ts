@@ -327,7 +327,8 @@ export type LogicAction =
   | "set_value"
   | "skip_to_page"
   | "skip_to_section"
-  | "jump_to_field";
+  | "jump_to_field"
+  | "redirect_to_url";
 
 export type LogicOperator =
   | "equal"
@@ -379,6 +380,8 @@ export interface LogicRuleAction {
   targetFieldId?: string;
   // For set_value
   valueSource?: LogicValueSource;
+  // For redirect_to_url
+  targetUrl?: string;
 }
 
 export interface LogicRule {
@@ -426,6 +429,7 @@ export const LOGIC_ACTION_META: LogicActionMeta[] = [
   { action: "skip_to_page", label: "Skip to page", description: "Jump to a specific page on Next", category: "navigation", conflictsWith: ["skip_to_section"] },
   { action: "skip_to_section", label: "Skip to section", description: "Jump to a specific section on Next", category: "navigation", conflictsWith: ["skip_to_page"] },
   { action: "jump_to_field", label: "Scroll to field", description: "Scroll to a specific field", category: "navigation", conflictsWith: [] },
+  { action: "redirect_to_url", label: "Redirect to URL", description: "Navigate the user to an external URL", category: "navigation", conflictsWith: [] },
 ];
 
 export const LOGIC_OPERATOR_META: {
@@ -463,6 +467,15 @@ export const SECTION_TYPE_META: { type: SectionType; label: string; description:
   { type: "success", label: "Success Page", description: "Displayed after form submission (no fields required)" },
 ];
 
+/** Prefix used for synthetic "navigation button" field IDs in the logic condition picker. */
+export const NAV_TRIGGER_PREFIX = "__nav_";
+/** Build a synthetic field ID representing the Next/Submit button of a section. */
+export function navTriggerId(sectionId: string) { return `${NAV_TRIGGER_PREFIX}${sectionId}`; }
+/** Check whether a field ID is a nav-trigger synthetic ID. */
+export function isNavTrigger(fieldId: string) { return fieldId.startsWith(NAV_TRIGGER_PREFIX); }
+/** Extract the section ID from a nav-trigger synthetic ID. */
+export function navTriggerSectionId(fieldId: string) { return fieldId.slice(NAV_TRIGGER_PREFIX.length); }
+
 export interface BuilderSection {
   id: string;
   name: string;
@@ -470,6 +483,8 @@ export interface BuilderSection {
   orderIndex: number;
   /** 'next' = navigates to next section, 'submit' = submits form, 'success' = post-submit screen */
   type?: SectionType;
+  /** For 'next' sections: the section to navigate to. undefined = next sequential non-success section. */
+  nextSectionId?: string;
   // Index signature for Liveblocks compatibility
   [key: string]: any;
 }

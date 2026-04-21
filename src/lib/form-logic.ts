@@ -9,7 +9,7 @@ import type {
   BuilderField,
   LogicValueSource,
 } from "./form-types";
-import { LOGIC_ACTION_META, LOGIC_OPERATOR_META } from "./form-types";
+import { LOGIC_ACTION_META, LOGIC_OPERATOR_META, isNavTrigger, navTriggerSectionId } from "./form-types";
 
 // ─── Runtime evaluation ──────────────────────────────────────────────────────
 
@@ -27,10 +27,11 @@ export interface FieldDynamicState {
 }
 
 export interface NavigationOverride {
-  kind: "page" | "section" | "field";
+  kind: "page" | "section" | "field" | "url";
   targetPageIndex?: number;
   targetSectionId?: string;
   targetFieldId?: string;
+  targetUrl?: string;
 }
 
 export interface EngineResult {
@@ -95,8 +96,14 @@ function compareNumeric(a: FormAnswer, b: FormAnswer): number | null {
 
 export function evaluateCondition(
   condition: LogicCondition,
-  answers: Record<string, FormAnswer>
+  answers: Record<string, FormAnswer>,
+  activeSectionId?: string,
 ): boolean {
+  // Nav-trigger conditions match when the user clicks Next/Submit on that section
+  if (isNavTrigger(condition.fieldId)) {
+    return activeSectionId === navTriggerSectionId(condition.fieldId);
+  }
+
   const actual = answers[condition.fieldId];
   const { operator, value, value2 } = condition;
 
@@ -171,17 +178,18 @@ export function evaluateCondition(
 
 export function evaluateConditionGroup(
   group: LogicConditionGroup,
-  answers: Record<string, FormAnswer>
+  answers: Record<string, FormAnswer>,
+  activeSectionId?: string,
 ): boolean {
   const combinator = group.combinator ?? "and";
   const results: boolean[] = [];
 
   for (const cond of group.conditions ?? []) {
-    results.push(evaluateCondition(cond, answers));
+    results.push(evaluateCondition(cond, answers, activeSectionId));
   }
 
   for (const sub of group.groups ?? []) {
-    results.push(evaluateConditionGroup(sub, answers));
+    results.push(evaluateConditionGroup(sub, answers, activeSectionId));
   }
 
   if (results.length === 0) return true; // vacuously true — "always match"
@@ -291,6 +299,11 @@ function applyAction(
         return { kind: "field", targetFieldId: ruleAction.targetFieldId };
       }
       break;
+    case "redirect_to_url":
+      if (ruleAction.targetUrl) {
+        return { kind: "url", targetUrl: ruleAction.targetUrl };
+      }
+      break;
   }
   return undefined;
 }
@@ -303,7 +316,8 @@ function applyAction(
 export function evaluateLogic(
   fields: BuilderField[],
   rules: LogicRule[],
-  answers: Record<string, FormAnswer>
+  answers: Record<string, FormAnswer>,
+  activeSectionId?: string,
 ): EngineResult {
   const states: Record<string, FieldDynamicState> = {};
   for (const f of fields) states[f.id] = baselineState(f);
@@ -319,7 +333,7 @@ export function evaluateLogic(
     const rule = migrateRule(rawRule);
     let matched = true;
     try {
-      matched = evaluateConditionGroup(rule.conditions, answers);
+      matched = evaluateConditionGroup(rule.conditions, answers, activeSectionId);
     } catch (err) {
       warnings.push(`Rule "${rule.name ?? rule.id}" failed: ${(err as Error).message}`);
       matched = false;
@@ -375,6 +389,7 @@ export function detectLogicIssues(
     const used = new Set<string>();
     collectConditionFieldIds(rule.conditions, used);
     for (const id of used) {
+      if (isNavTrigger(id)) continue; // synthetic nav-trigger IDs are not real fields
       if (!fieldIds.has(id)) {
         issues.push({
           severity: "error",
@@ -432,6 +447,10 @@ export function detectLogicIssues(
         } else if (!fieldIds.has(ruleAction.targetFieldId)) {
           issues.push({ severity: "error", ruleId: rule.id, message: `"Scroll to field" references a deleted field` });
         }
+      }
+
+      if (ruleAction.action === "redirect_to_url" && !ruleAction.targetUrl?.trim()) {
+        issues.push({ severity: "error", ruleId: rule.id, message: `"Redirect to URL" has no URL set` });
       }
 
       // set_value — reject circular copy (field copying itself)
