@@ -88,6 +88,7 @@ export function LogicClient({
         id: crypto.randomUUID(),
         name: `${source.name ?? "Untitled"} (copy)`,
         orderIndex: idx + 1,
+        actions: (source.actions ?? []).map((a) => ({ ...a, id: crypto.randomUUID() })),
         conditions: {
           ...source.conditions,
           id: crypto.randomUUID(),

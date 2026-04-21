@@ -4,8 +4,10 @@ import type {
   LogicConditionGroup,
   LogicOperator,
   LogicRule,
+  LogicRuleAction,
   LogicAction,
   BuilderField,
+  LogicValueSource,
 } from "./form-types";
 import { LOGIC_ACTION_META, LOGIC_OPERATOR_META } from "./form-types";
 
@@ -186,19 +188,40 @@ export function evaluateConditionGroup(
   return combinator === "and" ? results.every(Boolean) : results.some(Boolean);
 }
 
+/**
+ * Migrates old single-action rules to the new multi-action format.
+ * Existing saved data may have `action` + top-level targets instead of `actions[]`.
+ */
+export function migrateRule(rule: LogicRule): LogicRule {
+  if (rule.actions && rule.actions.length > 0) return rule;
+  // Old format: single action at top level
+  const legacyAction = (rule as any).action as LogicAction | undefined;
+  if (!legacyAction) {
+    return { ...rule, actions: [] };
+  }
+  const migrated: LogicRuleAction = {
+    id: crypto.randomUUID(),
+    action: legacyAction,
+    targetFieldIds: rule.targetFieldIds,
+    targetSectionId: rule.targetSectionId,
+    targetPageIndex: rule.targetPageIndex,
+    targetFieldId: rule.targetFieldId,
+    valueSource: rule.valueSource,
+  };
+  return { ...rule, actions: [migrated] };
+}
+
 function resolveValue(
-  rule: LogicRule,
+  ruleAction: LogicRuleAction,
   answers: Record<string, FormAnswer>
 ): FormAnswer | undefined {
-  const src = rule.valueSource;
+  const src = ruleAction.valueSource;
   if (!src) return undefined;
 
   if (src.mode === "static") return src.staticValue;
   if (src.mode === "copy_field") return answers[src.sourceFieldId ?? ""] ?? null;
 
   if (src.mode === "formula") {
-    // Very small, safe formula interpreter: replaces {fieldId} tokens with numeric answers
-    // and supports basic arithmetic. Rejects anything else.
     const expr = (src.formula ?? "").replace(/\{([a-z0-9_-]+)\}/gi, (_, id) => {
       const v = answers[id];
       const n = Number(v);
@@ -211,6 +234,63 @@ function resolveValue(
     } catch {
       return null;
     }
+  }
+  return undefined;
+}
+
+function applyAction(
+  ruleAction: LogicRuleAction,
+  states: Record<string, FieldDynamicState>,
+  answers: Record<string, FormAnswer>,
+  warnings: string[],
+  ruleName: string,
+): NavigationOverride | undefined {
+  const targets = ruleAction.targetFieldIds ?? [];
+  switch (ruleAction.action) {
+    case "show_field":
+      for (const t of targets) if (states[t]) states[t].visible = true;
+      break;
+    case "hide_field":
+      for (const t of targets) if (states[t]) states[t].visible = false;
+      break;
+    case "enable_field":
+      for (const t of targets) if (states[t]) states[t].enabled = true;
+      break;
+    case "disable_field":
+      for (const t of targets) if (states[t]) states[t].enabled = false;
+      break;
+    case "require_field":
+      for (const t of targets) if (states[t]) states[t].required = true;
+      break;
+    case "unrequire_field":
+      for (const t of targets) if (states[t]) states[t].required = false;
+      break;
+    case "mask_field":
+      for (const t of targets) if (states[t]) states[t].masked = true;
+      break;
+    case "unmask_field":
+      for (const t of targets) if (states[t]) states[t].masked = false;
+      break;
+    case "set_value": {
+      const v = resolveValue(ruleAction, answers);
+      for (const t of targets) if (states[t]) states[t].overriddenValue = v;
+      break;
+    }
+    case "skip_to_page":
+      if (typeof ruleAction.targetPageIndex === "number") {
+        return { kind: "page", targetPageIndex: ruleAction.targetPageIndex };
+      }
+      break;
+    case "skip_to_section":
+      if (ruleAction.targetSectionId) {
+        return { kind: "section", targetSectionId: ruleAction.targetSectionId };
+      }
+      break;
+    case "jump_to_field":
+      if (ruleAction.targetFieldId) {
+        return { kind: "field", targetFieldId: ruleAction.targetFieldId };
+      }
+      break;
   }
   return undefined;
 }
@@ -235,7 +315,8 @@ export function evaluateLogic(
     .filter((r) => r.enabled)
     .sort((a, b) => a.orderIndex - b.orderIndex);
 
-  for (const rule of sorted) {
+  for (const rawRule of sorted) {
+    const rule = migrateRule(rawRule);
     let matched = true;
     try {
       matched = evaluateConditionGroup(rule.conditions, answers);
@@ -245,52 +326,9 @@ export function evaluateLogic(
     }
     if (!matched) continue;
 
-    const targets = rule.targetFieldIds ?? [];
-    switch (rule.action) {
-      case "show_field":
-        for (const t of targets) if (states[t]) states[t].visible = true;
-        break;
-      case "hide_field":
-        for (const t of targets) if (states[t]) states[t].visible = false;
-        break;
-      case "enable_field":
-        for (const t of targets) if (states[t]) states[t].enabled = true;
-        break;
-      case "disable_field":
-        for (const t of targets) if (states[t]) states[t].enabled = false;
-        break;
-      case "require_field":
-        for (const t of targets) if (states[t]) states[t].required = true;
-        break;
-      case "unrequire_field":
-        for (const t of targets) if (states[t]) states[t].required = false;
-        break;
-      case "mask_field":
-        for (const t of targets) if (states[t]) states[t].masked = true;
-        break;
-      case "unmask_field":
-        for (const t of targets) if (states[t]) states[t].masked = false;
-        break;
-      case "set_value": {
-        const v = resolveValue(rule, answers);
-        for (const t of targets) if (states[t]) states[t].overriddenValue = v;
-        break;
-      }
-      case "skip_to_page":
-        if (typeof rule.targetPageIndex === "number") {
-          navigation = { kind: "page", targetPageIndex: rule.targetPageIndex };
-        }
-        break;
-      case "skip_to_section":
-        if (rule.targetSectionId) {
-          navigation = { kind: "section", targetSectionId: rule.targetSectionId };
-        }
-        break;
-      case "jump_to_field":
-        if (rule.targetFieldId) {
-          navigation = { kind: "field", targetFieldId: rule.targetFieldId };
-        }
-        break;
+    for (const ruleAction of rule.actions) {
+      const nav = applyAction(ruleAction, states, answers, warnings, rule.name ?? rule.id);
+      if (nav) navigation = nav;
     }
   }
 
@@ -329,7 +367,10 @@ export function detectLogicIssues(
   // Per-target action tally for conflict detection
   const actionsByTarget = new Map<string, Set<LogicAction>>();
 
-  for (const rule of rules) {
+  for (const rawRule of rules) {
+    const rule = migrateRule(rawRule);
+    const ruleName = rule.name ?? "Untitled";
+
     // Missing condition fields
     const used = new Set<string>();
     collectConditionFieldIds(rule.conditions, used);
@@ -338,72 +379,78 @@ export function detectLogicIssues(
         issues.push({
           severity: "error",
           ruleId: rule.id,
-          message: `Rule "${rule.name ?? "Untitled"}" references a deleted field in its conditions`,
+          message: `Rule "${ruleName}" references a deleted field in its conditions`,
         });
       }
     }
 
-    // Validate targets
-    const needsTargets = [
-      "show_field", "hide_field", "enable_field", "disable_field",
-      "require_field", "unrequire_field", "mask_field", "unmask_field", "set_value",
-    ].includes(rule.action);
+    if (rule.actions.length === 0) {
+      issues.push({
+        severity: "error",
+        ruleId: rule.id,
+        message: `Rule "${ruleName}" has no actions`,
+      });
+    }
 
-    if (needsTargets) {
-      const targets = rule.targetFieldIds ?? [];
-      if (targets.length === 0) {
-        issues.push({
-          severity: "error",
-          ruleId: rule.id,
-          message: `Rule "${rule.name ?? "Untitled"}" has no target field`,
-        });
-      }
-      for (const t of targets) {
-        if (!fieldIds.has(t)) {
+    for (const ruleAction of rule.actions) {
+      const needsTargets = actionNeedsTargets(ruleAction.action);
+
+      if (needsTargets) {
+        const targets = ruleAction.targetFieldIds ?? [];
+        if (targets.length === 0) {
           issues.push({
             severity: "error",
             ruleId: rule.id,
-            fieldId: t,
-            message: `Rule "${rule.name ?? "Untitled"}" targets a deleted field`,
+            message: `Rule "${ruleName}" (${actionLabel(ruleAction.action)}) has no target field`,
           });
-        } else {
-          if (!actionsByTarget.has(t)) actionsByTarget.set(t, new Set());
-          actionsByTarget.get(t)!.add(rule.action);
+        }
+        for (const t of targets) {
+          if (!fieldIds.has(t)) {
+            issues.push({
+              severity: "error",
+              ruleId: rule.id,
+              fieldId: t,
+              message: `Rule "${ruleName}" (${actionLabel(ruleAction.action)}) targets a deleted field`,
+            });
+          } else {
+            if (!actionsByTarget.has(t)) actionsByTarget.set(t, new Set());
+            actionsByTarget.get(t)!.add(ruleAction.action);
+          }
         }
       }
-    }
 
-    // Navigation targets
-    if (rule.action === "skip_to_page" && typeof rule.targetPageIndex !== "number") {
-      issues.push({ severity: "error", ruleId: rule.id, message: `"Skip to page" has no destination set` });
-    }
-    if (rule.action === "skip_to_section" && !rule.targetSectionId) {
-      issues.push({ severity: "error", ruleId: rule.id, message: `"Skip to section" has no destination set` });
-    }
-    if (rule.action === "jump_to_field") {
-      if (!rule.targetFieldId) {
-        issues.push({ severity: "error", ruleId: rule.id, message: `"Scroll to field" has no destination set` });
-      } else if (!fieldIds.has(rule.targetFieldId)) {
-        issues.push({ severity: "error", ruleId: rule.id, message: `"Scroll to field" references a deleted field` });
+      // Navigation targets
+      if (ruleAction.action === "skip_to_page" && typeof ruleAction.targetPageIndex !== "number") {
+        issues.push({ severity: "error", ruleId: rule.id, message: `"Skip to page" has no destination set` });
       }
-    }
+      if (ruleAction.action === "skip_to_section" && !ruleAction.targetSectionId) {
+        issues.push({ severity: "error", ruleId: rule.id, message: `"Skip to section" has no destination set` });
+      }
+      if (ruleAction.action === "jump_to_field") {
+        if (!ruleAction.targetFieldId) {
+          issues.push({ severity: "error", ruleId: rule.id, message: `"Scroll to field" has no destination set` });
+        } else if (!fieldIds.has(ruleAction.targetFieldId)) {
+          issues.push({ severity: "error", ruleId: rule.id, message: `"Scroll to field" references a deleted field` });
+        }
+      }
 
-    // set_value — reject circular copy (field copying itself)
-    if (rule.action === "set_value" && rule.valueSource?.mode === "copy_field") {
-      const src = rule.valueSource.sourceFieldId;
-      if (src && (rule.targetFieldIds ?? []).includes(src)) {
-        issues.push({
-          severity: "error",
-          ruleId: rule.id,
-          message: `Rule "${rule.name ?? "Untitled"}" copies a field into itself`,
-        });
-      }
-      if (src && !fieldIds.has(src)) {
-        issues.push({
-          severity: "error",
-          ruleId: rule.id,
-          message: `Rule "${rule.name ?? "Untitled"}" copies from a deleted field`,
-        });
+      // set_value — reject circular copy (field copying itself)
+      if (ruleAction.action === "set_value" && ruleAction.valueSource?.mode === "copy_field") {
+        const src = ruleAction.valueSource.sourceFieldId;
+        if (src && (ruleAction.targetFieldIds ?? []).includes(src)) {
+          issues.push({
+            severity: "error",
+            ruleId: rule.id,
+            message: `Rule "${ruleName}" copies a field into itself`,
+          });
+        }
+        if (src && !fieldIds.has(src)) {
+          issues.push({
+            severity: "error",
+            ruleId: rule.id,
+            message: `Rule "${ruleName}" copies from a deleted field`,
+          });
+        }
       }
     }
 
@@ -412,7 +459,7 @@ export function detectLogicIssues(
       issues.push({
         severity: "warning",
         ruleId: rule.id,
-        message: `Rule "${rule.name ?? "Untitled"}" has no conditions and will always run`,
+        message: `Rule "${ruleName}" has no conditions and will always run`,
       });
     }
   }
@@ -443,14 +490,21 @@ export function detectLogicIssues(
 
 // ─── Helpers to build new rules ──────────────────────────────────────────────
 
+export function createEmptyRuleAction(): LogicRuleAction {
+  return {
+    id: crypto.randomUUID(),
+    action: "hide_field",
+    targetFieldIds: [],
+  };
+}
+
 export function createEmptyRule(orderIndex: number): LogicRule {
   return {
     id: crypto.randomUUID(),
     name: "New rule",
     enabled: true,
-    action: "hide_field",
     orderIndex,
-    targetFieldIds: [],
+    actions: [createEmptyRuleAction()],
     conditions: {
       id: crypto.randomUUID(),
       combinator: "and",

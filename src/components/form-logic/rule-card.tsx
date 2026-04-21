@@ -5,11 +5,12 @@ import type {
   BuilderSection,
   LogicAction,
   LogicRule,
+  LogicRuleAction,
   LogicValueSource,
   FormAnswer,
 } from "@/lib/form-types";
 import { LOGIC_ACTION_META } from "@/lib/form-types";
-import { actionNeedsTargets } from "@/lib/form-logic";
+import { actionNeedsTargets, createEmptyRuleAction, migrateRule } from "@/lib/form-logic";
 import {
   Card,
   CardContent,
@@ -44,7 +45,7 @@ import {
 import { ValueInput } from "./value-input";
 import { ConditionBuilder } from "./condition-builder";
 import {
-  Trash2, Copy, ChevronDown, ChevronRight,
+  Trash2, Copy, ChevronDown, ChevronRight, Plus,
   AlertTriangle, Eye, EyeOff, Lock, Unlock, Asterisk, AsteriskSquare,
   Link2, Calculator, SkipForward, MousePointer2, Hash,
 } from "lucide-react";
@@ -99,7 +100,7 @@ interface RuleCardProps {
 }
 
 export function RuleCard({
-  rule,
+  rule: rawRule,
   fields,
   sections,
   issues,
@@ -111,24 +112,41 @@ export function RuleCard({
   onDuplicate,
   onMove,
 }: RuleCardProps) {
+  const rule = migrateRule(rawRule);
   const [expanded, setExpanded] = useState(defaultExpanded);
-  const actionMeta = LOGIC_ACTION_META.find((m) => m.action === rule.action);
-  const ActionIcon = ACTION_ICONS[rule.action];
+  const firstAction = rule.actions[0];
+  const firstActionMeta = firstAction ? LOGIC_ACTION_META.find((m) => m.action === firstAction.action) : undefined;
+  const FirstActionIcon = firstAction ? ACTION_ICONS[firstAction.action] : undefined;
   const errorCount = issues.filter((i) => i.severity === "error").length;
   const warnCount = issues.filter((i) => i.severity === "warning").length;
 
-  const handleActionChange = (next: LogicAction) => {
-    // Reset targets that no longer apply
-    const patch: Partial<LogicRule> = { action: next };
+  const updateAction = (actionId: string, patch: Partial<LogicRuleAction>) => {
+    const nextActions = rule.actions.map((a) =>
+      a.id === actionId ? { ...a, ...patch } : a
+    );
+    onChange({ actions: nextActions });
+  };
+
+  const handleActionTypeChange = (actionId: string, next: LogicAction) => {
+    const patch: Partial<LogicRuleAction> = { action: next };
     if (!actionNeedsTargets(next)) patch.targetFieldIds = [];
     if (next !== "skip_to_page") patch.targetPageIndex = undefined;
     if (next !== "skip_to_section") patch.targetSectionId = undefined;
     if (next !== "jump_to_field") patch.targetFieldId = undefined;
     if (next !== "set_value") patch.valueSource = undefined;
-    if (next === "set_value" && !rule.valueSource) {
-      patch.valueSource = { mode: "static", staticValue: "" };
+    if (next === "set_value") {
+      const existing = rule.actions.find((a) => a.id === actionId);
+      if (!existing?.valueSource) patch.valueSource = { mode: "static", staticValue: "" };
     }
-    onChange(patch);
+    updateAction(actionId, patch);
+  };
+
+  const addAction = () => {
+    onChange({ actions: [...rule.actions, createEmptyRuleAction()] });
+  };
+
+  const removeAction = (actionId: string) => {
+    onChange({ actions: rule.actions.filter((a) => a.id !== actionId) });
   };
 
   return (
@@ -153,10 +171,10 @@ export function RuleCard({
         <div
           className={cn(
             "flex items-center justify-center h-7 w-7 rounded-md shrink-0",
-            ACTION_COLORS[rule.action]
+            firstAction ? ACTION_COLORS[firstAction.action] : "bg-muted text-muted-foreground"
           )}
         >
-          {ActionIcon && <ActionIcon className="h-3.5 w-3.5" />}
+          {FirstActionIcon && <FirstActionIcon className="h-3.5 w-3.5" />}
         </div>
 
         <Input
@@ -281,8 +299,8 @@ export function RuleCard({
 
               <Separator />
 
-              {/* DO (action) */}
-              <div className="space-y-1.5">
+              {/* DO (actions) */}
+              <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Badge
                     variant="outline"
@@ -291,44 +309,103 @@ export function RuleCard({
                     DO
                   </Badge>
                   <span className="text-xs text-muted-foreground">
-                    {actionMeta?.description ?? "Select what happens when conditions are met"}
+                    Actions to perform when conditions are met
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-2 items-start">
-                  <Select value={rule.action} onValueChange={(v) => handleActionChange(v as LogicAction)}>
-                    <SelectTrigger className="h-9 text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(["visibility", "state", "value", "navigation"] as const).map((cat) => {
-                        const options = LOGIC_ACTION_META.filter((m) => m.category === cat);
-                        if (options.length === 0) return null;
-                        return (
-                          <SelectGroup key={cat}>
-                            <SelectLabel className="capitalize">{cat}</SelectLabel>
-                            {options.map((m) => (
-                              <SelectItem key={m.action} value={m.action}>
-                                {m.label}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
+                {rule.actions.map((ruleAction, actionIdx) => {
+                  const meta = LOGIC_ACTION_META.find((m) => m.action === ruleAction.action);
+                  const Icon = ACTION_ICONS[ruleAction.action];
+                  return (
+                    <div
+                      key={ruleAction.id}
+                      className={cn(
+                        "rounded-lg border border-border bg-muted/20 p-3 space-y-2",
+                        rule.actions.length > 1 && "relative"
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={cn(
+                            "flex items-center justify-center h-6 w-6 rounded-md shrink-0",
+                            ACTION_COLORS[ruleAction.action]
+                          )}
+                        >
+                          {Icon && <Icon className="h-3 w-3" />}
+                        </div>
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          Action {rule.actions.length > 1 ? `#${actionIdx + 1}` : ""}
+                        </span>
+                        {meta && (
+                          <span className="text-[10px] text-muted-foreground/60 ml-auto mr-1">
+                            {meta.description}
+                          </span>
+                        )}
+                        {rule.actions.length > 1 && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0"
+                            onClick={() => removeAction(ruleAction.id)}
+                            title="Remove action"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
 
-                  <TargetEditor
-                    rule={rule}
-                    fields={fields}
-                    sections={sections}
-                    onChange={onChange}
-                  />
-                </div>
+                      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-2 items-start">
+                        <Select value={ruleAction.action} onValueChange={(v) => handleActionTypeChange(ruleAction.id, v as LogicAction)}>
+                          <SelectTrigger className="h-9 text-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(["visibility", "state", "value", "navigation"] as const).map((cat) => {
+                              const options = LOGIC_ACTION_META.filter((m) => m.category === cat);
+                              if (options.length === 0) return null;
+                              return (
+                                <SelectGroup key={cat}>
+                                  <SelectLabel className="capitalize">{cat}</SelectLabel>
+                                  {options.map((m) => (
+                                    <SelectItem key={m.action} value={m.action}>
+                                      {m.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
 
-                {rule.action === "set_value" && (
-                  <SetValueEditor rule={rule} fields={fields} sections={sections} onChange={onChange} />
-                )}
+                        <ActionTargetEditor
+                          ruleAction={ruleAction}
+                          fields={fields}
+                          sections={sections}
+                          onChange={(patch) => updateAction(ruleAction.id, patch)}
+                        />
+                      </div>
+
+                      {ruleAction.action === "set_value" && (
+                        <ActionSetValueEditor
+                          ruleAction={ruleAction}
+                          fields={fields}
+                          sections={sections}
+                          onChange={(patch) => updateAction(ruleAction.id, patch)}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  onClick={addAction}
+                >
+                  <Plus className="h-3 w-3" />
+                  Add action
+                </Button>
               </div>
 
               {/* Footer: order controls inside expanded content */}
@@ -405,35 +482,35 @@ export function RuleCard({
 
 // ─── Target editor ───────────────────────────────────────────────────────────
 
-function TargetEditor({
-  rule,
+function ActionTargetEditor({
+  ruleAction,
   fields,
   sections,
   onChange,
 }: {
-  rule: LogicRule;
+  ruleAction: LogicRuleAction;
   fields: BuilderField[];
   sections: BuilderSection[];
-  onChange: (patch: Partial<LogicRule>) => void;
+  onChange: (patch: Partial<LogicRuleAction>) => void;
 }) {
   const realFields = fields.filter((f) => f.type !== "page_break" && f.type !== "section");
 
-  if (actionNeedsTargets(rule.action)) {
+  if (actionNeedsTargets(ruleAction.action)) {
     return (
       <FieldMultiPicker
         fields={realFields}
         sections={sections}
-        selected={rule.targetFieldIds ?? []}
+        selected={ruleAction.targetFieldIds ?? []}
         onChange={(vals) => onChange({ targetFieldIds: vals })}
         placeholder="Select target field(s)"
       />
     );
   }
 
-  if (rule.action === "skip_to_section") {
+  if (ruleAction.action === "skip_to_section") {
     return (
       <Select
-        value={rule.targetSectionId ?? ""}
+        value={ruleAction.targetSectionId ?? ""}
         onValueChange={(v) => onChange({ targetSectionId: v })}
       >
         <SelectTrigger className="h-9 text-sm">
@@ -450,12 +527,11 @@ function TargetEditor({
     );
   }
 
-  if (rule.action === "skip_to_page") {
-    // Provide page picker based on sections as a simple proxy (page index = section order)
+  if (ruleAction.action === "skip_to_page") {
     const totalPages = Math.max(sections.length, 1);
     return (
       <Select
-        value={rule.targetPageIndex != null ? String(rule.targetPageIndex) : ""}
+        value={ruleAction.targetPageIndex != null ? String(ruleAction.targetPageIndex) : ""}
         onValueChange={(v) => onChange({ targetPageIndex: Number(v) })}
       >
         <SelectTrigger className="h-9 text-sm">
@@ -472,12 +548,12 @@ function TargetEditor({
     );
   }
 
-  if (rule.action === "jump_to_field") {
+  if (ruleAction.action === "jump_to_field") {
     return (
       <FieldPicker
         fields={realFields}
         sections={sections}
-        value={rule.targetFieldId ?? ""}
+        value={ruleAction.targetFieldId ?? ""}
         onChange={(v) => onChange({ targetFieldId: v })}
         placeholder="Select field"
       />
@@ -489,19 +565,19 @@ function TargetEditor({
 
 // ─── set_value editor ────────────────────────────────────────────────────────
 
-function SetValueEditor({
-  rule,
+function ActionSetValueEditor({
+  ruleAction,
   fields,
   sections,
   onChange,
 }: {
-  rule: LogicRule;
+  ruleAction: LogicRuleAction;
   fields: BuilderField[];
   sections: BuilderSection[];
-  onChange: (patch: Partial<LogicRule>) => void;
+  onChange: (patch: Partial<LogicRuleAction>) => void;
 }) {
-  const source = rule.valueSource ?? { mode: "static", staticValue: "" };
-  const primaryTarget = fields.find((f) => f.id === (rule.targetFieldIds ?? [])[0]);
+  const source = ruleAction.valueSource ?? { mode: "static", staticValue: "" };
+  const primaryTarget = fields.find((f) => f.id === (ruleAction.targetFieldIds ?? [])[0]);
 
   const setMode = (mode: LogicValueSource["mode"]) => {
     if (mode === "static") onChange({ valueSource: { mode, staticValue: "" } });

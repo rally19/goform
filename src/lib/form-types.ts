@@ -366,12 +366,9 @@ export type LogicValueSource =
   | { mode: "copy_field"; sourceFieldId: string }
   | { mode: "formula"; formula: string };
 
-export interface LogicRule {
+export interface LogicRuleAction {
   id: string;
-  name?: string;
-  enabled: boolean;
   action: LogicAction;
-  orderIndex: number;
   // Targets for field-scoped actions
   targetFieldIds?: string[];
   // For skip_to_section
@@ -381,6 +378,27 @@ export interface LogicRule {
   // For jump_to_field
   targetFieldId?: string;
   // For set_value
+  valueSource?: LogicValueSource;
+}
+
+export interface LogicRule {
+  id: string;
+  name?: string;
+  enabled: boolean;
+  /** @deprecated Use `actions` array instead. Kept for backward compatibility with existing data. */
+  action?: LogicAction;
+  orderIndex: number;
+  // Multiple DO actions per rule
+  actions: LogicRuleAction[];
+  /** @deprecated Use actions[].targetFieldIds */
+  targetFieldIds?: string[];
+  /** @deprecated Use actions[].targetSectionId */
+  targetSectionId?: string;
+  /** @deprecated Use actions[].targetPageIndex */
+  targetPageIndex?: number;
+  /** @deprecated Use actions[].targetFieldId */
+  targetFieldId?: string;
+  /** @deprecated Use actions[].valueSource */
   valueSource?: LogicValueSource;
   // Condition tree
   conditions: LogicConditionGroup;
