@@ -301,9 +301,12 @@ export async function updateForm(
     const user = await getAuthUser();
     await enforceFormAccess(id, "editor");
     
+    // Strip logic from metadata — logic is saved separately via saveFormLogic
+    const { logic: _logic, ...safeData } = data;
+
     // If collaboration is being toggled, track WHO did it to assign primary edit authority
     const updateData: Record<string, any> = { 
-      ...data, 
+      ...safeData, 
       updatedAt: new Date() 
     };
     
@@ -407,8 +410,10 @@ export async function syncFormState(
 
     await db.transaction(async (tx) => {
       // 1. Update Metadata + sections
+      // Strip logic from metadata — logic is saved separately via saveFormLogic
+      const { logic: _logic, ...safeMetadata } = metadata;
       const updateData: Record<string, any> = { 
-        ...metadata, 
+        ...safeMetadata, 
         sections,
         updatedAt: new Date() 
       };

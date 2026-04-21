@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
 
+import { sanitize } from "@/lib/sanitize";
+
 interface ValueInputProps {
   field?: BuilderField;
   operator: LogicOperator;
@@ -39,7 +41,10 @@ export function ValueInput({ field, operator, value, onChange, placeholder }: Va
         <SelectContent>
           {(field.options ?? []).map((opt) => (
             <SelectItem key={opt.value} value={opt.value}>
-              {opt.label}
+              <div 
+                className="prose-sm max-w-full [&_img]:hidden truncate"
+                dangerouslySetInnerHTML={{ __html: sanitize(opt.label) }}
+              />
             </SelectItem>
           ))}
         </SelectContent>
