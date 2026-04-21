@@ -142,6 +142,7 @@ export function FieldSettings({
   const hasValidation = ["short_text", "long_text", "number", "email", "phone", "url"].includes(field.type);
   const hasRows = field.type === "long_text";
   const isLayout = ["section", "page_break"].includes(field.type);
+  const isFile = field.type === "file";
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -428,6 +429,79 @@ export function FieldSettings({
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {isFile && (
+            <div className="space-y-3 pt-2" data-cursor-id="file-settings">
+              <Separator />
+              <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">File Upload Settings</Label>
+              
+              <div className="flex items-center justify-between rounded-lg border border-border p-3 bg-background/50">
+                <div>
+                  <p className="text-sm font-medium">Allow Multiple Files</p>
+                  <p className="text-xs text-muted-foreground">Let users upload more than one file</p>
+                </div>
+                <Switch
+                  checked={!!field.properties?.allowMultiple}
+                  onCheckedChange={(v) =>
+                    onUpdate?.({
+                      properties: { ...(field.properties ?? {}), allowMultiple: v },
+                    })
+                  }
+                />
+              </div>
+
+              {field.properties?.allowMultiple && (
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] text-muted-foreground uppercase">Max Files</Label>
+                  <Input
+                    type="number"
+                    min={2}
+                    max={10}
+                    value={field.properties?.maxFiles ?? 5}
+                    onChange={(e) =>
+                      onUpdate?.({
+                        properties: { ...(field.properties ?? {}), maxFiles: Number(e.target.value) },
+                      })
+                    }
+                    className="h-8 text-sm"
+                  />
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label className="text-[10px] text-muted-foreground uppercase">Max File Size (MB)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={field.properties?.maxFileSize ?? 2}
+                  onChange={(e) =>
+                    onUpdate?.({
+                      properties: { ...(field.properties ?? {}), maxFileSize: Number(e.target.value) },
+                    })
+                  }
+                  className="h-8 text-sm"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[10px] text-muted-foreground uppercase">Allowed File Types</Label>
+                <Input
+                  value={field.properties?.acceptedTypes ? (field.properties.acceptedTypes as string[]).join(", ") : ""}
+                  onChange={(e) =>
+                    onUpdate?.({
+                      properties: { 
+                        ...(field.properties ?? {}), 
+                        acceptedTypes: e.target.value ? e.target.value.split(",").map(s => s.trim()).filter(Boolean) : undefined 
+                      },
+                    })
+                  }
+                  placeholder="e.g. image/*, .pdf"
+                  className="h-8 text-sm"
+                />
+              </div>
             </div>
           )}
         </div>

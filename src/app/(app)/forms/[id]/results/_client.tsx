@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import type { Form, FormField } from "@/db/schema";
 import type { ResponseRow, FormAnswer } from "@/lib/form-types";
 import { deleteResponse, exportResponsesCSV } from "@/lib/actions/responses";
+import { createClient } from "@/lib/client";
 import {
   Table,
   TableBody,
@@ -37,7 +38,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  Trash2, Download, Inbox, Star, Clock, Mail, Search, Users, Calendar, ArrowUpDown, ChevronRight, ClipboardList
+  Trash2, Download, Inbox, Star, Clock, Mail, Search, Users, Calendar, ArrowUpDown, ChevronRight, ClipboardList, Paperclip
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -51,8 +52,41 @@ interface ResultsClientProps {
   initialResponses: { responses: ResponseRow[]; total: number };
 }
 
+function FileLink({ path }: { path: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    async function load() {
+      const supabase = createClient();
+      const { data } = await supabase.storage.from("form-uploads").createSignedUrl(path, 3600);
+      if (data?.signedUrl) setUrl(data.signedUrl);
+    }
+    load();
+  }, [path]);
+
+  const filename = path.split("/").pop() ?? "file";
+  // Remove timestamp prefix if it exists (digits followed by underscore)
+  const cleanName = filename.replace(/^\d+_/, '');
+
+  if (!url) return <span className="text-muted-foreground animate-pulse text-xs">Loading link...</span>;
+  return (
+    <a href={url} target="_blank" rel="noreferrer" className="text-primary hover:underline text-sm flex items-center gap-1.5 bg-primary/10 px-3 py-1.5 rounded-lg w-fit border border-primary/20 transition-colors hover:bg-primary/20">
+      <Paperclip className="h-3.5 w-3.5 shrink-0" />
+      <span className="truncate max-w-[200px]">{cleanName}</span>
+    </a>
+  );
+}
+
 function formatAnswer(val: FormAnswer, field: FormField): string {
   if (val === null || val === undefined || val === "") return "—";
+  if (field.type === "file") {
+    if (Array.isArray(val)) {
+      return val.map((path) => {
+        const name = String(path).split('/').pop() || String(path);
+        return name.replace(/^\d+_/, '');
+      }).join(", ");
+    }
+    return String(val);
+  }
   if (Array.isArray(val)) {
     if (field.options) {
       return val
@@ -540,6 +574,12 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
                             <span className="ml-2 font-bold text-sm text-primary">
                               {answer} / {field.properties?.stars ?? 5}
                             </span>
+                          </div>
+                        ) : field.type === "file" ? (
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {Array.isArray(answer) ? answer.map((path, i) => (
+                               <FileLink key={i} path={String(path)} />
+                            )) : <FileLink path={String(answer)} />}
                           </div>
                         ) : field.type === "long_text" ? (
                           <div 

@@ -319,6 +319,15 @@ export async function exportResponsesCSV(formId: string): Promise<ActionResult<s
         r.submittedAt.toISOString(),
         ...dataFields.map((f) => {
           const val = answers[f.id];
+          if (f.type === "file") {
+             if (Array.isArray(val)) {
+                return val.map((path) => {
+                   const name = String(path).split('/').pop() || String(path);
+                   return name.replace(/^\d+_/, '');
+                }).join("; ");
+             }
+             return String(val ?? "");
+          }
           if (Array.isArray(val)) return val.join("; ");
           return String(val ?? "");
         }),

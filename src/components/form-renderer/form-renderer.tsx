@@ -8,6 +8,7 @@ import type { Form } from "@/db/schema";
 import type { FormAnswer, BuilderSection, LogicRule, BuilderField } from "@/lib/form-types";
 import { evaluateLogic, type FieldDynamicState } from "@/lib/form-logic";
 import { submitFormResponse, getPublicFormStatus } from "@/lib/actions/responses";
+import { createClient } from "@/lib/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,7 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { Star, ChevronLeft, ChevronRight, Send, CheckCircle2, Loader2, Lock, UserX } from "lucide-react";
+import { Star, ChevronLeft, ChevronRight, Send, CheckCircle2, Loader2, Lock, UserX, Upload, X, Trash2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -173,6 +174,112 @@ function ScaleSelector({
         <div className="flex justify-between text-xs text-muted-foreground">
           <span>{minLabel}</span>
           <span>{maxLabel}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FileUploadField({
+  field,
+  files,
+  onChange,
+  disabled,
+  error,
+}: {
+  field: FormField;
+  files: File[];
+  onChange: (files: File[]) => void;
+  disabled?: boolean;
+  error?: string;
+}) {
+  const props = field.properties ?? {};
+  const allowMultiple = props.allowMultiple ?? false;
+  const maxFiles = props.maxFiles ?? 5;
+  const maxFileSizeMB = props.maxFileSize ?? 2;
+  const acceptedTypes = props.acceptedTypes as string[] | undefined;
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
+    const selectedFiles = Array.from(e.target.files || []);
+    if (selectedFiles.length === 0) return;
+
+    let newFiles = allowMultiple ? [...files, ...selectedFiles] : [...selectedFiles];
+
+    if (allowMultiple && newFiles.length > maxFiles) {
+      toast.error(`You can only upload up to ${maxFiles} files.`);
+      newFiles = newFiles.slice(0, maxFiles);
+    }
+
+    const validFiles = newFiles.filter((f) => {
+      if (f.size > maxFileSizeMB * 1024 * 1024) {
+        toast.error(`File ${f.name} exceeds ${maxFileSizeMB}MB limit.`);
+        return false;
+      }
+      return true;
+    });
+
+    onChange(validFiles);
+    // Reset input
+    e.target.value = "";
+  };
+
+  const removeFile = (idx: number) => {
+    if (disabled) return;
+    onChange(files.filter((_, i) => i !== idx));
+  };
+
+  const acceptString = acceptedTypes && acceptedTypes.length > 0 ? acceptedTypes.join(",") : undefined;
+
+  return (
+    <div className="space-y-3">
+      <div 
+        className={cn(
+          "border-2 border-dashed rounded-xl p-6 text-center transition-colors relative",
+          error ? "border-destructive bg-destructive/5" : "border-muted-foreground/20 hover:bg-muted/50",
+          disabled && "opacity-50 cursor-not-allowed"
+        )}
+      >
+        <input
+          type="file"
+          multiple={allowMultiple}
+          accept={acceptString}
+          onChange={handleFileChange}
+          disabled={disabled}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+        />
+        <Upload className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
+        <p className="text-sm font-medium">Click or drag files here</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          {allowMultiple ? `Up to ${maxFiles} files, ` : ""}
+          Max {maxFileSizeMB}MB per file
+        </p>
+      </div>
+
+      {files.length > 0 && (
+        <div className="space-y-2">
+          {files.map((file, i) => (
+            <div key={`${file.name}-${i}`} className="flex items-center justify-between p-2 text-sm border rounded-lg bg-card">
+              <span className="truncate flex-1 mr-2">{file.name}</span>
+              <span className="text-xs text-muted-foreground mr-3 shrink-0">
+                {(file.size / 1024 / 1024).toFixed(2)} MB
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0 z-10 relative"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  removeFile(i);
+                }}
+                disabled={disabled}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -401,9 +508,13 @@ function FieldRenderer({
 
     case "file":
       return (
-        <div className="border-2 border-dashed border-muted-foreground/20 rounded-xl p-6 text-center text-sm text-muted-foreground">
-          <p>File upload coming soon</p>
-        </div>
+        <FileUploadField
+          field={field}
+          files={(value as unknown as File[]) ?? []}
+          onChange={(files) => onChange(files as unknown as FormAnswer)}
+          disabled={disabled}
+          error={error}
+        />
       );
 
     default:
@@ -579,6 +690,8 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
 
     setSubmitting(true);
     const timeTaken = Math.round((Date.now() - startTime.current) / 1000);
+    const supabase = createClient();
+    const tempId = crypto.randomUUID();
 
     // Strip answers for fields that are currently hidden by logic — they are
     // treated as "not asked", so we don't send stale values to the server.
@@ -586,7 +699,34 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
     for (const [fid, value] of Object.entries(answers)) {
       const state = dynamicStates[fid];
       if (state && !state.visible) continue;
-      cleanedAnswers[fid] = value;
+      
+      const fieldDef = fields.find(f => f.id === fid);
+      
+      if (fieldDef?.type === "file" && Array.isArray(value) && value.length > 0 && value[0] instanceof File) {
+        // Upload files
+        const filePaths: string[] = [];
+        for (let i = 0; i < value.length; i++) {
+          const file = value[i] as File;
+          const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+          const filePath = `forms/${form.id}/responses/${tempId}/${fileName}`;
+          
+          const { data, error } = await supabase.storage
+            .from("form-uploads")
+            .upload(filePath, file);
+
+          if (error) {
+            toast.error(`Failed to upload ${file.name}`);
+            setSubmitting(false);
+            return;
+          }
+          if (data) {
+            filePaths.push(data.path);
+          }
+        }
+        cleanedAnswers[fid] = filePaths as unknown as FormAnswer;
+      } else {
+        cleanedAnswers[fid] = value;
+      }
     }
 
     const result = await submitFormResponse(form.id, cleanedAnswers, { timeTaken });
