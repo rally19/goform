@@ -23,7 +23,7 @@ function buildInitialStorage(
 ) {
   const rawSections: BuilderSection[] = initialSections && initialSections.length > 0
     ? initialSections
-    : [{ id: crypto.randomUUID(), name: "Section 1", description: "", orderIndex: 0 }];
+    : [{ id: crypto.randomUUID(), name: "Section 1", description: "", orderIndex: 0, type: "next" as const }];
   const seedSections: BuilderSection[] = rawSections.map((s) =>
     UUID_RE.test(s.id) ? s : { ...s, id: crypto.randomUUID() }
   );

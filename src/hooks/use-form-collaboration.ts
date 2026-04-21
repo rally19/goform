@@ -135,7 +135,7 @@ export function useFormCollaboration({
     if (sectionsList.length === 0) {
       const toSeed: BuilderSection[] = seedSections.length > 0
         ? seedSections.map((s) => ({ ...s, id: uuidRe.test(s.id) ? s.id : crypto.randomUUID() }))
-        : [{ id: crypto.randomUUID(), name: "Section 1", description: "", orderIndex: 0 }];
+        : [{ id: crypto.randomUUID(), name: "Section 1", description: "", orderIndex: 0, type: "next" as const }];
       for (const s of toSeed) {
         sectionsList.push(new LiveObject<BuilderSection>(s));
       }
@@ -190,11 +190,13 @@ export function useFormCollaboration({
     const srcSection = sectionsList.find((s) => (s as LiveObject<BuilderSection>).get("id") === id) as LiveObject<BuilderSection> | undefined;
     if (!srcSection) return;
 
+    const srcType = srcSection.get("type") as BuilderSection["type"];
     const newSection: BuilderSection = {
       id: newSectionId,
       name: `${srcSection.get("name")} (Copy)`,
       description: srcSection.get("description") ?? "",
       orderIndex: sectionsList.length,
+      type: srcType === "success" ? "success" : (srcType ?? "next"),
     };
     sectionsList.push(new LiveObject<BuilderSection>(newSection));
 

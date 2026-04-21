@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import type { BuilderField, BuilderForm, BuilderSection } from "@/lib/form-types";
+import type { BuilderField, BuilderForm, BuilderSection, SectionType } from "@/lib/form-types";
 import { SectionBar } from "./section-bar";
 import { setFormStatus } from "@/lib/actions/forms";
 import { sanitize, stripHtml } from "@/lib/sanitize";
@@ -36,11 +36,12 @@ import {
 } from "@dnd-kit/sortable";
 import {
   PlusCircle, Settings2, Palette,
-  Plus, Loader2,
+  Plus, Loader2, Send, ChevronRight, CheckCircle2,
   GripVertical, Copy, Trash2, ChevronDown, MoveRight, Layers
 } from "lucide-react";
 import { FieldMoveDialog } from "./field-move-dialog";
 import { SectionReorderDialog } from "./section-reorder-dialog";
+import { SectionTypeDialog } from "./section-type-dialog";
 import { ACCENT_COLORS, FIELD_TYPE_META } from "@/lib/form-types";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -287,18 +288,28 @@ export function BuilderCanvas({
     return fields.filter(f => f.sectionId === activeSectionId);
   }, [fields, activeSectionId]);
 
+  const [isSectionTypeOpen, setIsSectionTypeOpen] = useState(false);
+  const [pendingAddAfterIndex, setPendingAddAfterIndex] = useState<number>(0);
+
   const handleAddSection = useCallback((afterIndex: number) => {
-    const newSection = {
+    setPendingAddAfterIndex(afterIndex);
+    setIsSectionTypeOpen(true);
+  }, []);
+
+  const handleCreateSectionWithType = useCallback((type: SectionType) => {
+    const label = type === "success" ? "Success Page" : `Section ${sections.length + 1}`;
+    const newSection: BuilderSection = {
       id: crypto.randomUUID(),
-      name: `Section ${sections.length + 1}`,
+      name: label,
       description: "",
-      orderIndex: afterIndex + 1,
+      orderIndex: pendingAddAfterIndex + 1,
+      type,
     };
     collabAddSection(newSection);
     setCurrentSectionId(newSection.id);
     selectSection(newSection.id);
-    toast.success("Section added", { description: `"${newSection.name}" has been created` });
-  }, [sections, collabAddSection, setCurrentSectionId, selectSection]);
+    toast.success("Section added", { description: `"${label}" has been created` });
+  }, [sections, pendingAddAfterIndex, collabAddSection, setCurrentSectionId, selectSection]);
 
   const handleDeleteSection = useCallback((id: string) => {
     const section = sortedSections.find(s => s.id === id);
@@ -641,11 +652,47 @@ export function BuilderCanvas({
                           </div>
                         </SortableContext>
 
-                        {sectionFields.length === 0 && (
+                        {sectionFields.length === 0 && currentSection.type !== "success" && (
                           <div className="border-2 border-dashed border-muted-foreground/20 rounded-xl p-12 text-center">
                             <PlusCircle className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
                             <p className="text-sm font-medium">Start building your form</p>
                             <p className="text-xs text-muted-foreground mt-1">Drag components here to begin</p>
+                          </div>
+                        )}
+
+                        {sectionFields.length === 0 && currentSection.type === "success" && (
+                          <div className="border-2 border-dashed border-muted-foreground/20 rounded-xl p-10 text-center">
+                            <div className="h-10 w-10 rounded-full mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: `${accentColor}15`, color: accentColor }}>
+                              <CheckCircle2 className="h-5 w-5" />
+                            </div>
+                            <p className="text-sm font-medium">Success Page</p>
+                            <p className="text-xs text-muted-foreground mt-1">This page is shown after form submission. Add fields or content as needed.</p>
+                          </div>
+                        )}
+
+                        {/* Section action button indicator */}
+                        {currentSection.type !== "success" && (
+                          <div className="flex justify-center">
+                            <div
+                              className={cn(
+                                "inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium pointer-events-none select-none",
+                                currentSection.type === "submit"
+                                  ? "border-green-500/30 bg-green-500/10 text-green-600 dark:text-green-400"
+                                  : "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                              )}
+                            >
+                              {currentSection.type === "submit" ? (
+                                <>
+                                  <Send className="h-3.5 w-3.5" />
+                                  Submit
+                                </>
+                              ) : (
+                                <>
+                                  Next
+                                  <ChevronRight className="h-3.5 w-3.5" />
+                                </>
+                              )}
+                            </div>
                           </div>
                         )}
 
@@ -804,6 +851,13 @@ export function BuilderCanvas({
             accentColor={accentColor}
             others={others}
             onReorder={handleReorderSection}
+          />
+
+          {/* Section Type Picker Dialog */}
+          <SectionTypeDialog
+            open={isSectionTypeOpen}
+            onOpenChange={setIsSectionTypeOpen}
+            onSelect={handleCreateSectionWithType}
           />
         </div>
 

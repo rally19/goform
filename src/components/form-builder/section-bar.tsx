@@ -21,7 +21,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { motion, AnimatePresence } from "motion/react";
-import type { BuilderSection } from "@/lib/form-types";
+import type { BuilderSection, SectionType } from "@/lib/form-types";
+import { Badge } from "@/components/ui/badge";
 import {
   Settings2,
   Copy,
@@ -155,6 +156,18 @@ export function SectionBar({
               style={{ color: accentColor }}
               dangerouslySetInnerHTML={{ __html: sanitize(currentSection.name) }}
             />
+            {currentSection.type && currentSection.type !== "next" && (
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-[9px] px-1.5 py-0 h-4 shrink-0 font-semibold uppercase tracking-wider",
+                  currentSection.type === "submit" && "border-green-500/40 text-green-600 dark:text-green-400 bg-green-500/10",
+                  currentSection.type === "success" && "border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10"
+                )}
+              >
+                {currentSection.type === "submit" ? "Submit" : "Success"}
+              </Badge>
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

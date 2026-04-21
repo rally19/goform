@@ -9,7 +9,14 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { X, Settings2, Plus, GripVertical, Trash2 } from "lucide-react";
-import { BuilderField, BuilderSection } from "@/lib/form-types";
+import { BuilderField, BuilderSection, SECTION_TYPE_META, type SectionType } from "@/lib/form-types";
+import {
+  Select as SelectPrimitive,
+  SelectContent as SelectContentPrimitive,
+  SelectItem as SelectItemPrimitive,
+  SelectTrigger as SelectTriggerPrimitive,
+  SelectValue as SelectValuePrimitive,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
   DndContext,
@@ -107,6 +114,43 @@ export function FieldSettings({
                   workspaceId={workspaceId}
                   minHeight="min-h-[60px]"
                 />
+              </div>
+              <Separator />
+              <div className="space-y-1.5" data-cursor-id="section-type" data-cursor-type="field">
+                <Label className="text-xs font-medium">Section Type</Label>
+                {selectedSection.type === "success" ? (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-muted/50 text-sm text-muted-foreground">
+                      Success Page
+                    </div>
+                    <p className="text-[10px] text-muted-foreground leading-tight">
+                      Success pages cannot be changed to another type. Delete this section and create a new one if needed.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <SelectPrimitive
+                      value={selectedSection.type ?? "next"}
+                      onValueChange={(v) => onUpdateSection?.({ type: v as SectionType })}
+                    >
+                      <SelectTriggerPrimitive className="h-9 text-sm">
+                        <SelectValuePrimitive />
+                      </SelectTriggerPrimitive>
+                      <SelectContentPrimitive>
+                        {SECTION_TYPE_META
+                          .filter((m) => m.type !== "success")
+                          .map((m) => (
+                            <SelectItemPrimitive key={m.type} value={m.type}>
+                              {m.label}
+                            </SelectItemPrimitive>
+                          ))}
+                      </SelectContentPrimitive>
+                    </SelectPrimitive>
+                    <p className="text-[10px] text-muted-foreground leading-tight">
+                      {SECTION_TYPE_META.find((m) => m.type === (selectedSection.type ?? "next"))?.description}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

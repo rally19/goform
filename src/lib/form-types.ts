@@ -455,11 +455,21 @@ export const LOGIC_OPERATOR_META: {
 
 // ─── Section Types ────────────────────────────────────────────────────────────
 
+export type SectionType = "next" | "submit" | "success";
+
+export const SECTION_TYPE_META: { type: SectionType; label: string; description: string }[] = [
+  { type: "next", label: "Next", description: "Shows a \"Next\" button — advances to the next section" },
+  { type: "submit", label: "Submit", description: "Shows a \"Submit\" button — submits the form" },
+  { type: "success", label: "Success Page", description: "Displayed after form submission (no fields required)" },
+];
+
 export interface BuilderSection {
   id: string;
   name: string;
   description?: string;
   orderIndex: number;
+  /** 'next' = navigates to next section, 'submit' = submits form, 'success' = post-submit screen */
+  type?: SectionType;
   // Index signature for Liveblocks compatibility
   [key: string]: any;
 }

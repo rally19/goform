@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { sanitize } from "@/lib/sanitize";
 import type { FormField } from "@/db/schema";
 import type { Form } from "@/db/schema";
-import type { FormAnswer, BuilderSection, LogicRule, BuilderField } from "@/lib/form-types";
+import type { FormAnswer, BuilderSection, LogicRule, BuilderField, SectionType } from "@/lib/form-types";
 import { evaluateLogic, type FieldDynamicState } from "@/lib/form-logic";
 import { submitFormResponse, getPublicFormStatus } from "@/lib/actions/responses";
 import { createClient } from "@/lib/client";
@@ -39,7 +39,7 @@ interface FormRendererProps {
 
 const PAGE_BREAK_TYPE = "page_break";
 
-type RendererPage = { sectionName?: string; sectionDescription?: string; fields: FormField[] };
+type RendererPage = { sectionName?: string; sectionDescription?: string; sectionType?: SectionType; fields: FormField[] };
 
 function groupIntoPages(fields: FormField[], sections?: BuilderSection[]): RendererPage[] {
   const sortedSections = sections && sections.length > 0
@@ -49,6 +49,9 @@ function groupIntoPages(fields: FormField[], sections?: BuilderSection[]): Rende
   if (sortedSections && sortedSections.length > 0) {
     const pages: RendererPage[] = [];
     for (const section of sortedSections) {
+      // Success pages are not part of the normal form flow — they are shown post-submit
+      if (section.type === "success") continue;
+
       const sectionFields = fields
         .filter((f) => f.sectionId === section.id && f.type !== PAGE_BREAK_TYPE)
         .sort((a, b) => a.orderIndex - b.orderIndex);
@@ -62,6 +65,7 @@ function groupIntoPages(fields: FormField[], sections?: BuilderSection[]): Rende
           pages.push({
             sectionName: firstChunk ? section.name : undefined,
             sectionDescription: firstChunk ? section.description : undefined,
+            sectionType: section.type ?? "next",
             fields: currentChunk,
           });
           currentChunk = [];
@@ -73,6 +77,7 @@ function groupIntoPages(fields: FormField[], sections?: BuilderSection[]): Rende
       pages.push({
         sectionName: firstChunk ? section.name : undefined,
         sectionDescription: firstChunk ? section.description : undefined,
+        sectionType: section.type ?? "next",
         fields: currentChunk,
       });
     }
@@ -532,6 +537,21 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
   const pathname = usePathname();
   const pages = useMemo(() => groupIntoPages(fields, sections), [fields, sections]);
 
+  // Find the first success-type section for the post-submit screen
+  const successSection = useMemo(() => {
+    if (!sections) return null;
+    const sorted = [...sections].sort((a, b) => a.orderIndex - b.orderIndex);
+    return sorted.find((s) => s.type === "success") ?? null;
+  }, [sections]);
+
+  // Fields belonging to the success section (for a custom success page)
+  const successFields = useMemo(() => {
+    if (!successSection) return [];
+    return fields
+      .filter((f) => (f as any).sectionId === successSection.id && f.type !== PAGE_BREAK_TYPE)
+      .sort((a, b) => a.orderIndex - b.orderIndex);
+  }, [successSection, fields]);
+
   const [currentPage, setCurrentPage] = useState(0);
   const [answers, setAnswers] = useState<Record<string, FormAnswer>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -599,6 +619,9 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
   const currentPageData = pages[currentPage] ?? { fields: [] };
   const currentFields = currentPageData.fields;
   const progress = totalPages > 1 ? ((currentPage) / totalPages) * 100 : 0;
+
+  // A page is a submit page if its sectionType is 'submit', or if it's the last page (fallback for legacy forms)
+  const isSubmitPage = currentPageData.sectionType === "submit" || currentPage === totalPages - 1;
 
   const hasRequiredFields = useMemo(() => {
     return currentFields.some((field) => {
@@ -676,7 +699,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (currentPage < totalPages - 1) return; // safety: not on last page
+    if (!isSubmitPage) return; // safety: only submit from a submit-type page
     if (!validatePage()) return;
 
     // Pre-submit status check
@@ -814,6 +837,45 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
 
   // Success screen
   if (submitted) {
+    // Custom success page from a success-type section
+    if (successSection && successFields.length > 0) {
+      return (
+        <div className="space-y-6 py-6">
+          {(successSection.name || successSection.description) && (
+            <div className="mb-6 pb-4 border-b border-border space-y-2">
+              {successSection.name && (
+                <h2
+                  className="text-lg font-semibold prose prose-sm dark:prose-invert max-w-none"
+                  style={{ color: accentColor }}
+                  dangerouslySetInnerHTML={{ __html: sanitize(successSection.name) }}
+                />
+              )}
+              {successSection.description && (
+                <div
+                  className="text-sm text-muted-foreground prose-sm max-w-full"
+                  dangerouslySetInnerHTML={{ __html: sanitize(successSection.description) }}
+                />
+              )}
+            </div>
+          )}
+          <div className="space-y-6">
+            {successFields.map((field) => (
+              <div key={field.id} id={`field-${field.id}`}>
+                <FieldRenderer
+                  field={field}
+                  value={null}
+                  onChange={() => {}}
+                  accentColor={accentColor}
+                  disabled
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // Default success screen
     return (
       <div className="text-center space-y-4 py-10">
         <div
@@ -946,12 +1008,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
           <div />
         )}
 
-        {currentPage < totalPages - 1 ? (
-          <Button type="button" onClick={handleNext} style={{ backgroundColor: accentColor, color: "white" }}>
-            Next
-            <ChevronRight className="h-4 w-4 ml-1" />
-          </Button>
-        ) : (
+        {isSubmitPage ? (
           <Button
             type="submit"
             disabled={submitting}
@@ -964,6 +1021,11 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
               <Send className="h-4 w-4 mr-2" />
             )}
             Submit
+          </Button>
+        ) : (
+          <Button type="button" onClick={handleNext} style={{ backgroundColor: accentColor, color: "white" }}>
+            Next
+            <ChevronRight className="h-4 w-4 ml-1" />
           </Button>
         )}
       </div>
