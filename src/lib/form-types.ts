@@ -221,7 +221,7 @@ export const FIELD_TYPE_META: FieldTypeMeta[] = [
     category: "media",
     description: "Allow file attachments",
     defaultLabel: "Upload File",
-    defaultProperties: { allowMultiple: false, maxFileSize: 10 },
+    defaultProperties: { maxFiles: 1, maxFileSize: 5000 },
   },
 ];
 

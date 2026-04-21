@@ -437,46 +437,29 @@ export function FieldSettings({
               <Separator />
               <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">File Upload Settings</Label>
               
-              <div className="flex items-center justify-between rounded-lg border border-border p-3 bg-background/50">
-                <div>
-                  <p className="text-sm font-medium">Allow Multiple Files</p>
-                  <p className="text-xs text-muted-foreground">Let users upload more than one file</p>
-                </div>
-                <Switch
-                  checked={!!field.properties?.allowMultiple}
-                  onCheckedChange={(v) =>
-                    onUpdate?.({
-                      properties: { ...(field.properties ?? {}), allowMultiple: v },
-                    })
-                  }
-                />
+              <div className="flex justify-between items-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                 <span>Maximum Files</span>
+                 <span className="text-foreground">{field.properties?.maxFiles ?? 1}</span>
               </div>
+              <Slider
+                min={1}
+                max={5}
+                step={1}
+                value={[field.properties?.maxFiles ?? 1]}
+                onValueChange={([v]) =>
+                  onUpdate?.({
+                    properties: { ...(field.properties ?? {}), maxFiles: v, allowMultiple: v > 1 },
+                  })
+                }
+              />
 
-              {field.properties?.allowMultiple && (
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] text-muted-foreground uppercase">Max Files</Label>
-                  <Input
-                    type="number"
-                    min={2}
-                    max={10}
-                    value={field.properties?.maxFiles ?? 5}
-                    onChange={(e) =>
-                      onUpdate?.({
-                        properties: { ...(field.properties ?? {}), maxFiles: Number(e.target.value) },
-                      })
-                    }
-                    className="h-8 text-sm"
-                  />
-                </div>
-              )}
-
-              <div className="space-y-1.5">
-                <Label className="text-[10px] text-muted-foreground uppercase">Max File Size (MB)</Label>
+              <div className="space-y-1.5 pt-3">
+                <Label className="text-[10px] text-muted-foreground uppercase">Max File Size (KB)</Label>
                 <Input
                   type="number"
                   min={1}
-                  max={50}
-                  value={field.properties?.maxFileSize ?? 2}
+                  max={5000}
+                  value={field.properties?.maxFileSize ?? 5000}
                   onChange={(e) =>
                     onUpdate?.({
                       properties: { ...(field.properties ?? {}), maxFileSize: Number(e.target.value) },
@@ -484,6 +467,7 @@ export function FieldSettings({
                   }
                   className="h-8 text-sm"
                 />
+                <p className="text-[10px] text-muted-foreground">Absolute maximum is 5000 KB (5 MB).</p>
               </div>
 
               <div className="space-y-1.5">

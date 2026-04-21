@@ -195,8 +195,8 @@ function FileUploadField({
 }) {
   const props = (field.properties as any) ?? {};
   const allowMultiple = props.allowMultiple ?? false;
-  const maxFiles = props.maxFiles ?? 5;
-  const maxFileSizeMB = props.maxFileSize ?? 2;
+  const maxFiles = props.maxFiles ?? 1;
+  const maxFileSizeKB = props.maxFileSize ?? 5000;
   const acceptedTypes = props.acceptedTypes as string[] | undefined;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -212,8 +212,8 @@ function FileUploadField({
     }
 
     const validFiles = newFiles.filter((f) => {
-      if (f.size > maxFileSizeMB * 1024 * 1024) {
-        toast.error(`File ${f.name} exceeds ${maxFileSizeMB}MB limit.`);
+      if (f.size > maxFileSizeKB * 1024) {
+        toast.error(`File ${f.name} exceeds ${maxFileSizeKB}KB limit.`);
         return false;
       }
       return true;
@@ -250,10 +250,15 @@ function FileUploadField({
         />
         <Upload className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
         <p className="text-sm font-medium">Click or drag files here</p>
-        <p className="text-xs text-muted-foreground mt-1">
-          {allowMultiple ? `Up to ${maxFiles} files, ` : ""}
-          Max {maxFileSizeMB}MB per file
-        </p>
+        <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+          <p>
+            {allowMultiple ? `Up to ${maxFiles} files, ` : ""}
+            Max {maxFileSizeKB}KB per file
+          </p>
+          {acceptedTypes && acceptedTypes.length > 0 && (
+            <p>Allowed types: {acceptedTypes.join(", ")}</p>
+          )}
+        </div>
       </div>
 
       {files.length > 0 && (

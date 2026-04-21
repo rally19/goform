@@ -249,6 +249,7 @@ export const formFields = pgTable(
       scaleMinLabel?: string;
       scaleMaxLabel?: string;
       allowMultiple?: boolean;
+      maxFiles?: number;
       acceptedTypes?: string[];
       maxFileSize?: number;
     }>(),
