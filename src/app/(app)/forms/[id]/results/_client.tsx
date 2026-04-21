@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { Form, FormField } from "@/db/schema";
 import type { ResponseRow, FormAnswer } from "@/lib/form-types";
 import { deleteResponse, exportResponsesCSV } from "@/lib/actions/responses";
@@ -33,12 +33,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  Trash2, Download, Inbox, ClipboardList, Star, Clock, Mail,
+  Trash2, Download, Inbox, Star, Clock, Mail, Search, Users, Calendar, ArrowUpDown, ChevronRight, ClipboardList
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { sanitize, stripHtml } from "@/lib/sanitize";
+import { motion, AnimatePresence } from "motion/react";
 
 interface ResultsClientProps {
   formId: string;
@@ -50,7 +54,6 @@ interface ResultsClientProps {
 function formatAnswer(val: FormAnswer, field: FormField): string {
   if (val === null || val === undefined || val === "") return "—";
   if (Array.isArray(val)) {
-    // Map values to labels if options exist
     if (field.options) {
       return val
         .map((v) => field.options!.find((o) => o.value === v)?.label ?? v)
@@ -78,18 +81,100 @@ function formatDateTime(date: Date) {
   }).format(new Date(date));
 }
 
+function formatTimeAgo(date: Date) {
+  const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
+  if (seconds < 60) return "Just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return formatDateTime(date);
+}
+
+function formatDuration(seconds: number) {
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}m ${s}s`;
+}
+
+function StatCard({ title, value, icon: Icon, description }: { 
+  title: string; 
+  value: string | number; 
+  icon: any; 
+  description?: string 
+}) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">
+          {title}
+        </CardTitle>
+        <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+          <Icon className="h-4 w-4 text-primary" />
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold tracking-tight">{value}</div>
+        {description && <p className="text-xs text-muted-foreground mt-0.5">{description}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function ResultsClient({ formId, form, fields, initialResponses }: ResultsClientProps) {
   const [responses, setResponses] = useState(initialResponses?.responses ?? []);
   const [total, setTotal] = useState(initialResponses?.total ?? 0);
   const [selectedResponse, setSelectedResponse] = useState<ResponseRow | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
 
-  // Early return if crucial data is missing (extra safety)
   if (!form || !fields) return null;
 
   const dataFields = fields.filter((f) => f && f.type !== "section" && f.type !== "page_break");
   const accentColor = form.accentColor ?? "#6366f1";
+
+  // Filtered & Sorted Responses
+  const processedResponses = useMemo(() => {
+    let result = [...responses];
+    
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(r => 
+        (r.respondentEmail?.toLowerCase().includes(query)) ||
+        Object.values(r.answers).some(a => String(a).toLowerCase().includes(query))
+      );
+    }
+
+    result.sort((a, b) => {
+      const dateA = new Date(a.submittedAt).getTime();
+      const dateB = new Date(b.submittedAt).getTime();
+      return sortBy === "newest" ? dateB - dateA : dateA - dateB;
+    });
+
+    return result;
+  }, [responses, searchQuery, sortBy]);
+
+  // Stats Calculations
+  const stats = useMemo(() => {
+    if (responses.length === 0) return null;
+    
+    const times = responses
+      .map(r => r.metadata?.timeTaken)
+      .filter((t): t is number => typeof t === "number");
+    
+    const avgTime = times.length 
+      ? Math.round(times.reduce((a, b) => a + b, 0) / times.length)
+      : null;
+    
+    const lastResponse = responses[0]?.submittedAt;
+
+    return { avgTime, lastResponse };
+  }, [responses]);
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -123,203 +208,400 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
     setExporting(false);
   };
 
+  const RespondentAvatar = ({ email }: { email?: string | null }) => {
+    const initials = email ? email.substring(0, 2).toUpperCase() : "A";
+    const bgColors = ["bg-indigo-500/10 text-indigo-600", "bg-rose-500/10 text-rose-600", "bg-emerald-500/10 text-emerald-600", "bg-amber-500/10 text-amber-600"];
+    const colorIndex = email ? (email.length % bgColors.length) : 0;
+    
+    return (
+      <Avatar size="sm" className={cn("size-7 transition-transform group-hover:scale-105", bgColors[colorIndex])}>
+        <AvatarFallback className="bg-transparent text-[10px] font-bold">{initials}</AvatarFallback>
+      </Avatar>
+    );
+  };
+
   return (
-    <div className="p-4 pt-6 md:p-8 space-y-6 overflow-y-auto h-full">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+    <div className="h-full overflow-y-auto">
+      <div className="p-4 pt-6 md:p-8 space-y-8 max-w-7xl mx-auto">
+      {/* Header & Export */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Results</h2>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            {total} {total === 1 ? "response" : "responses"} total
-          </p>
+          <h2 className="text-2xl font-bold tracking-tight prose prose-xl dark:prose-invert max-w-none mb-0.5" dangerouslySetInnerHTML={{ __html: sanitize(form.title) }} />
         </div>
-        <Button
-          variant="outline"
-          onClick={handleExport}
-          disabled={exporting || total === 0}
-        >
-          <Download className="h-4 w-4 mr-1.5" />
-          {exporting ? "Exporting..." : "Export CSV"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExport}
+            disabled={exporting || total === 0}
+            className="rounded-full shadow-sm"
+          >
+            <Download className="h-4 w-4 mr-1.5" />
+            {exporting ? "Exporting..." : "Export CSV"}
+          </Button>
+        </div>
       </div>
 
-      {/* Table */}
-      {responses.length === 0 ? (
-        <div className="border-2 border-dashed border-muted-foreground/20 rounded-xl p-16 text-center">
-          <Inbox className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="font-medium">No responses yet</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            Share your form to start collecting responses.
-          </p>
+      {/* Quick Stats */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <StatCard 
+          title="Total Submissions" 
+          value={total} 
+          icon={Users} 
+          description="Across all versions"
+        />
+        <StatCard 
+          title="Avg. Completion Time" 
+          value={stats?.avgTime ? `${Math.floor(stats.avgTime / 60)}m ${stats.avgTime % 60}s` : "—"} 
+          icon={Clock} 
+          description="Based on recent data"
+        />
+        <StatCard 
+          title="Last Submission" 
+          value={stats?.lastResponse ? formatTimeAgo(stats.lastResponse) : "—"} 
+          icon={Calendar} 
+          description="Fresh off the press"
+        />
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-muted/30 p-2 rounded-xl border border-border/40 backdrop-blur-sm">
+        <div className="relative w-full md:w-96">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input 
+            placeholder="Search responses or emails..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 bg-background/50 border-none shadow-none focus-visible:ring-1 focus-visible:ring-primary/20 rounded-lg py-3 h-10"
+          />
         </div>
-      ) : (
-        <div className="rounded-xl border border-border overflow-hidden">
-          <ScrollArea>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[180px]">Submitted</TableHead>
-                  <TableHead className="w-[160px]">Respondent</TableHead>
-                  {dataFields.slice(0, 3).map((f) => (
-                    <TableHead key={f.id} className="max-w-[200px]">
-                      <span className="truncate block">{stripHtml(f.label)}</span>
-                    </TableHead>
-                  ))}
-                  <TableHead className="w-[80px]" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {responses.map((r) => (
-                  <TableRow
-                    key={r.id}
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => setSelectedResponse(r)}
-                  >
-                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                      {formatDateTime(r.submittedAt)}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {r.respondentEmail ?? "Anonymous"}
-                    </TableCell>
-                    {dataFields.slice(0, 3).map((f) => (
-                      <TableCell key={f.id} className="text-sm max-w-[200px]">
-                        <span className="truncate block">
-                          {formatAnswer(r.answers[f.id] ?? null, f)}
-                        </span>
-                      </TableCell>
+        <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="text-xs h-8 whitespace-nowrap rounded-lg"
+            onClick={() => setSortBy(s => s === "newest" ? "oldest" : "newest")}
+          >
+            <ArrowUpDown className="h-3.5 w-3.5 mr-1.5" />
+            Sorted by {sortBy === "newest" ? "Newest" : "Oldest"}
+          </Button>
+          <Separator orientation="vertical" className="h-6 mx-1 hidden md:block" />
+          <div className="text-xs text-muted-foreground px-2 whitespace-nowrap">
+            Showing {processedResponses.length} of {total}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <AnimatePresence mode="wait">
+        {processedResponses.length === 0 ? (
+          <motion.div 
+            key="empty"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="border-2 border-dashed border-border/60 rounded-3xl p-20 text-center bg-muted/10"
+          >
+            <div className="bg-muted p-4 rounded-full w-fit mx-auto mb-4">
+              <Inbox className="h-8 w-8 text-muted-foreground/50" />
+            </div>
+            <p className="font-semibold text-lg">No responses found</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {searchQuery ? "Try a different search term" : "Share your form to start collecting data."}
+            </p>
+          </motion.div>
+        ) : (
+          <div key="content" className="space-y-4">
+            {/* Desktop Table View */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="hidden md:block rounded-2xl border border-border/80 bg-background overflow-hidden shadow-sm shadow-black/5"
+            >
+              <ScrollArea className="max-h-[600px]">
+                <Table>
+                  <TableHeader className="bg-muted/30 sticky top-0 z-10">
+                    <TableRow>
+                      <TableHead className="w-[80px] pl-6 text-xs uppercase tracking-wider font-semibold text-muted-foreground/70">Row</TableHead>
+                      <TableHead className="w-[180px] text-xs uppercase tracking-wider font-semibold text-muted-foreground/70">Submitted</TableHead>
+                      <TableHead className="w-[200px] text-xs uppercase tracking-wider font-semibold text-muted-foreground/70">Respondent</TableHead>
+                      <TableHead className="w-[150px] text-xs uppercase tracking-wider font-semibold text-muted-foreground/70">Performance</TableHead>
+                      <TableHead className="w-[100px] text-right text-[10px] font-bold uppercase tracking-wider h-11 py-0 px-6">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {processedResponses.map((r, i) => (
+                      <TableRow
+                        key={r.id}
+                        className="group cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => setSelectedResponse(r)}
+                      >
+                        <TableCell className="pl-6 text-muted-foreground font-mono text-xs">
+                          #{(sortBy === "newest" ? total - i : i + 1).toString().padStart(2, '0')}
+                        </TableCell>
+                        <TableCell className="text-sm font-medium">
+                          <div className="flex flex-col">
+                            <span>{formatDateTime(r.submittedAt)}</span>
+                            <span className="text-[10px] text-muted-foreground">{formatTimeAgo(r.submittedAt)}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <RespondentAvatar email={r.respondentEmail} />
+                            <span className="text-sm text-foreground truncate max-w-[140px]">
+                              {r.respondentEmail ?? "Anonymous"}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1.5 text-xs font-medium">
+                              <Clock size={12} className="text-muted-foreground" />
+                              {r.metadata?.timeTaken ? formatDuration(r.metadata.timeTaken) : "—"}
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[10px] text-emerald-500 font-bold uppercase tracking-wider">
+                              <div className="size-1.5 rounded-full bg-emerald-500" />
+                              Submitted
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="pr-6 text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex justify-end">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive/70 hover:text-destructive hover:bg-destructive/10 rounded-lg group-hover:opacity-100 opacity-0 transition-opacity"
+                              onClick={() => setDeleteId(r.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                    <TableCell onClick={(e) => e.stopPropagation()}>
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </motion.div>
+
+            <div className="md:hidden space-y-4">
+              {processedResponses.map((r, i) => (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  key={r.id}
+                  onClick={() => setSelectedResponse(r)}
+                  className="active:scale-[0.98] transition-all"
+                >
+                  <Card className="shadow-none overflow-hidden">
+                    <CardHeader className="flex flex-row items-center justify-between p-4 pb-2 space-y-0 relative">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-9 w-9 border border-border/50">
+                          <AvatarFallback className="text-[10px] bg-primary/5">
+                            {r.respondentEmail?.charAt(0).toUpperCase() ?? "A"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold truncate max-w-[180px]">
+                            {r.respondentEmail ?? "Anonymous Respondent"}
+                          </span>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] font-bold bg-background/50 h-5 px-1.5 border-border/40">
+                        #{(sortBy === "newest" ? total - i : i + 1).toString().padStart(2, '0')}
+                      </Badge>
+                    </CardHeader>
+                    <CardContent className="px-5 pb-4 space-y-4">
+                      <div className="grid grid-cols-2 gap-3 pt-2">
+                        <div className="flex flex-col gap-1 p-2.5 rounded-xl bg-muted/30 border border-border/40">
+                          <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">Submitted</span>
+                          <div className="flex items-center gap-1.5 text-[11px] font-semibold">
+                            <Calendar size={12} className="text-primary" />
+                            {formatDateTime(new Date(r.submittedAt))}
+                          </div>
+                          <span className="text-[10px] text-muted-foreground font-medium">
+                            {formatTimeAgo(new Date(r.submittedAt))}
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-1 p-2.5 rounded-xl bg-muted/30 border border-border/40">
+                          <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">Performance</span>
+                          <div className="flex items-center gap-1.5 text-[11px] font-semibold">
+                            <Clock size={12} className="text-primary" />
+                            {r.metadata?.timeTaken ? formatDuration(r.metadata.timeTaken) : "No record"}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[10px] text-emerald-500 font-bold uppercase tracking-wider">
+                            <div className="size-1.5 rounded-full bg-emerald-500" />
+                            Submitted
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                    <div className="px-5 py-4 flex items-center justify-between bg-muted/5 border-t border-border/40">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+                        View Details
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </div>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => setDeleteId(r.id)}
+                        className="h-8 w-8 text-destructive/70 hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteId(r.id);
+                        }}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </ScrollArea>
-        </div>
-      )}
+                    </div>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Response Detail Drawer */}
       <Sheet open={!!selectedResponse} onOpenChange={() => setSelectedResponse(null)}>
-        <SheetContent className="w-[420px] sm:w-[540px]">
-          <SheetHeader>
-            <SheetTitle>Response Details</SheetTitle>
-            <SheetDescription>
-              {selectedResponse ? `Submitted ${formatDateTime(selectedResponse.submittedAt)}` : "No response selected"}
-            </SheetDescription>
-          </SheetHeader>
-
-          <ScrollArea className="h-[calc(100vh-120px)] mt-4">
-            <div className="space-y-4 pr-4">
-              {/* Meta info */}
-              <div className="flex flex-wrap gap-2">
-                {selectedResponse?.respondentEmail && (
-                  <div className="flex items-center gap-1.5 text-xs bg-muted px-2 py-1 rounded-md">
-                    <Mail className="h-3 w-3 text-muted-foreground" />
-                    {selectedResponse.respondentEmail}
-                  </div>
-                )}
-                {selectedResponse?.metadata?.timeTaken && (
-                  <div className="flex items-center gap-1.5 text-xs bg-muted px-2 py-1 rounded-md">
-                    <Clock className="h-3 w-3 text-muted-foreground" />
-                    Completed in {
-                      selectedResponse.metadata.timeTaken < 60
-                        ? `${selectedResponse.metadata.timeTaken}s`
-                        : `${Math.floor(selectedResponse.metadata.timeTaken / 60)}m ${selectedResponse.metadata.timeTaken % 60}s`
-                    }
-                  </div>
+        <SheetContent className="h-full w-full sm:w-[500px] p-0 overflow-hidden flex flex-col gap-0 border-l border-border/50">
+          <div className="p-6 pb-4 border-b border-border/40 bg-muted/10 shrink-0">
+            <SheetHeader className="text-left space-y-1">
+              <div className="flex items-center gap-2 mb-2">
+                <Badge className="rounded-full bg-primary/10 text-primary hover:bg-primary/20 border-none transition-colors px-2.5">
+                  Response Details
+                </Badge>
+                {selectedResponse && (
+                  <span className="text-xs font-mono text-muted-foreground">
+                    ID: {selectedResponse.id.substring(0, 8)}
+                  </span>
                 )}
               </div>
+              <SheetTitle className="text-xl font-bold flex items-center gap-3">
+                <RespondentAvatar email={selectedResponse?.respondentEmail} />
+                <span className="truncate min-w-0 flex-1">{selectedResponse?.respondentEmail ?? "Anonymous Respondent"}</span>
+              </SheetTitle>
+              <SheetDescription className="flex items-center gap-2 pt-1 font-medium">
+                <Calendar className="h-3.5 w-3.5" />
+                Submitted on {selectedResponse ? formatDateTime(selectedResponse.submittedAt) : "—"}
+              </SheetDescription>
+            </SheetHeader>
+          </div>
 
-              <Separator />
-
-              {/* Answers */}
-              {selectedResponse && dataFields.map((field) => {
-                const answer = selectedResponse.answers[field.id] ?? null;
-                return (
-                  <div key={field.id} className="space-y-1">
-                    <div 
-                      className="text-xs font-medium text-muted-foreground uppercase tracking-wider prose prose-sm dark:prose-invert max-w-none"
-                      dangerouslySetInnerHTML={{ __html: sanitize(field.label) + (field.required ? ' <span class="text-destructive">*</span>' : '') }}
-                    />
-                    <div className="text-sm">
-                      {answer === null || answer === "" || (Array.isArray(answer) && answer.length === 0) ? (
-                        <span className="text-muted-foreground italic">No answer</span>
-                      ) : field.type === "rating" ? (
-                        <div className="flex gap-0.5">
-                          {Array.from({ length: field.properties?.stars ?? 5 }).map((_, i) => (
-                            <Star
-                              key={i}
-                              className="h-4 w-4"
-                              fill={i < Number(answer) ? accentColor : "transparent"}
-                              color={i < Number(answer) ? accentColor : "#94a3b8"}
-                            />
-                          ))}
-                          <span className="ml-2 text-muted-foreground text-xs self-center">
-                            {answer}/{field.properties?.stars ?? 5}
-                          </span>
-                        </div>
-                      ) : field.type === "long_text" ? (
-                        <p className="whitespace-pre-wrap bg-muted rounded-md p-3 text-sm">
-                          {String(answer)}
-                        </p>
-                      ) : (
-                        <p className="font-medium">{formatAnswer(answer, field)}</p>
-                      )}
-                    </div>
+          <ScrollArea className="flex-1 min-h-0 px-6 pt-6">
+            <div className="space-y-8 pb-12">
+              {/* Technical Metadata */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-muted/30 p-3 rounded-2xl border border-border/40">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Time Taken</p>
+                  <p className="text-sm font-semibold flex items-center gap-2">
+                    <Clock size={14} className="text-primary" />
+                    {selectedResponse?.metadata?.timeTaken 
+                      ? formatDuration(selectedResponse.metadata.timeTaken)
+                      : "No record"}
+                  </p>
+                </div>
+                <div className="bg-muted/30 p-3 rounded-2xl border border-border/40">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Status</p>
+                  <div className="text-sm font-semibold flex items-center gap-2">
+                    <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                    Submitted
                   </div>
-                );
-              })}
+                </div>
+              </div>
 
-              {/* Delete button */}
-              <Separator />
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
-                disabled={!selectedResponse}
-                onClick={() => {
-                  if (selectedResponse) {
-                    setDeleteId(selectedResponse.id);
-                    setSelectedResponse(null);
-                  }
-                }}
-              >
-                <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                Delete this response
-              </Button>
+              <div className="space-y-6">
+                {selectedResponse && dataFields.map((field) => {
+                  const answer = selectedResponse.answers[field.id] ?? null;
+                  return (
+                    <div key={field.id} className="group/field relative">
+                      <div className="absolute -left-3 top-0 bottom-0 w-1 bg-primary/20 rounded-full opacity-0 group-hover/field:opacity-100 transition-opacity" />
+                      <div 
+                        className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2 prose prose-sm dark:prose-invert max-w-full break-words"
+                        dangerouslySetInnerHTML={{ __html: sanitize(field.label) + (field.required ? ' <span class="text-destructive">*</span>' : '') }}
+                      />
+                      <div className="relative">
+                        {answer === null || answer === "" || (Array.isArray(answer) && answer.length === 0) ? (
+                          <div className="text-sm text-muted-foreground italic bg-muted/20 p-3 rounded-xl border border-dashed border-border/60">
+                            No answer provided
+                          </div>
+                        ) : field.type === "rating" ? (
+                          <div className="flex items-center gap-1.5 bg-muted/10 p-3 rounded-xl border border-border/40 w-fit">
+                            <div className="flex gap-0.5">
+                              {Array.from({ length: field.properties?.stars ?? 5 }).map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className="h-5 w-5"
+                                  fill={i < Number(answer) ? accentColor : "transparent"}
+                                  color={i < Number(answer) ? accentColor : "#94a3b8"}
+                                />
+                              ))}
+                            </div>
+                            <span className="ml-2 font-bold text-sm text-primary">
+                              {answer} / {field.properties?.stars ?? 5}
+                            </span>
+                          </div>
+                        ) : field.type === "long_text" ? (
+                          <div 
+                            className="bg-muted/20 border border-border/40 rounded-2xl p-4 text-sm leading-relaxed shadow-inner prose prose-sm dark:prose-invert max-w-none [&_img]:rounded-xl [&_img]:border [&_img]:border-border/40"
+                            dangerouslySetInnerHTML={{ __html: sanitize(String(answer)) }}
+                          />
+                        ) : (
+                          <div 
+                            className="bg-muted/10 border border-border/40 rounded-xl p-3 px-4 text-sm font-medium prose prose-sm dark:prose-invert max-w-full break-words [&_p]:m-0 [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-lg [&_img]:my-2"
+                            dangerouslySetInnerHTML={{ __html: sanitize(formatAnswer(answer, field)) }}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </ScrollArea>
+
+          {/* Footer Actions */}
+          <div className="p-6 border-t border-border/40 bg-muted/5 shrink-0">
+            <Button
+              variant="outline"
+              size="lg"
+              className="w-full text-destructive border-destructive/20 hover:bg-destructive/10 hover:text-destructive rounded-xl"
+              disabled={!selectedResponse}
+              onClick={() => {
+                if (selectedResponse) {
+                  setDeleteId(selectedResponse.id);
+                  setSelectedResponse(null);
+                }
+              }}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Permanently
+            </Button>
+          </div>
         </SheetContent>
       </Sheet>
 
       {/* Delete Confirm */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-3xl border-border/60">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Response?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete this response. This cannot be undone.
+            <AlertDialogTitle className="text-xl font-bold">Delete Response?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm">
+              This will permanently delete this response from your records. This action is irreversible.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              className="bg-destructive text-white hover:bg-destructive/90"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl"
             >
-              Delete
+              Delete Forever
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </div>
     </div>
   );
 }

@@ -164,23 +164,25 @@ export function AnalyticsDashboard({ formId, form, analytics }: AnalyticsDashboa
   if (!analytics || analytics.totalResponses === 0) {
     return (
       <div className="p-4 pt-6 md:p-8 space-y-6 overflow-y-auto h-full">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Analytics</h2>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            Share your form to start collecting responses
-          </p>
-        </div>
-        <div className="border-2 border-dashed border-muted-foreground/20 rounded-xl p-16 text-center">
-          <BarChart2 className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="font-medium">No responses yet</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            Analytics will appear here once people start submitting your form.
-          </p>
-          <div className="mt-4 flex flex-col items-center gap-1">
-            <p className="text-xs text-muted-foreground">Your public form URL:</p>
-            <code className="text-xs bg-muted px-3 py-1.5 rounded-md border">
-              {origin}/f/{form.slug}
-            </code>
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">Analytics</h2>
+            <p className="text-muted-foreground text-sm mt-0.5">
+              Share your form to start collecting responses
+            </p>
+          </div>
+          <div className="border-2 border-dashed border-muted-foreground/20 rounded-xl p-16 text-center">
+            <BarChart2 className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+            <p className="font-medium">No responses yet</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Analytics will appear here once people start submitting your form.
+            </p>
+            <div className="mt-4 flex flex-col items-center gap-1">
+              <p className="text-xs text-muted-foreground">Your public form URL:</p>
+              <code className="text-xs bg-muted px-3 py-1.5 rounded-md border">
+                {origin}/f/{form.slug}
+              </code>
+            </div>
           </div>
         </div>
       </div>
@@ -194,6 +196,7 @@ export function AnalyticsDashboard({ formId, form, analytics }: AnalyticsDashboa
 
   return (
     <div className="p-4 pt-6 md:p-8 space-y-6 overflow-y-auto h-full">
+      <div className="max-w-7xl mx-auto space-y-6 pb-20">
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Analytics</h2>
         <div 
@@ -281,6 +284,7 @@ export function AnalyticsDashboard({ formId, form, analytics }: AnalyticsDashboa
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
