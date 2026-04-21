@@ -174,11 +174,14 @@ export function useFormCollaboration({
     if (fromIndex === -1 || fromIndex === toIndex) return;
     const clampedTo = Math.max(0, Math.min(toIndex, items.length - 1));
 
-    // Swap the orderIndex of the moved section with the one at the target position
-    const fromOrder = items[fromIndex].orderIndex;
-    const toOrder = items[clampedTo].orderIndex;
-    items[fromIndex].obj.set("orderIndex", toOrder);
-    items[clampedTo].obj.set("orderIndex", fromOrder);
+    // Proper arrayMove: remove from old position, insert at new position
+    const [moved] = items.splice(fromIndex, 1);
+    items.splice(clampedTo, 0, moved);
+
+    // Reassign sequential orderIndex values so sorting is always deterministic
+    items.forEach((item, idx) => {
+      item.obj.set("orderIndex", idx);
+    });
   }, []);
 
   const duplicateSection = useMutation(({ storage }, id: string, newSectionId: string) => {
