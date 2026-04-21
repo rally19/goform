@@ -71,11 +71,6 @@ async function PreviewPageData({
               />
             )}
           </div>
-          <div className="px-8 pb-4">
-            <div className="border-t border-border pt-3 text-xs text-destructive font-medium">
-              * Indicates required question
-            </div>
-          </div>
         </div>
 
         {/* Form */}

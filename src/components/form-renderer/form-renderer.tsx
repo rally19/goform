@@ -600,6 +600,14 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
   const currentFields = currentPageData.fields;
   const progress = totalPages > 1 ? ((currentPage) / totalPages) * 100 : 0;
 
+  const hasRequiredFields = useMemo(() => {
+    return currentFields.some((field) => {
+      if (field.type === "section" || field.type === "page_break") return false;
+      const state = getDynamicState(field.id);
+      return state.visible && state.required;
+    });
+  }, [currentFields, getDynamicState]);
+
   const validatePage = useCallback(() => {
     const newErrors: Record<string, string> = {};
     for (const field of currentFields as FormField[]) {
@@ -858,6 +866,13 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
               dangerouslySetInnerHTML={{ __html: sanitize(currentPageData.sectionDescription) }}
             />
           )}
+        </div>
+      )}
+
+      {/* Required indicator */}
+      {hasRequiredFields && (
+        <div className="mb-6 text-xs text-destructive font-medium animate-in fade-in slide-in-from-top-1 duration-300">
+          * Indicates required question
         </div>
       )}
 
