@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 
 import type { Form } from "@/db/schema";
 import type { FormAnalytics, FieldStat } from "@/lib/form-types";
+import { getFormAnalytics } from "@/lib/actions/responses";
+
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
 } from "@/components/ui/card";
@@ -14,8 +16,9 @@ import {
 } from "recharts";
 import {
   Users, Clock, TrendingUp, Star, BarChart2, CheckSquare,
-  Type, SlidersHorizontal,
+  Type, SlidersHorizontal, Loader2,
 } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 import { sanitize, stripHtml } from "@/lib/sanitize";
 
@@ -153,16 +156,58 @@ interface AnalyticsDashboardProps {
   analytics: FormAnalytics | null;
 }
 
-export function AnalyticsDashboard({ formId, form, analytics }: AnalyticsDashboardProps) {
+export function AnalyticsDashboard({ formId, form, analytics: initialAnalytics }: AnalyticsDashboardProps) {
   const accentColor = form.accentColor ?? "#6366f1";
 
+  const [mounted, setMounted] = useState(false);
+  const [analytics, setAnalytics] = useState<FormAnalytics | null>(initialAnalytics);
+  const [loading, setLoading] = useState(false);
   const [origin, setOrigin] = useState("");
+
   useEffect(() => {
+    setMounted(true);
     setOrigin(window.location.origin);
-  }, []);
+    
+    // Detect timezone
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    
+    // Re-fetch if we are not in UTC (to get correct grouping)
+    // or if we have no analytics at all (server failed)
+    if (tz && (tz !== "UTC" || !analytics)) {
+      const fetchLocalized = async () => {
+        setLoading(true);
+        const result = await getFormAnalytics(formId, tz);
+        if (result.success && result.data) {
+          setAnalytics(result.data);
+        }
+        setLoading(false);
+      };
+      fetchLocalized();
+    }
+  }, [formId]);
+
+
+  if (loading && !analytics) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="h-8 w-8 animate-spin text-primary/20" />
+      </div>
+    );
+  }
+
 
   if (!analytics || analytics.totalResponses === 0) {
+    // Only show "No responses" if we are NOT currently loading fresh data
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary/20" />
+        </div>
+      );
+    }
+
     return (
+
       <div className="p-4 pt-6 md:p-8 space-y-6 overflow-y-auto h-full">
         <div className="max-w-7xl mx-auto space-y-6">
           <div>
@@ -243,14 +288,28 @@ export function AnalyticsDashboard({ formId, form, analytics }: AnalyticsDashboa
                   tick={{ fontSize: 10 }}
                   tickFormatter={(d) => {
                     const date = new Date(d);
-                    return `${date.getMonth() + 1}/${date.getDate()}`;
+                    const day = date.getDate();
+                    const month = date.getMonth() + 1;
+                    return `${day}/${month}`;
                   }}
+
                 />
                 <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
                 <Tooltip
-                  labelFormatter={(l) => new Date(l).toLocaleDateString()}
+                  labelFormatter={(l) => {
+                    if (!mounted) return "...";
+                    const date = new Date(l);
+                    return date.toLocaleDateString(undefined, { 
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric'
+                    }).replace(/\./g, '/');
+                  }}
+
+
                   formatter={(v) => [v, "Responses"]}
                 />
+
                 <Line
                   type="monotone"
                   dataKey="count"

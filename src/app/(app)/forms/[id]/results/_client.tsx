@@ -106,7 +106,7 @@ function formatAnswer(val: FormAnswer, field: FormField): string {
 }
 
 function formatDateTime(date: Date) {
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(undefined, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -114,6 +114,7 @@ function formatDateTime(date: Date) {
     minute: "2-digit",
   }).format(new Date(date));
 }
+
 
 function formatTimeAgo(date: Date) {
   const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
@@ -159,7 +160,11 @@ function StatCard({ title, value, icon: Icon, description }: {
 }
 
 export function ResultsClient({ formId, form, fields, initialResponses }: ResultsClientProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const [responses, setResponses] = useState(initialResponses?.responses ?? []);
+
   const [total, setTotal] = useState(initialResponses?.total ?? 0);
   const [selectedResponse, setSelectedResponse] = useState<ResponseRow | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -226,7 +231,9 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
 
   const handleExport = async () => {
     setExporting(true);
-    const result = await exportResponsesCSV(formId);
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const result = await exportResponsesCSV(formId, tz);
+
     if (result.success && result.data) {
       const blob = new Blob([result.data], { type: "text/csv" });
       const url = URL.createObjectURL(blob);
@@ -292,10 +299,11 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
         />
         <StatCard 
           title="Last Submission" 
-          value={stats?.lastResponse ? formatTimeAgo(stats.lastResponse) : "—"} 
+          value={stats?.lastResponse && mounted ? formatTimeAgo(stats.lastResponse) : "—"} 
           icon={Calendar} 
           description="Fresh off the press"
         />
+
       </div>
 
       {/* Toolbar */}
@@ -375,10 +383,11 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
                         </TableCell>
                         <TableCell className="text-sm font-medium">
                           <div className="flex flex-col">
-                            <span>{formatDateTime(r.submittedAt)}</span>
-                            <span className="text-[10px] text-muted-foreground">{formatTimeAgo(r.submittedAt)}</span>
+                            <span>{mounted ? formatDateTime(r.submittedAt) : "—"}</span>
+                            <span className="text-[10px] text-muted-foreground">{mounted ? formatTimeAgo(r.submittedAt) : "—"}</span>
                           </div>
                         </TableCell>
+
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <RespondentAvatar email={r.respondentEmail} />
@@ -452,11 +461,12 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
                           <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">Submitted</span>
                           <div className="flex items-center gap-1.5 text-[11px] font-semibold">
                             <Calendar size={12} className="text-primary" />
-                            {formatDateTime(new Date(r.submittedAt))}
+                            {mounted ? formatDateTime(new Date(r.submittedAt)) : "—"}
                           </div>
                           <span className="text-[10px] text-muted-foreground font-medium">
-                            {formatTimeAgo(new Date(r.submittedAt))}
+                            {mounted ? formatTimeAgo(new Date(r.submittedAt)) : "—"}
                           </span>
+
                         </div>
                         <div className="flex flex-col gap-1 p-2.5 rounded-xl bg-muted/30 border border-border/40">
                           <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">Performance</span>
@@ -517,8 +527,9 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
               </SheetTitle>
               <SheetDescription className="flex items-center gap-2 pt-1 font-medium">
                 <Calendar className="h-3.5 w-3.5" />
-                Submitted on {selectedResponse ? formatDateTime(selectedResponse.submittedAt) : "—"}
+                Submitted on {selectedResponse && mounted ? formatDateTime(selectedResponse.submittedAt) : "—"}
               </SheetDescription>
+
             </SheetHeader>
           </div>
 

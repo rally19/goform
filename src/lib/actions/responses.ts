@@ -139,7 +139,8 @@ export async function deleteResponse(
 
 // ─── Get Analytics ────────────────────────────────────────────────────────────
 
-export async function getFormAnalytics(formId: string): Promise<ActionResult<FormAnalytics>> {
+export async function getFormAnalytics(formId: string, timezone = "UTC"): Promise<ActionResult<FormAnalytics>> {
+
   try {
     // Verify access (viewer role required for analytics)
     const form = await enforceFormAccess(formId, "viewer") as FormWithFields;
@@ -171,20 +172,41 @@ export async function getFormAnalytics(formId: string): Promise<ActionResult<For
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const responsesOverTime = await db
-      .select({
-        date: sql<string>`DATE(submitted_at)::text`,
-        count: count(),
-      })
-      .from(formResponses)
-      .where(
-        and(
-          eq(formResponses.formId, formId),
-          gte(formResponses.submittedAt, thirtyDaysAgo)
+    let responsesOverTime: { date: string; count: number }[] = [];
+    try {
+      responsesOverTime = await db
+        .select({
+          date: sql<string>`DATE(submitted_at AT TIME ZONE 'UTC' AT TIME ZONE ${timezone})::text`,
+          count: count(),
+        })
+        .from(formResponses)
+        .where(
+          and(
+            eq(formResponses.formId, formId),
+            gte(formResponses.submittedAt, thirtyDaysAgo)
+          )
         )
-      )
-      .groupBy(sql`DATE(submitted_at)`)
-      .orderBy(sql`DATE(submitted_at)`);
+        .groupBy(sql`DATE(submitted_at AT TIME ZONE 'UTC' AT TIME ZONE ${timezone})`)
+        .orderBy(sql`DATE(submitted_at AT TIME ZONE 'UTC' AT TIME ZONE ${timezone})`);
+    } catch (err) {
+      console.error("Timezone-aware analytics failed, falling back to UTC:", err);
+      responsesOverTime = await db
+        .select({
+          date: sql<string>`DATE(submitted_at)::text`,
+          count: count(),
+        })
+        .from(formResponses)
+        .where(
+          and(
+            eq(formResponses.formId, formId),
+            gte(formResponses.submittedAt, thirtyDaysAgo)
+          )
+        )
+        .groupBy(sql`DATE(submitted_at)`)
+        .orderBy(sql`DATE(submitted_at)`);
+    }
+
+
 
     // Per-field stats
     const fieldStats = form.fields
@@ -282,7 +304,8 @@ export async function getFormAnalytics(formId: string): Promise<ActionResult<For
 
 // ─── Export CSV ───────────────────────────────────────────────────────────────
 
-export async function exportResponsesCSV(formId: string): Promise<ActionResult<string>> {
+export async function exportResponsesCSV(formId: string, timezone = "UTC"): Promise<ActionResult<string>> {
+
   try {
     // Verify access (viewer role required for export)
     const form = await enforceFormAccess(formId, "viewer") as FormWithFields;
@@ -316,7 +339,17 @@ export async function exportResponsesCSV(formId: string): Promise<ActionResult<s
       return [
         r.id,
         r.respondentEmail ?? "",
-        r.submittedAt.toISOString(),
+        new Intl.DateTimeFormat("en-US", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          timeZone: timezone,
+          timeZoneName: "short",
+        }).format(r.submittedAt),
+
         ...dataFields.map((f) => {
           const val = answers[f.id];
           if (f.type === "file") {
