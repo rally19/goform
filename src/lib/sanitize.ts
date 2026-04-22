@@ -11,7 +11,10 @@ export function sanitize(html: string | null | undefined): string {
     // In the browser, ensure we use the sanitize method.
     // Handle cases where the import might be the factory function.
     const purify = (DOMPurify as any).sanitize ? DOMPurify : DOMPurify(window);
-    return purify.sanitize(html);
+    return purify.sanitize(html, {
+      ALLOWED_ATTR: ["style", "href", "src", "alt", "target", "rel", "class"],
+      ALLOWED_TAGS: ["p", "br", "b", "i", "u", "s", "ul", "ol", "li", "a", "img", "span", "h1", "h2", "h3"],
+    });
   }
   // During SSR, return raw strings to avoid crashes.
   // The client will re-render and sanitize during hydration.

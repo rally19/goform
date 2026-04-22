@@ -1,6 +1,7 @@
 "use client";
 
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, Extension } from "@tiptap/react";
+import { TextStyle } from "@tiptap/extension-text-style";
 // Removed BubbleMenu import as it is no longer used for docked toolbar
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -17,7 +18,8 @@ import {
   ListOrdered, 
   Link as LinkIcon, 
   Link2Off,
-  Image as ImageIcon
+  Image as ImageIcon,
+  ChevronDown
 } from "lucide-react";
 import { Button } from "./button";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
@@ -37,6 +39,65 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+// Custom Font Size Extension
+const FontSize = Extension.create({
+  name: "fontSize",
+  addOptions() {
+    return {
+      types: ["textStyle"],
+    };
+  },
+  addGlobalAttributes() {
+    return [
+      {
+        types: this.options.types,
+        attributes: {
+          fontSize: {
+            default: null,
+            parseHTML: (element) => element.style.fontSize?.replace("pt", ""),
+            renderHTML: (attributes) => {
+              if (!attributes.fontSize) {
+                return {};
+              }
+              return {
+                style: `font-size: ${attributes.fontSize}pt`,
+              };
+            },
+          },
+        },
+      },
+    ];
+  },
+  addCommands() {
+    return {
+      setFontSize:
+        (fontSize: string) =>
+        ({ chain }: { chain: any }) => {
+          return chain().setMark("textStyle", { fontSize }).run();
+        },
+      unsetFontSize:
+        () =>
+        ({ chain }: { chain: any }) => {
+          return chain()
+            .setMark("textStyle", { fontSize: null })
+            .removeEmptyTextStyle()
+            .run();
+        },
+    } as any;
+  },
+});
+
+const FONT_SIZES = [
+  { label: "8pt", value: "8" },
+  { label: "10pt", value: "10" },
+  { label: "12pt", value: "12" },
+  { label: "14pt", value: "14" },
+  { label: "16pt", value: "16" },
+  { label: "18pt", value: "18" },
+  { label: "24pt", value: "24" },
+  { label: "32pt", value: "32" },
+];
+
 interface RichTextProps {
   value: string;
   onChange: (value: string) => void;
@@ -49,6 +110,7 @@ interface RichTextProps {
   multiline?: boolean;
   allowImages?: boolean;
 }
+
 
 export function RichText({ 
   value, 
@@ -109,6 +171,8 @@ export function RichText({
           class: "max-w-full h-auto rounded-lg my-2",
         },
       }),
+      TextStyle,
+      FontSize,
     ],
     content: value,
     onUpdate: ({ editor }) => {
@@ -262,6 +326,8 @@ export function RichText({
     }
   }, [value, editor]);
 
+  const currentFontSize = editor?.getAttributes("textStyle").fontSize;
+
   if (!editor) return null;
 
   return (
@@ -281,6 +347,58 @@ export function RichText({
             className="overflow-hidden bg-muted/40 border-t lg:border-t-0 lg:border-b border-border p-1 rounded-b-lg lg:rounded-b-none lg:rounded-t-lg"
           >
             <div className="flex flex-wrap items-center gap-0.5">
+              {/* Font Size Popover */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={cn(
+                      "h-8 px-2 flex items-center gap-1.5",
+                      currentFontSize && "text-primary bg-primary/10"
+                    )}
+                    title="Font Size"
+                  >
+                    <span className="text-xs font-bold w-4">Aa</span>
+                    <span className="text-[10px] font-medium min-w-[24px]">
+                      {currentFontSize ? `${currentFontSize}pt` : "12pt"}
+                    </span>
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="p-1 w-32" align="start">
+                  <div className="flex flex-col">
+                    {FONT_SIZES.map((size) => (
+                      <Button
+                        key={size.value}
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                          "justify-start font-normal h-8 px-2",
+                          currentFontSize === size.value && "bg-primary/10 text-primary"
+                        )}
+                        onClick={() => {
+                          if (currentFontSize === size.value) {
+                            (editor?.chain().focus() as any).unsetFontSize().run();
+                          } else {
+                            (editor?.chain().focus() as any).setFontSize(size.value).run();
+                          }
+                        }}
+                      >
+                        <span style={{ fontSize: `${size.value}pt` }} className="truncate">
+                          {size.label}
+                        </span>
+                        {currentFontSize === size.value && (
+                          <Check className="ml-auto h-3 w-3" />
+                        )}
+                      </Button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              <Separator orientation="vertical" className="h-6" />
+
               <ToolbarButton
                 active={editor.isActive("bold")}
                 onClick={() => editor.chain().focus().toggleBold().run()}
@@ -296,9 +414,11 @@ export function RichText({
                 onClick={() => editor.chain().focus().toggleUnderline().run()}
                 icon={<UnderlineIcon className="h-4 w-4" />}
               />
+              <Separator orientation="vertical" className="h-6" />
+
+
               {multiline && (
                 <>
-                  <div className="w-px h-4 bg-border mx-1" />
                   <ToolbarButton
                     active={editor.isActive("bulletList")}
                     onClick={() => editor.chain().focus().toggleBulletList().run()}
