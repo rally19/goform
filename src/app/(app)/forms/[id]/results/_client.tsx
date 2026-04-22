@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import type { Form, FormField } from "@/db/schema";
 import type { ResponseRow, FormAnswer } from "@/lib/form-types";
-import { deleteResponse, exportResponsesCSV } from "@/lib/actions/responses";
+import { deleteResponse, deleteResponses, exportResponsesCSV } from "@/lib/actions/responses";
 import { createClient } from "@/lib/client";
 import {
   Table,
@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Sheet,
   SheetContent,
@@ -168,9 +169,37 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
   const [total, setTotal] = useState(initialResponses?.total ?? 0);
   const [selectedResponse, setSelectedResponse] = useState<ResponseRow | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isDeletingBulk, setIsDeletingBulk] = useState(false);
+  const [multiDeleteOpen, setMultiDeleteOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
+
+  const handleSelectAll = (checked: boolean) => {
+    setSelectedIds(checked ? processedResponses.map((r) => r.id) : []);
+  };
+
+  const toggleSelect = (id: string, checked: boolean) => {
+    setSelectedIds((prev) =>
+      checked ? [...prev, id] : prev.filter((x) => x !== id)
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    setIsDeletingBulk(true);
+    const result = await deleteResponses(selectedIds, formId);
+    setIsDeletingBulk(false);
+    if (result.success) {
+      setResponses((prev) => prev.filter((r) => !selectedIds.includes(r.id)));
+      setTotal((t) => t - selectedIds.length);
+      setSelectedIds([]);
+      setMultiDeleteOpen(false);
+      toast.success("Responses deleted");
+    } else {
+      toast.error(result.error ?? "Failed to delete responses");
+    }
+  };
 
   if (!form || !fields) return null;
 
@@ -262,8 +291,35 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
   };
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="p-4 pt-6 md:p-8 space-y-8 max-w-7xl mx-auto">
+    <div className="h-full flex flex-col relative overflow-hidden">
+      {/* Bulk Action Bar (Overlay) */}
+      {selectedIds.length > 0 && (
+        <div className="absolute top-0 inset-x-0 h-16 bg-primary/5 border-b border-primary/20 flex items-center justify-between px-8 z-20 animate-in slide-in-from-top-4">
+          <div className="flex items-center gap-4">
+             <Checkbox 
+               checked={selectedIds.length === processedResponses.length && processedResponses.length > 0}
+               onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
+             />
+             <span className="text-sm font-medium">{selectedIds.length} selected</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              size="sm" 
+              className="gap-2 h-9 px-4"
+              onClick={() => setMultiDeleteOpen(true)}
+            >
+              <Trash2 className="h-4 w-4" /> Delete
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <div className={cn("flex-1 overflow-y-auto relative scrollbar-edge transition-all duration-300", selectedIds.length > 0 ? "mt-16" : "")}>
+        <div className="p-4 pt-6 md:p-8 space-y-8 max-w-7xl mx-auto">
       {/* Header & Export */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -363,8 +419,14 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
               <ScrollArea className="max-h-[600px]">
                 <Table>
                   <TableHeader className="bg-muted/30 sticky top-0 z-10">
-                    <TableRow>
-                      <TableHead className="w-[80px] pl-6 text-xs uppercase tracking-wider font-semibold text-muted-foreground/70">Row</TableHead>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="w-[50px] pl-6">
+                        <Checkbox 
+                          checked={selectedIds.length === processedResponses.length && processedResponses.length > 0}
+                          onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
+                        />
+                      </TableHead>
+                      <TableHead className="w-[80px] text-xs uppercase tracking-wider font-semibold text-muted-foreground/70">Row</TableHead>
                       <TableHead className="w-[180px] text-xs uppercase tracking-wider font-semibold text-muted-foreground/70">Submitted</TableHead>
                       <TableHead className="w-[200px] text-xs uppercase tracking-wider font-semibold text-muted-foreground/70">Respondent</TableHead>
                       <TableHead className="w-[150px] text-xs uppercase tracking-wider font-semibold text-muted-foreground/70">Performance</TableHead>
@@ -372,15 +434,26 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {processedResponses.map((r, i) => (
-                      <TableRow
-                        key={r.id}
-                        className="group cursor-pointer hover:bg-muted/50 transition-colors"
-                        onClick={() => setSelectedResponse(r)}
-                      >
-                        <TableCell className="pl-6 text-muted-foreground font-mono text-xs">
-                          #{(sortBy === "newest" ? total - i : i + 1).toString().padStart(2, '0')}
-                        </TableCell>
+                    {processedResponses.map((r, i) => {
+                      const isSelected = selectedIds.includes(r.id);
+                      return (
+                        <TableRow
+                          key={r.id}
+                          className={cn(
+                            "group cursor-pointer hover:bg-muted/50 transition-colors",
+                            isSelected ? "bg-primary/5 hover:bg-primary/10" : ""
+                          )}
+                          onClick={() => setSelectedResponse(r)}
+                        >
+                          <TableCell className="pl-6" onClick={(e) => e.stopPropagation()}>
+                            <Checkbox 
+                              checked={isSelected}
+                              onCheckedChange={(checked) => toggleSelect(r.id, checked as boolean)}
+                            />
+                          </TableCell>
+                          <TableCell className="text-muted-foreground font-mono text-xs">
+                            #{(sortBy === "newest" ? total - i : i + 1).toString().padStart(2, '0')}
+                          </TableCell>
                         <TableCell className="text-sm font-medium">
                           <div className="flex flex-col">
                             <span>{mounted ? formatDateTime(r.submittedAt) : "—"}</span>
@@ -421,40 +494,55 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </ScrollArea>
             </motion.div>
 
             <div className="md:hidden space-y-4">
-              {processedResponses.map((r, i) => (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  key={r.id}
-                  onClick={() => setSelectedResponse(r)}
-                  className="active:scale-[0.98] transition-all"
-                >
-                  <Card className="shadow-none overflow-hidden">
-                    <CardHeader className="flex flex-row items-center justify-between p-4 pb-2 space-y-0 relative">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9 border border-border/50">
-                          <AvatarFallback className="text-[10px] bg-primary/5">
-                            {r.respondentEmail?.charAt(0).toUpperCase() ?? "A"}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold truncate max-w-[180px]">
-                            {r.respondentEmail ?? "Anonymous Respondent"}
-                          </span>
+              {processedResponses.map((r, i) => {
+                const isSelected = selectedIds.includes(r.id);
+                return (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    key={r.id}
+                    onClick={() => setSelectedResponse(r)}
+                    className="active:scale-[0.98] transition-all"
+                  >
+                    <Card className={cn(
+                      "shadow-none overflow-hidden transition-all duration-300",
+                      isSelected ? "border-primary ring-1 ring-primary bg-primary/[0.02]" : "border-border/80"
+                    )}>
+                      <CardHeader className="flex flex-row items-center justify-between p-4 pb-2 space-y-0 relative">
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                            <Checkbox 
+                              checked={isSelected}
+                              onCheckedChange={(checked) => toggleSelect(r.id, checked as boolean)}
+                            />
+                            <Avatar className="h-9 w-9 border border-border/50">
+                              <AvatarFallback className="text-[10px] bg-primary/5">
+                                {r.respondentEmail?.charAt(0).toUpperCase() ?? "A"}
+                              </AvatarFallback>
+                            </Avatar>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold truncate max-w-[180px]">
+                              {r.respondentEmail ?? "Anonymous Respondent"}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                      <Badge variant="outline" className="text-[10px] font-bold bg-background/50 h-5 px-1.5 border-border/40">
-                        #{(sortBy === "newest" ? total - i : i + 1).toString().padStart(2, '0')}
-                      </Badge>
-                    </CardHeader>
+                        <Badge variant="outline" className={cn(
+                          "text-[10px] font-bold h-5 px-1.5 border-border/40 transition-colors",
+                          isSelected ? "bg-primary text-primary-foreground border-primary" : "bg-background/50"
+                        )}>
+                          #{(sortBy === "newest" ? total - i : i + 1).toString().padStart(2, '0')}
+                        </Badge>
+                      </CardHeader>
                     <CardContent className="px-5 pb-4 space-y-4">
                       <div className="grid grid-cols-2 gap-3 pt-2">
                         <div className="flex flex-col gap-1 p-2.5 rounded-xl bg-muted/30 border border-border/40">
@@ -500,11 +588,13 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
                     </div>
                   </Card>
                 </motion.div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
       </AnimatePresence>
+    </div>
 
       {/* Response Detail Drawer */}
       <Sheet open={!!selectedResponse} onOpenChange={() => setSelectedResponse(null)}>
@@ -648,6 +738,27 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl"
             >
               Delete Forever
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {/* Multi-Delete Confirm */}
+      <AlertDialog open={multiDeleteOpen} onOpenChange={setMultiDeleteOpen}>
+        <AlertDialogContent className="rounded-3xl border-border/60">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-bold">Delete {selectedIds.length} Responses?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm">
+              This will permanently delete the selected responses from your records. This action is irreversible and will also remove all associated files.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl" disabled={isDeletingBulk}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              disabled={isDeletingBulk}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl"
+            >
+              {isDeletingBulk ? "Deleting..." : "Delete All Forever"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

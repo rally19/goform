@@ -211,6 +211,64 @@ export async function deleteResponse(
   }
 }
 
+export async function deleteResponses(
+  responseIds: string[],
+  formId: string
+): Promise<ActionResult> {
+  try {
+    const { inArray, and, eq } = await import("drizzle-orm");
+    // Verify access (editor role required to delete responses)
+    const form = await enforceFormAccess(formId, "editor");
+    if (!form) return { success: false, error: "Form not found" };
+
+    // Fetch all responses to extract file paths from the answers
+    const responses = await db.query.formResponses.findMany({
+      where: and(inArray(formResponses.id, responseIds), eq(formResponses.formId, formId)),
+    });
+
+    if (responses.length === 0) return { success: false, error: "No responses found" };
+
+    // Extract all file paths from the answers
+    const filePaths: string[] = [];
+    responses.forEach((response) => {
+      if (response.answers && typeof response.answers === "object") {
+        Object.values(response.answers).forEach((val) => {
+          if (Array.isArray(val)) {
+            val.forEach((item) => {
+              if (typeof item === "string" && item.startsWith(`forms/${formId}/responses/`)) {
+                filePaths.push(item);
+              }
+            });
+          }
+        });
+      }
+    });
+
+    if (filePaths.length > 0) {
+      const supabase = await createClient();
+      // Remove from storage bucket
+      const { error: storageError } = await supabase.storage
+        .from("form-uploads")
+        .remove(filePaths);
+
+      if (storageError) {
+        console.error("Storage delete error:", storageError.message);
+      }
+
+      // Remove from assets table
+      await db.delete(assets).where(inArray(assets.storagePath, filePaths));
+    }
+
+    await db
+      .delete(formResponses)
+      .where(and(inArray(formResponses.id, responseIds), eq(formResponses.formId, formId)));
+
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
 // ─── Get Analytics ────────────────────────────────────────────────────────────
 
 export async function getFormAnalytics(formId: string, timezone = "UTC"): Promise<ActionResult<FormAnalytics>> {
