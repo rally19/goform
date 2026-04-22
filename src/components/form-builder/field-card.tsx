@@ -34,7 +34,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useState, memo, useMemo } from "react";
+import { useState, memo, useMemo, useCallback } from "react";
 import { sanitize } from "@/lib/sanitize";
 
 const FIELD_ICONS: Record<string, React.ElementType> = {
@@ -49,6 +49,8 @@ const FIELD_ICONS: Record<string, React.ElementType> = {
 interface FieldCardProps {
   field: BuilderField;
   isSelected: boolean;
+  isMultiSelected?: boolean;
+  isMultiSelectMode?: boolean;
   accentColor?: string;
   isOverlay?: boolean;
   currentUserId: string;
@@ -58,12 +60,15 @@ interface FieldCardProps {
   onDuplicate?: (field: BuilderField) => void;
   onMove?: (fieldId: string, targetSectionId: string) => void;
   onClick?: (id: string) => void;
+  onToggleMultiSelect?: (id: string) => void;
   others?: readonly any[];
 }
 
 export const FieldCard = memo(function FieldCard({ 
   field, 
   isSelected, 
+  isMultiSelected = false,
+  isMultiSelectMode = false,
   accentColor = "#6366f1",
   isOverlay = false,
   currentUserId,
@@ -73,6 +78,7 @@ export const FieldCard = memo(function FieldCard({
   onDuplicate,
   onMove,
   onClick,
+  onToggleMultiSelect,
   others = [],
 }: FieldCardProps) {
   const Icon = FIELD_ICONS[field.type] ?? Type;
@@ -246,7 +252,8 @@ export const FieldCard = memo(function FieldCard({
         isLocalDragging ? "opacity-0" : "opacity-100",
         isOverlay && "z-50 cursor-grabbing shadow-xl border-primary/50",
         isBeingEditedByOther && "ring-2 ring-offset-2",
-        isBeingDraggedByOther && "opacity-50 scale-[0.98] border-dashed shadow-sm"
+        isBeingDraggedByOther && "opacity-50 scale-[0.98] border-dashed shadow-sm",
+        isMultiSelected && "border-primary/50 border-dashed"
       )}
       style={{
         ...style,
@@ -255,13 +262,19 @@ export const FieldCard = memo(function FieldCard({
           ? draggerColor 
           : isBeingEditedByOther 
             ? editorColor 
-            : isSelected || isOverlay 
-              ? accentColor 
-              : undefined,
+            : isMultiSelected
+              ? undefined // let the className handle it
+              : isSelected || isOverlay 
+                ? accentColor 
+                : undefined,
         boxShadow: isSelected || isOverlay 
           ? `0 0 0 4px ${accentColor}10, 0 4px 20px -4px ${accentColor}25` 
-          : undefined,
-        backgroundColor: isSelected && !isOverlay ? `${accentColor}05` : undefined,
+          : isMultiSelected
+            ? `0 0 0 2px hsl(var(--primary) / 0.15)`
+            : undefined,
+        backgroundColor: isMultiSelected
+          ? `hsl(var(--primary) / 0.04)`
+          : isSelected && !isOverlay ? `${accentColor}05` : undefined,
         ...(isBeingEditedByOther ? { ringColor: editorColor } : {}),
       }}
     >
@@ -328,14 +341,37 @@ export const FieldCard = memo(function FieldCard({
       </AnimatePresence>
 
       <div className="flex items-start gap-2 md:gap-3 p-3 md:p-4">
-        {/* Drag handle */}
-        <div
-          {...attributes}
-          {...listeners}
-          className="p-2 -m-2 outline-none touch-none shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <GripVertical className="h-4 w-4" />
+        {/* Drag handle + multi-select checkbox */}
+        <div className="flex flex-col items-center gap-1 shrink-0">
+          <div
+            {...attributes}
+            {...listeners}
+            className="p-2 -m-2 outline-none touch-none cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <GripVertical className="h-4 w-4" />
+          </div>
+          <button
+            type="button"
+            className={cn(
+              "h-4 w-4 rounded border transition-all shrink-0 flex items-center justify-center",
+              isMultiSelected
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-muted-foreground/30 hover:border-muted-foreground/60 bg-transparent",
+              !isMultiSelectMode && !isMultiSelected && "opacity-0 group-hover:opacity-100"
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleMultiSelect?.(field.id);
+            }}
+            title="Multi-select"
+          >
+            {isMultiSelected && (
+              <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none">
+                <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </button>
         </div>
 
         {/* Content */}

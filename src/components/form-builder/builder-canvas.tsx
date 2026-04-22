@@ -37,7 +37,8 @@ import {
 import {
   PlusCircle, Settings2, Palette,
   Plus, Loader2, Send, ChevronRight, CheckCircle2,
-  GripVertical, Copy, Trash2, ChevronDown, MoveRight, Layers
+  GripVertical, Copy, Trash2, ChevronDown, MoveRight, Layers,
+  X, CheckSquare2
 } from "lucide-react";
 import { FieldMoveDialog } from "./field-move-dialog";
 import { SectionReorderDialog } from "./section-reorder-dialog";
@@ -235,6 +236,10 @@ export function BuilderCanvas({
     setCurrentSectionId,
     selectedSectionId,
     selectSection,
+    multiSelectedFieldIds,
+    toggleMultiSelect,
+    clearMultiSelect,
+    setMultiSelect,
   } = useFormBuilder();
 
   // ─── Liveblocks Engine ────────────────────────────────────────────────────
@@ -288,8 +293,13 @@ export function BuilderCanvas({
     return fields.filter(f => f.sectionId === activeSectionId);
   }, [fields, activeSectionId]);
 
+  const isMultiSelectMode = multiSelectedFieldIds.size > 0;
+  const multiCount = multiSelectedFieldIds.size;
+
   const [isSectionTypeOpen, setIsSectionTypeOpen] = useState(false);
   const [pendingAddAfterIndex, setPendingAddAfterIndex] = useState<number>(0);
+  const [isMultiDeleteOpen, setIsMultiDeleteOpen] = useState(false);
+  const [isMultiMoveOpen, setIsMultiMoveOpen] = useState(false);
 
   const handleAddSection = useCallback((afterIndex: number) => {
     setPendingAddAfterIndex(afterIndex);
@@ -342,7 +352,8 @@ export function BuilderCanvas({
     setCurrentSectionId(id);
     selectField(null);
     selectSection(null);
-  }, [setCurrentSectionId, selectField, selectSection]);
+    clearMultiSelect();
+  }, [setCurrentSectionId, selectField, selectSection, clearMultiSelect]);
 
   const handleOpenSectionSettings = useCallback((id: string) => {
     if (selectedSectionId === id) {
@@ -463,12 +474,55 @@ export function BuilderCanvas({
   }, [fields, collabAddField, activeSectionId, selectField]);
 
   const handleFieldClick = useCallback((id: string) => {
+    if (isMultiSelectMode) {
+      toggleMultiSelect(id);
+      return;
+    }
     if (selectedFieldId === id) {
       selectField(null);
     } else {
       selectField(id);
     }
-  }, [selectedFieldId, selectField]);
+  }, [selectedFieldId, selectField, isMultiSelectMode, toggleMultiSelect]);
+
+  // ─── Bulk operations (multi-select) ─────────────────────────────────────────
+  const handleBulkDuplicate = useCallback(() => {
+    const ids = Array.from(multiSelectedFieldIds);
+    for (const id of ids) {
+      const field = fields.find(f => f.id === id);
+      if (!field) continue;
+      const copy = { ...field, id: crypto.randomUUID(), label: `${field.label} (Copy)`, isNew: true };
+      const idx = fields.findIndex(f => f.id === id);
+      collabAddField(copy, idx + 1);
+    }
+    clearMultiSelect();
+    toast.success(`Duplicated ${ids.length} field${ids.length > 1 ? "s" : ""}`);
+  }, [multiSelectedFieldIds, fields, collabAddField, clearMultiSelect]);
+
+  const handleBulkDelete = useCallback(() => {
+    const ids = Array.from(multiSelectedFieldIds);
+    for (const id of ids) {
+      collabRemoveField(id);
+    }
+    clearMultiSelect();
+    toast.success(`Deleted ${ids.length} field${ids.length > 1 ? "s" : ""}`);
+  }, [multiSelectedFieldIds, collabRemoveField, clearMultiSelect]);
+
+  const handleBulkMove = useCallback((targetSectionId: string) => {
+    const ids = Array.from(multiSelectedFieldIds);
+    for (const id of ids) {
+      collabUpdateField(id, { sectionId: targetSectionId });
+    }
+    clearMultiSelect();
+    toast.success(`Moved ${ids.length} field${ids.length > 1 ? "s" : ""}`);
+  }, [multiSelectedFieldIds, collabUpdateField, clearMultiSelect]);
+
+  const handleSelectAllInSection = useCallback(() => {
+    const ids = sectionFields
+      .filter(f => f.type !== "page_break" && f.type !== "section")
+      .map(f => f.id);
+    setMultiSelect(ids);
+  }, [sectionFields, setMultiSelect]);
 
   return (
     <DndContext
@@ -573,7 +627,7 @@ export function BuilderCanvas({
 
           {/* Canvas — one unified CursorArea per section, keyed so switching section
                fully remounts the area and resets all live cursors to the new page */}
-          <div className="flex-1 h-full min-h-0 bg-muted/30 overflow-y-auto" onClick={() => { selectField(null); selectSection(null); }}>
+          <div className="flex-1 h-full min-h-0 bg-muted/30 overflow-y-auto" onClick={() => { selectField(null); selectSection(null); clearMultiSelect(); }}>
             <CursorArea
               key={activeSectionId ?? "no-section"}
               id={`canvas-${activeSectionId ?? "no-section"}`}
@@ -636,6 +690,8 @@ export function BuilderCanvas({
                                   <FieldCard
                                     field={field}
                                     isSelected={selectedFieldId === field.id}
+                                    isMultiSelected={multiSelectedFieldIds.has(field.id)}
+                                    isMultiSelectMode={isMultiSelectMode}
                                     accentColor={accentColor}
                                     currentUserId={currentUserId}
                                     sections={sortedSections}
@@ -644,6 +700,7 @@ export function BuilderCanvas({
                                     onDuplicate={handleDuplicateField}
                                     onMove={handleMoveField}
                                     onClick={handleFieldClick}
+                                    onToggleMultiSelect={toggleMultiSelect}
                                     others={others}
                                   />
                                 </motion.div>
@@ -741,112 +798,203 @@ export function BuilderCanvas({
           </div>
 
           {/* Mobile Footer Action Bar */}
-          <div className="md:hidden h-16 border-t border-border bg-card flex items-center justify-around px-2 shrink-0 z-30 pb-safe">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px]" 
-              onClick={() => {
-                if (selectedSectionId) {
-                  handleAddSection(currentSectionIndex);
-                } else {
-                  setIsComponentsOpen(true);
-                }
-              }}
-            >
-              <Plus className={cn("h-5 w-5", selectedSectionId ? "text-foreground" : "text-primary")} />
-              <span className="text-[10px] font-medium">{selectedSectionId ? "Add Section" : "Add"}</span>
-            </Button>
-
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px]" 
-              onClick={() => {
-                if (selectedSectionId) {
-                  handleDuplicateSection(selectedSectionId);
-                } else {
-                  const field = fields.find(f => f.id === selectedFieldId);
-                  if (field) handleDuplicateField(field);
-                }
-              }}
-              disabled={!selectedFieldId && !selectedSectionId}
-            >
-              <Copy className="h-5 w-5" />
-              <span className="text-[10px] font-medium">Duplicate</span>
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px]"
-              onClick={() => {
-                if (selectedSectionId) setIsSectionReorderOpen(true);
-                else setIsMoveFieldOpen(true);
-              }}
-              disabled={
-                (!selectedFieldId && !selectedSectionId) ||
-                (!!selectedFieldId && sections.length <= 1) ||
-                (!!selectedSectionId && sections.length <= 1)
-              }
-            >
-              <MoveRight className="h-5 w-5" />
-              <span className="text-[10px] font-medium">Move</span>
-            </Button>
-
-            <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px] text-destructive disabled:opacity-30" 
-                onClick={() => setIsDeleteConfirmOpen(true)}
-                disabled={(!selectedFieldId && !selectedSectionId) || (!!selectedSectionId && sections.length === 1)}
-              >
+          {isMultiSelectMode ? (
+            /* ─── Mobile: Multi-select bar ───────────────────────────────── */
+            <div className="md:hidden h-16 border-t border-border bg-card flex items-center justify-around px-2 shrink-0 z-30 pb-safe">
+              <Button variant="ghost" size="sm" className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[56px]" onClick={clearMultiSelect}>
+                <X className="h-5 w-5" />
+                <span className="text-[10px] font-medium">{multiCount}</span>
+              </Button>
+              <Button variant="ghost" size="sm" className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[56px]" onClick={handleSelectAllInSection}>
+                <CheckSquare2 className="h-5 w-5" />
+                <span className="text-[10px] font-medium">All</span>
+              </Button>
+              <Button variant="ghost" size="sm" className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[56px]" onClick={handleBulkDuplicate}>
+                <Copy className="h-5 w-5" />
+                <span className="text-[10px] font-medium">Duplicate</span>
+              </Button>
+              <Button variant="ghost" size="sm" className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[56px]" onClick={() => setIsMultiMoveOpen(true)} disabled={sections.length <= 1}>
+                <MoveRight className="h-5 w-5" />
+                <span className="text-[10px] font-medium">Move</span>
+              </Button>
+              <Button variant="ghost" size="sm" className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[56px] text-destructive" onClick={() => setIsMultiDeleteOpen(true)}>
                 <Trash2 className="h-5 w-5" />
                 <span className="text-[10px] font-medium">Delete</span>
               </Button>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>{selectedSectionId ? "Delete Section?" : "Delete Field?"}</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {selectedSectionId
-                      ? "This will permanently delete this section and all its fields. This cannot be undone."
-                      : "Are you sure you want to delete the selected field? This action cannot be undone."}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction 
-                    onClick={() => {
-                      if (selectedSectionId) {
-                        handleDeleteSection(selectedSectionId);
-                        selectSection(null);
-                      } else if (selectedFieldId) {
-                        handleRemoveField(selectedFieldId);
-                        selectField(null);
-                      }
-                    }} 
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            </div>
+          ) : (
+            /* ─── Mobile: Normal bar ─────────────────────────────────────── */
+            <div className="md:hidden h-16 border-t border-border bg-card flex items-center justify-around px-2 shrink-0 z-30 pb-safe">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px]" 
+                onClick={() => {
+                  if (selectedSectionId) {
+                    handleAddSection(currentSectionIndex);
+                  } else {
+                    setIsComponentsOpen(true);
+                  }
+                }}
+              >
+                <Plus className={cn("h-5 w-5", selectedSectionId ? "text-foreground" : "text-primary")} />
+                <span className="text-[10px] font-medium">{selectedSectionId ? "Add Section" : "Add"}</span>
+              </Button>
 
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px]" 
-              onClick={() => setIsSettingsOpen(true)} 
-              disabled={!selectedFieldId && !selectedSectionId}
-            >
-              <Settings2 className="h-5 w-5" />
-              <span className="text-[10px] font-medium">Properties</span>
-            </Button>
-          </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px]" 
+                onClick={() => {
+                  if (selectedSectionId) {
+                    handleDuplicateSection(selectedSectionId);
+                  } else {
+                    const field = fields.find(f => f.id === selectedFieldId);
+                    if (field) handleDuplicateField(field);
+                  }
+                }}
+                disabled={!selectedFieldId && !selectedSectionId}
+              >
+                <Copy className="h-5 w-5" />
+                <span className="text-[10px] font-medium">Duplicate</span>
+              </Button>
 
-          {/* Mobile: Field Move Dialog */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px]"
+                onClick={() => {
+                  if (selectedSectionId) setIsSectionReorderOpen(true);
+                  else setIsMoveFieldOpen(true);
+                }}
+                disabled={
+                  (!selectedFieldId && !selectedSectionId) ||
+                  (!!selectedFieldId && sections.length <= 1) ||
+                  (!!selectedSectionId && sections.length <= 1)
+                }
+              >
+                <MoveRight className="h-5 w-5" />
+                <span className="text-[10px] font-medium">Move</span>
+              </Button>
+
+              <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px] text-destructive disabled:opacity-30" 
+                  onClick={() => setIsDeleteConfirmOpen(true)}
+                  disabled={(!selectedFieldId && !selectedSectionId) || (!!selectedSectionId && sections.length === 1)}
+                >
+                  <Trash2 className="h-5 w-5" />
+                  <span className="text-[10px] font-medium">Delete</span>
+                </Button>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{selectedSectionId ? "Delete Section?" : "Delete Field?"}</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {selectedSectionId
+                        ? "This will permanently delete this section and all its fields. This cannot be undone."
+                        : "Are you sure you want to delete the selected field? This action cannot be undone."}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={() => {
+                        if (selectedSectionId) {
+                          handleDeleteSection(selectedSectionId);
+                          selectSection(null);
+                        } else if (selectedFieldId) {
+                          handleRemoveField(selectedFieldId);
+                          selectField(null);
+                        }
+                      }} 
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px]" 
+                onClick={() => setIsSettingsOpen(true)} 
+                disabled={!selectedFieldId && !selectedSectionId}
+              >
+                <Settings2 className="h-5 w-5" />
+                <span className="text-[10px] font-medium">Properties</span>
+              </Button>
+            </div>
+          )}
+
+          {/* Desktop: Multi-select action bar */}
+          <AnimatePresence>
+            {isMultiSelectMode && (
+              <motion.div
+                initial={{ y: 80, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 80, opacity: 0 }}
+                transition={{ type: "spring", damping: 24, stiffness: 300 }}
+                className="hidden md:flex fixed bottom-6 left-1/2 -translate-x-1/2 z-50 items-center gap-1 rounded-xl border border-border bg-card shadow-xl px-2 py-1.5"
+              >
+                <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-3 text-xs" onClick={clearMultiSelect}>
+                  <X className="h-3.5 w-3.5" />
+                  {multiCount} selected
+                </Button>
+                <div className="w-px h-5 bg-border" />
+                <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-3 text-xs" onClick={handleSelectAllInSection}>
+                  <CheckSquare2 className="h-3.5 w-3.5" />
+                  Select all
+                </Button>
+                <div className="w-px h-5 bg-border" />
+                <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-3 text-xs" onClick={handleBulkDuplicate}>
+                  <Copy className="h-3.5 w-3.5" />
+                  Duplicate
+                </Button>
+                <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-3 text-xs" onClick={() => setIsMultiMoveOpen(true)} disabled={sections.length <= 1}>
+                  <MoveRight className="h-3.5 w-3.5" />
+                  Move
+                </Button>
+                <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-3 text-xs text-destructive hover:text-destructive" onClick={() => setIsMultiDeleteOpen(true)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Multi-select: Field Move Dialog */}
+          <FieldMoveDialog
+            open={isMultiMoveOpen}
+            onOpenChange={setIsMultiMoveOpen}
+            sections={sortedSections}
+            currentSectionId={activeSectionId}
+            accentColor={accentColor}
+            onMove={handleBulkMove}
+          />
+
+          {/* Multi-select: Delete Confirm Dialog */}
+          <AlertDialog open={isMultiDeleteOpen} onOpenChange={setIsMultiDeleteOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete {multiCount} field{multiCount > 1 ? "s" : ""}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete the selected field{multiCount > 1 ? "s" : ""}. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          {/* Mobile: Field Move Dialog (single) */}
           <FieldMoveDialog
             open={isMoveFieldOpen}
             onOpenChange={setIsMoveFieldOpen}

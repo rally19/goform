@@ -430,7 +430,9 @@ export function RichText({
   useEffect(() => {
     if (editor && value !== editor.getHTML()) {
       if (!editor.isFocused) {
-        editor.commands.setContent(value || "", { emitUpdate: false });
+        queueMicrotask(() => {
+          editor.commands.setContent(value || "", { emitUpdate: false });
+        });
       }
     }
   }, [value, editor]);
