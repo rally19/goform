@@ -9,6 +9,7 @@ import {
   Type, AlignLeft, Hash, Mail, Phone, Link2, Calendar, Clock,
   CircleDot, CheckSquare, ChevronDown, ListChecks,
   SlidersHorizontal, Heading, Columns2, Upload, CalendarClock,
+  EyeClosed, PencilOff, RectangleEllipsis,
 } from "lucide-react";
 import { FieldMoveDialog } from "./field-move-dialog";
 import type { BuilderSection } from "@/lib/form-types";
@@ -348,6 +349,15 @@ export const FieldCard = memo(function FieldCard({
               />
               {field.required && (
                 <span className="text-destructive text-sm leading-none shrink-0">*</span>
+              )}
+              {field.properties?.defaultHidden && (
+                <EyeClosed className="h-3 w-3 text-muted-foreground shrink-0" />
+              )}
+              {field.properties?.defaultDisabled && (
+                <PencilOff className="h-3 w-3 text-muted-foreground shrink-0" />
+              )}
+              {field.properties?.defaultMasked && (
+                <RectangleEllipsis className="h-3 w-3 text-muted-foreground shrink-0" />
               )}
             </div>
             <div className="flex items-center justify-end gap-2 shrink-0">
