@@ -74,7 +74,7 @@ function RegisterForm() {
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight">Create an account</CardTitle>
           <CardDescription>
-            Enter your information to get started with GoForm
+            Enter your information to get started with FormTo.Link
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GoForm - Form Builder",
+  title: "FormTo.Link - Form Builder",
   description: "Build beautiful forms interactively.",
 };
 

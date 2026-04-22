@@ -304,14 +304,14 @@ export async function inviteMember(orgId: string, email: string, role: "manager"
     const inviteLink = `${appUrl}/api/accept-invite?token=${token}`;
 
     const { error: emailError } = await resend.emails.send({
-      from: 'GoForm <no-reply@formto.link>',
+      from: 'FormTo.Link <no-reply@formto.link>',
       to: [email],
-      subject: `Invitation to join ${org?.name || 'an organization'} on GoForm`,
+      subject: `Invitation to join ${org?.name || 'an organization'} on FormTo.Link`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
           <h2 style="color: #111827;">You've been invited!</h2>
           <p style="color: #4b5563; line-height: 1.5;">
-            You have been invited to join <strong>${org?.name || 'the organization'}</strong> as a <strong>${role}</strong> on GoForm.
+            You have been invited to join <strong>${org?.name || 'the organization'}</strong> as a <strong>${role}</strong> on FormTo.Link.
           </p>
           <div style="margin: 32px 0;">
             <a href="${inviteLink}" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500;">

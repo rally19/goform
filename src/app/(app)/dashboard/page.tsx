@@ -71,7 +71,7 @@ async function DashboardHeader() {
       <div>
         <div className="flex items-center gap-2 mb-1">
           <h2 className="text-2xl font-bold tracking-tight">
-            Welcome back to GoForm, {user?.name || "User"}!
+            Welcome back to FormTo.Link, {user?.name || "User"}!
           </h2>
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">

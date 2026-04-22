@@ -20,13 +20,13 @@ export default function AuthLayout({
           <div className="flex h-7 w-7 items-center justify-center rounded bg-primary text-primary-foreground">
             <SquarePen className="size-4" />
           </div>
-          GoForm
+          FormTo.Link
         </div>
         
         <div className="relative z-20 mt-auto">
           <blockquote className="space-y-2">
             <p className="text-lg/relaxed">
-              "GoForm has completely revolutionized how we capture user data. The dynamic builder is an absolute joy to use and saves us countless hours."
+              "FormTo.Link has completely revolutionized how we capture user data. The dynamic builder is an absolute joy to use and saves us countless hours."
             </p>
             <footer className="text-sm/snug text-zinc-600 dark:text-zinc-400">Sofia Davis, Product Manager at Acme Corp</footer>
           </blockquote>

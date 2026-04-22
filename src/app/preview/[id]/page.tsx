@@ -80,7 +80,7 @@ async function PreviewPageData({
         </div>
 
         <p className="text-center text-xs text-muted-foreground pb-8">
-          Powered by <span className="font-semibold text-foreground">GoForm</span>
+          Powered by <span className="font-semibold text-foreground">FormTo.Link</span>
         </p>
       </div>
     </div>
@@ -119,7 +119,7 @@ function PreviewSkeleton() {
         </div>
 
         <p className="text-center text-xs text-muted-foreground opacity-50 pb-8">
-          Powered by <span className="font-semibold text-foreground">GoForm</span>
+          Powered by <span className="font-semibold text-foreground">FormTo.Link</span>
         </p>
       </div>
     </div>

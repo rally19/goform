@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PERSONAL_WORKSPACE_ID } from "@/lib/constants";
 
 export const metadata = {
-  title: "Assets – GoForm",
+  title: "Assets – FormTo.Link",
   description: "Manage images, files, and media assets for your workspace",
 };
 

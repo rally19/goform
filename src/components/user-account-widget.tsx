@@ -124,7 +124,7 @@ export function UserAccountWidget({
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Log out of GoForm?</AlertDialogTitle>
+            <AlertDialogTitle>Log out of FormTo.Link?</AlertDialogTitle>
             <AlertDialogDescription>
               You will need to sign back in to access your dashboard and forms.
             </AlertDialogDescription>
