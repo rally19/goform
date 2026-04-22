@@ -165,6 +165,41 @@ export async function deleteResponse(
     // Verify access (editor role required to delete responses)
     const form = await enforceFormAccess(formId, "editor");
     if (!form) return { success: false, error: "Form not found" };
+    const response = await db.query.formResponses.findFirst({
+      where: and(eq(formResponses.id, responseId), eq(formResponses.formId, formId)),
+    });
+
+    if (!response) return { success: false, error: "Response not found" };
+
+    // Extract all file paths from the answers
+    const filePaths: string[] = [];
+    if (response.answers && typeof response.answers === "object") {
+      Object.values(response.answers).forEach((val) => {
+        if (Array.isArray(val)) {
+          val.forEach((item) => {
+            if (typeof item === "string" && item.startsWith(`forms/${formId}/responses/`)) {
+              filePaths.push(item);
+            }
+          });
+        }
+      });
+    }
+
+    if (filePaths.length > 0) {
+      const supabase = await createClient();
+      // Remove from storage bucket
+      const { error: storageError } = await supabase.storage
+        .from("form-uploads")
+        .remove(filePaths);
+
+      if (storageError) {
+        console.error("Storage delete error:", storageError.message);
+      }
+
+      // Remove from assets table
+      const { inArray } = await import("drizzle-orm");
+      await db.delete(assets).where(inArray(assets.storagePath, filePaths));
+    }
 
     await db
       .delete(formResponses)
