@@ -366,7 +366,7 @@ export const FieldCard = memo(function FieldCard({
 
       <div className="flex items-start gap-2 md:gap-3 p-3 md:p-4">
         {/* Drag handle + multi-select checkbox */}
-        <div className="flex flex-col items-center gap-1 shrink-0">
+        <div className="flex flex-col items-center gap-3 shrink-0">
           <div
             {...attributes}
             {...listeners}
@@ -381,8 +381,7 @@ export const FieldCard = memo(function FieldCard({
               "h-4 w-4 rounded border transition-all shrink-0 flex items-center justify-center",
               isMultiSelected
                 ? "border-primary bg-primary text-primary-foreground"
-                : "border-muted-foreground/30 hover:border-muted-foreground/60 bg-transparent",
-              !isMultiSelectMode && !isMultiSelected && "opacity-0 group-hover:opacity-100"
+                : "border-muted-foreground/30 hover:border-muted-foreground/60 bg-transparent"
             )}
             onClick={(e) => {
               e.stopPropagation();
