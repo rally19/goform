@@ -60,6 +60,12 @@ export const organizationRoleEnum = pgEnum("organization_role", [
   "viewer",
 ]);
 
+export const userRoleEnum = pgEnum("user_role", [
+  "user",
+  "admin",
+  "superadmin",
+]);
+
 // ─── Users (mirrors Supabase auth.users) ─────────────────────────────────────
 
 export const users = pgTable("users", {
@@ -67,8 +73,9 @@ export const users = pgTable("users", {
   email: text("email").notNull(),
   name: text("name"),
   avatarUrl: text("avatar_url"),
-  emailVerifiedAt: timestamp("email_verified_at"),
+  emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  role: userRoleEnum("role").notNull().default("user"),
 });
 
 // ─── API Keys ───────────────────────────────────────────────────────────────
@@ -390,6 +397,7 @@ export const assetsRelations = relations(assets, ({ one }) => ({
 // ─── Type Exports ─────────────────────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
+export type UserRole = typeof userRoleEnum.enumValues[number];
 export type Organization = typeof organizations.$inferSelect;
 export type OrganizationMember = typeof organizationMembers.$inferSelect;
 export type OrganizationInvite = typeof organizationInvites.$inferSelect;

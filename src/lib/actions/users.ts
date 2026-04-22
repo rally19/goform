@@ -5,12 +5,14 @@ import { users } from "@/db/schema";
 import { createClient } from "@/lib/server";
 import { eq } from "drizzle-orm";
 import type { ActionResult } from "@/lib/form-types";
+import type { UserRole } from "@/db/schema";
 
 export async function getCurrentUserProfile(): Promise<ActionResult<{
   id: string;
   name: string | null;
   email: string;
   avatarUrl: string | null;
+  role: UserRole;
 }>> {
   try {
     const supabase = await createClient();
@@ -31,6 +33,7 @@ export async function getCurrentUserProfile(): Promise<ActionResult<{
         name: dbUser?.name || user.user_metadata?.name || user.user_metadata?.full_name || null,
         email: user.email!,
         avatarUrl: dbUser?.avatarUrl || user.user_metadata?.avatar_url || null,
+        role: dbUser?.role ?? "user",
       },
     };
   } catch (err) {

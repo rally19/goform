@@ -163,6 +163,7 @@ async function SidebarDataWrapper() {
     <AppSidebar 
       workspaces={workspaces} 
       activeWorkspaceId={activeWorkspaceId}
+      userRole={(userResult.success && userResult.data) ? userResult.data.role : undefined}
     />
   );
 }

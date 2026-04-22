@@ -21,11 +21,13 @@ import {
   SquarePen,
   HardDrive,
   Loader2,
+  ShieldCheck,
 } from "lucide-react";
 import { UserAccountWidget } from "@/components/user-account-widget";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { setActiveWorkspace } from "@/lib/actions/organizations";
 import { useRouter } from "next/navigation";
+import type { UserRole } from "@/db/schema";
 
 const navigation = [
   {
@@ -53,9 +55,11 @@ const navigation = [
 export function AppSidebar({
   workspaces,
   activeWorkspaceId,
+  userRole,
 }: {
   workspaces: any[];
   activeWorkspaceId: string;
+  userRole?: UserRole;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -130,6 +134,28 @@ export function AppSidebar({
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Admin Panel link — only visible to admins */}
+        {(userRole === "admin" || userRole === "superadmin") && (
+          <SidebarGroup>
+            <SidebarGroupLabel>System</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname.startsWith("/admin")}
+                  >
+                    <Link href="/admin">
+                      <ShieldCheck className="h-4 w-4 text-violet-500" />
+                      <span>Admin Panel</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border p-3">
         <UserAccountWidget 
