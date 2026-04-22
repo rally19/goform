@@ -1,6 +1,6 @@
 "use client";
 
-import { useEditor, EditorContent, Extension } from "@tiptap/react";
+import { useEditor, EditorContent, Extension, NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
 import { TextStyle } from "@tiptap/extension-text-style";
 // Removed BubbleMenu import as it is no longer used for docked toolbar
 import StarterKit from "@tiptap/starter-kit";
@@ -38,6 +38,113 @@ import {
   Check
 } from "lucide-react";
 import { toast } from "sonner";
+import { MoveDiagonal2 } from "lucide-react";
+
+const ResizableImageComponent = ({ node, updateAttributes, selected, editor }: any) => {
+  const [resizing, setResizing] = useState(false);
+  const [isEditorFocused, setIsEditorFocused] = useState(editor.isFocused);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    const onFocus = () => setIsEditorFocused(true);
+    const onBlur = () => setIsEditorFocused(false);
+    
+    editor.on('focus', onFocus);
+    editor.on('blur', onBlur);
+    
+    return () => {
+      editor.off('focus', onFocus);
+      editor.off('blur', onBlur);
+    };
+  }, [editor]);
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setResizing(true);
+    
+    const startX = e.pageX;
+    const startWidth = imgRef.current?.width || 0;
+    
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const currentX = moveEvent.pageX;
+      const diffX = currentX - startX;
+      const newWidth = Math.max(50, startWidth + diffX);
+      updateAttributes({ width: newWidth });
+    };
+    
+    const onMouseUp = () => {
+      setResizing(false);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+    
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
+
+  return (
+    <NodeViewWrapper 
+      className="relative inline-block leading-none group/img-wrapper max-w-full"
+      data-drag-handle
+    >
+      <img
+        ref={imgRef}
+        src={node.attrs.src}
+        alt={node.attrs.alt}
+        width={node.attrs.width}
+        height={node.attrs.height}
+        draggable={false}
+        className={cn(
+          "rounded-lg transition-all",
+          (selected && isEditorFocused) ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : "hover:ring-1 hover:ring-primary/50 hover:ring-offset-1 hover:ring-offset-background"
+        )}
+      />
+      {selected && isEditorFocused && (
+        <div
+          onMouseDown={onMouseDown}
+          className="absolute bottom-1 right-1 w-6 h-6 bg-primary text-primary-foreground rounded-full cursor-nwse-resize shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-10 border-2 border-background"
+          title="Resize image"
+        >
+          <MoveDiagonal2 className="w-3.5 h-3.5" />
+        </div>
+      )}
+      {resizing && (
+        <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-bl-lg font-bold z-20 shadow-sm pointer-events-none border-l border-b border-background/20">
+          {Math.round(node.attrs.width || 0)}px
+        </div>
+      )}
+    </NodeViewWrapper>
+  );
+};
+
+const ResizableImage = Image.extend({
+  draggable: true,
+
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      width: {
+        default: null,
+        renderHTML: attributes => ({
+          width: attributes.width,
+        }),
+        parseHTML: element => element.getAttribute('width'),
+      },
+      height: {
+        default: null,
+        renderHTML: attributes => ({
+          height: attributes.height,
+        }),
+        parseHTML: element => element.getAttribute('height'),
+      },
+    };
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(ResizableImageComponent);
+  },
+});
 
 // Custom Font Size Extension
 const FontSize = Extension.create({
@@ -166,9 +273,10 @@ export function RichText({
         placeholder,
         emptyEditorClass: "before:content-[attr(data-placeholder)] before:text-muted-foreground/50 before:float-left before:pointer-events-none before:h-0",
       }),
-      Image.configure({
+      ResizableImage.configure({
+        allowBase64: true,
         HTMLAttributes: {
-          class: "max-w-full h-auto rounded-lg my-2",
+          class: "max-w-full rounded-lg my-2",
         },
       }),
       TextStyle,
