@@ -7,7 +7,7 @@ import type { FormField } from "@/db/schema";
 import type { Form } from "@/db/schema";
 import type { FormAnswer, BuilderSection, LogicRule, BuilderField, SectionType } from "@/lib/form-types";
 import { evaluateLogic, type FieldDynamicState } from "@/lib/form-logic";
-import { submitFormResponse, getPublicFormStatus } from "@/lib/actions/responses";
+import { submitFormResponse, getPublicFormStatus, checkFormStorageQuota } from "@/lib/actions/responses";
 import { createClient } from "@/lib/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -768,9 +768,38 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
     const supabase = createClient();
     const tempId = crypto.randomUUID();
 
+    // First, calculate total size of all pending uploads
+    let totalUploadSize = 0;
+    for (const [fid, value] of Object.entries(answers)) {
+      const state = dynamicStates[fid];
+      if (state && !state.visible) continue;
+      const fieldDef = fields.find(f => f.id === fid);
+      if (fieldDef?.type === "file" && Array.isArray(value) && value.length > 0 && (value[0] as any) instanceof File) {
+        for (let i = 0; i < value.length; i++) {
+          totalUploadSize += (value[i] as unknown as File).size;
+        }
+      }
+    }
+
+    // Check quota if there are uploads
+    if (totalUploadSize > 0) {
+      const quotaCheck = await checkFormStorageQuota(form.id, totalUploadSize);
+      if (!quotaCheck.success) {
+        if (mode === "preview") {
+           toast.error(quotaCheck.error ?? "Form owner has reached their file limit.");
+        } else {
+           setErrors({ _global: quotaCheck.error ?? "Form owner has reached their file limit." });
+        }
+        setSubmitting(false);
+        return;
+      }
+    }
+
     // Strip answers for fields that are currently hidden by logic — they are
     // treated as "not asked", so we don't send stale values to the server.
     const cleanedAnswers: Record<string, FormAnswer> = {};
+    const uploadStats: { name: string; originalName: string; size: number; mimeType: string; path: string }[] = [];
+
     for (const [fid, value] of Object.entries(answers)) {
       const state = dynamicStates[fid];
       if (state && !state.visible) continue;
@@ -796,6 +825,13 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
           }
           if (data) {
             filePaths.push(data.path);
+            uploadStats.push({
+              name: file.name,
+              originalName: file.name,
+              size: file.size,
+              mimeType: file.type || "application/octet-stream",
+              path: data.path,
+            });
           }
         }
         cleanedAnswers[fid] = filePaths as unknown as FormAnswer;
@@ -804,7 +840,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
       }
     }
 
-    const result = await submitFormResponse(form.id, cleanedAnswers, { timeTaken });
+    const result = await submitFormResponse(form.id, cleanedAnswers, { timeTaken, uploads: uploadStats });
     if (result.success) {
       setSubmitted(true);
     } else {

@@ -65,7 +65,7 @@ async function AssetsPageContent() {
       usage={
         usageResult.success && usageResult.data
           ? usageResult.data
-          : { totalBytes: 0, totalFiles: 0, byType: {} }
+          : { totalBytes: 0, totalFiles: 0, assetBytes: 0, assetFiles: 0, formBytes: 0, formFiles: 0, byType: {} }
       }
       targetWorkspaces={targetWorkspaces}
     />

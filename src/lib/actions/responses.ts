@@ -1,9 +1,9 @@
 "use server";
 
 import { db } from "@/db";
-import { forms, formFields, formResponses } from "@/db/schema";
+import { forms, formFields, formResponses, assets } from "@/db/schema";
 import { createClient } from "@/lib/server";
-import { eq, desc, and, count, sql, gte } from "drizzle-orm";
+import { eq, desc, and, count, sql, gte, isNull, isNotNull, sum } from "drizzle-orm";
 import { enforceFormAccess } from "./forms";
 import type { ActionResult, FormAnswer, FormAnalytics, ResponseRow, FieldType } from "@/lib/form-types";
 
@@ -16,7 +16,10 @@ type FormWithFields = typeof forms.$inferSelect & {
 export async function submitFormResponse(
   formId: string,
   answers: Record<string, FormAnswer>,
-  metadata?: { timeTaken?: number }
+  metadata?: { 
+    timeTaken?: number;
+    uploads?: { name: string; originalName: string; size: number; mimeType: string; path: string }[];
+  }
 ): Promise<ActionResult<{ responseId: string }>> {
   try {
     // Load form to check if accepting responses
@@ -69,6 +72,42 @@ export async function submitFormResponse(
         metadata: metadata ?? null,
       })
       .returning({ id: formResponses.id });
+
+    // Handle uploaded files by inserting them into the assets table
+    if (metadata?.uploads && metadata.uploads.length > 0) {
+      const isPersonal = !form.organizationId;
+      
+      const assetInserts = metadata.uploads.map((upload) => {
+        let assetType: "image" | "video" | "document" | "audio" | "other" = "other";
+        if (upload.mimeType.startsWith("image/")) assetType = "image";
+        else if (upload.mimeType.startsWith("video/")) assetType = "video";
+        else if (upload.mimeType.startsWith("audio/")) assetType = "audio";
+        else if (
+          upload.mimeType === "application/pdf" ||
+          upload.mimeType.includes("document") ||
+          upload.mimeType.includes("spreadsheet") ||
+          upload.mimeType.includes("presentation") ||
+          upload.mimeType.includes("text/")
+        ) {
+          assetType = "document";
+        }
+
+        return {
+          userId: isPersonal ? form.userId : null,
+          organizationId: form.organizationId ?? null,
+          name: upload.name,
+          originalName: upload.originalName,
+          mimeType: upload.mimeType,
+          size: upload.size,
+          type: assetType,
+          storagePath: upload.path,
+          url: "", // private bucket
+          uploadedBy: form.userId!, // attributing the upload to the form owner
+        };
+      });
+
+      await db.insert(assets).values(assetInserts);
+    }
 
     return { success: true, data: { responseId: response.id } };
   } catch (err) {
@@ -377,6 +416,38 @@ export async function exportResponsesCSV(formId: string, timezone = "UTC"): Prom
       .join("\n");
 
     return { success: true, data: csv };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+// ─── Form Storage Quota ───────────────────────────────────────────────────────
+
+export async function checkFormStorageQuota(formId: string, uploadSizeBytes: number): Promise<ActionResult> {
+  try {
+    const form = await db.query.forms.findFirst({
+      where: eq(forms.id, formId),
+      columns: { userId: true, organizationId: true },
+    });
+
+    if (!form) return { success: false, error: "Form not found" };
+
+    const isPersonal = !form.organizationId;
+    const conditions = isPersonal
+      ? and(isNull(assets.organizationId), eq(assets.userId, form.userId!))
+      : and(isNotNull(assets.organizationId), eq(assets.organizationId, form.organizationId!));
+
+    const [row] = await db
+      .select({ totalBytes: sum(assets.size) })
+      .from(assets)
+      .where(conditions);
+
+    const currentBytes = Number(row.totalBytes ?? 0);
+    if (currentBytes + uploadSizeBytes > 100 * 1024 * 1024) {
+      return { success: false, error: "Form owner has reached their file limit." };
+    }
+
+    return { success: true };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }

@@ -3,7 +3,7 @@
 import { db } from "@/db";
 import { assets, users } from "@/db/schema";
 import { createClient } from "@/lib/server";
-import { eq, and, isNull, isNotNull, sum, count, desc } from "drizzle-orm";
+import { eq, and, isNull, isNotNull, sum, count, desc, notIlike, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { PERSONAL_WORKSPACE_ID } from "@/lib/constants";
 import { verifyWorkspaceAccess } from "./organizations";
@@ -82,7 +82,7 @@ export async function getWorkspaceAssets(
     const query = db
       .select()
       .from(assets)
-      .where(type ? and(conditions, eq(assets.type, type)) : conditions)
+      .where(type ? and(conditions, eq(assets.type, type), notIlike(assets.storagePath, 'forms/%')) : and(conditions, notIlike(assets.storagePath, 'forms/%')))
       .orderBy(desc(assets.createdAt))
       .limit(limit)
       .offset(offset);
@@ -96,7 +96,15 @@ export async function getWorkspaceAssets(
 
 export async function getWorkspaceStorageUsage(workspaceId: string): Promise<{
   success: boolean;
-  data?: { totalBytes: number; totalFiles: number; byType: Record<string, { bytes: number; count: number }> };
+  data?: { 
+    totalBytes: number; 
+    totalFiles: number; 
+    assetBytes: number;
+    assetFiles: number;
+    formBytes: number;
+    formFiles: number;
+    byType: Record<string, { bytes: number; count: number }> 
+  };
   error?: string;
 }> {
   try {
@@ -118,26 +126,43 @@ export async function getWorkspaceStorageUsage(workspaceId: string): Promise<{
     const rows = await db
       .select({
         type: assets.type,
+        isForm: sql<boolean>`${assets.storagePath} LIKE 'forms/%'`,
         totalBytes: sum(assets.size),
         totalFiles: count(assets.id),
       })
       .from(assets)
       .where(conditions)
-      .groupBy(assets.type);
+      .groupBy(assets.type, sql`${assets.storagePath} LIKE 'forms/%'`);
 
     const byType: Record<string, { bytes: number; count: number }> = {};
     let totalBytes = 0;
     let totalFiles = 0;
+    let assetBytes = 0;
+    let assetFiles = 0;
+    let formBytes = 0;
+    let formFiles = 0;
 
     for (const row of rows) {
       const bytes = Number(row.totalBytes ?? 0);
       const cnt = Number(row.totalFiles ?? 0);
-      byType[row.type] = { bytes, count: cnt };
+      
       totalBytes += bytes;
       totalFiles += cnt;
+
+      if (row.isForm) {
+        formBytes += bytes;
+        formFiles += cnt;
+      } else {
+        assetBytes += bytes;
+        assetFiles += cnt;
+        // Only track byType for regular assets to keep gallery stats clean
+        if (!byType[row.type]) byType[row.type] = { bytes: 0, count: 0 };
+        byType[row.type].bytes += bytes;
+        byType[row.type].count += cnt;
+      }
     }
 
-    return { success: true, data: { totalBytes, totalFiles, byType } };
+    return { success: true, data: { totalBytes, totalFiles, assetBytes, assetFiles, formBytes, formFiles, byType } };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }

@@ -92,17 +92,49 @@ function AssetIcon({ type, url, name }: { type: string; url: string; name: strin
   );
 }
 
-function StorageBar({ used, total }: { used: number; total: number }) {
-  const pct = Math.min((used / total) * 100, 100);
-  const color = pct > 90 ? "bg-red-500" : pct > 70 ? "bg-amber-500" : "bg-primary";
+function StorageBar({ 
+  assetBytes, 
+  formBytes, 
+  total 
+}: { 
+  assetBytes: number; 
+  formBytes: number; 
+  total: number; 
+}) {
+  const totalUsed = assetBytes + formBytes;
+  const pctAsset = Math.min((assetBytes / total) * 100, 100);
+  const pctForm = Math.min((formBytes / total) * 100, 100 - pctAsset);
+  const pctTotal = Math.min((totalUsed / total) * 100, 100);
+  
+  const isDanger = pctTotal > 90;
+  const isWarning = pctTotal > 70 && !isDanger;
+
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>{formatBytes(used)} used</span>
-        <span>{formatBytes(total)} limit</span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <div className={`w-2 h-2 rounded-full ${isDanger ? 'bg-red-500' : isWarning ? 'bg-amber-500' : 'bg-primary'}`} />
+            <span>Assets: {formatBytes(assetBytes)}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-muted-foreground/40" />
+            <span>Forms: {formatBytes(formBytes)}</span>
+          </div>
+        </div>
+        <span>{formatBytes(totalUsed)} / {formatBytes(total)}</span>
       </div>
-      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+      <div className="h-1.5 rounded-full bg-muted overflow-hidden flex">
+        <div 
+          className={`h-full transition-all ${isDanger ? 'bg-red-500' : isWarning ? 'bg-amber-500' : 'bg-primary'}`} 
+          style={{ width: `${pctAsset}%` }} 
+          title={`Assets: ${formatBytes(assetBytes)}`}
+        />
+        <div 
+          className="h-full bg-muted-foreground/40 transition-all border-l border-background/20" 
+          style={{ width: `${pctForm}%` }} 
+          title={`Form Uploads: ${formatBytes(formBytes)}`}
+        />
       </div>
     </div>
   );
@@ -113,6 +145,10 @@ function StorageBar({ used, total }: { used: number; total: number }) {
 type UsageData = {
   totalBytes: number;
   totalFiles: number;
+  assetBytes: number;
+  assetFiles: number;
+  formBytes: number;
+  formFiles: number;
   byType: Record<string, { bytes: number; count: number }>;
 };
 
@@ -378,14 +414,15 @@ export function AssetsClient({ workspaceId, initialAssets, usage, targetWorkspac
             <Button
               onClick={() => setUploadDialogOpen(true)}
               className="gap-2 shrink-0"
+              disabled={usage.totalBytes >= STORAGE_LIMIT}
             >
               <Upload className="h-4 w-4" />
-              Upload
+              {usage.totalBytes >= STORAGE_LIMIT ? "Storage Full" : "Upload"}
             </Button>
           </div>
 
           {/* Storage bar */}
-          <StorageBar used={usage.totalBytes} total={STORAGE_LIMIT} />
+          <StorageBar assetBytes={usage.assetBytes} formBytes={usage.formBytes} total={STORAGE_LIMIT} />
 
           {/* Filters */}
           <div className="flex items-center gap-3 flex-wrap">
