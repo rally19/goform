@@ -20,7 +20,9 @@ export type FieldType =
   | "scale"
   | "file"
   | "section"
-  | "page_break";
+  | "page_break"
+  | "paragraph"
+  | "divider";
 
 export type FieldCategory =
   | "text"
@@ -28,7 +30,7 @@ export type FieldCategory =
   | "datetime"
   | "choice"
   | "scale"
-  | "layout"
+  | "visual"
   | "media";
 
 export interface FieldTypeMeta {
@@ -196,12 +198,28 @@ export const FIELD_TYPE_META: FieldTypeMeta[] = [
       scaleMaxLabel: "Very likely",
     },
   },
-  // Layout
+  // Visual
+  {
+    type: "paragraph",
+    label: "Paragraph",
+    icon: "TextQuote",
+    category: "visual",
+    description: "Display-only text block",
+    defaultLabel: "Paragraph",
+  },
+  {
+    type: "divider",
+    label: "Divider",
+    icon: "Minus",
+    category: "visual",
+    description: "Visual separator line",
+    defaultLabel: "Divider",
+  },
   {
     type: "section",
     label: "Section Header",
     icon: "Heading",
-    category: "layout",
+    category: "visual",
     description: "Add a section title",
     defaultLabel: "Section Title",
   },
@@ -209,7 +227,7 @@ export const FIELD_TYPE_META: FieldTypeMeta[] = [
     type: "page_break",
     label: "Page Break",
     icon: "Columns2",
-    category: "layout",
+    category: "visual",
     description: "Split into multiple pages",
     defaultLabel: "Page Break",
   },
@@ -235,7 +253,7 @@ export const FIELD_CATEGORIES: {
   { id: "datetime", label: "Date & Time", icon: "Calendar" },
   { id: "choice", label: "Choice", icon: "List" },
   { id: "scale", label: "Scale", icon: "BarChart2" },
-  { id: "layout", label: "Layout", icon: "Layout" },
+  { id: "visual", label: "Visual", icon: "Eye" },
   { id: "media", label: "Media", icon: "Paperclip" },
 ];
 

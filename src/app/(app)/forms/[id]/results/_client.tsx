@@ -203,7 +203,7 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
 
   if (!form || !fields) return null;
 
-  const dataFields = fields.filter((f) => f && f.type !== "section" && f.type !== "page_break");
+  const dataFields = fields.filter((f) => f && !["section", "page_break", "paragraph", "divider"].includes(f.type));
   const accentColor = form.accentColor ?? "#6366f1";
 
   // Filtered & Sorted Responses

@@ -10,6 +10,7 @@ import {
   CircleDot, CheckSquare, ChevronDown, ListChecks,
   SlidersHorizontal, Heading, Columns2, Upload, CalendarClock,
   EyeClosed, PencilOff, RectangleEllipsis,
+  TextQuote, Minus,
 } from "lucide-react";
 import { FieldMoveDialog } from "./field-move-dialog";
 import type { BuilderSection } from "@/lib/form-types";
@@ -44,6 +45,8 @@ const FIELD_ICONS: Record<string, React.ElementType> = {
   checkbox: CheckSquare, radio: CircleDot, rating: Star,
   scale: SlidersHorizontal, section: Heading, page_break: Columns2,
   file: Upload,
+  paragraph: TextQuote,
+  divider: Minus,
 };
 
 interface FieldCardProps {
@@ -130,6 +133,27 @@ export const FieldCard = memo(function FieldCard({
           <div className="h-px flex-1 border-t-2 border-dashed border-muted-foreground/30" />
           <span className="text-xs font-medium uppercase tracking-wider">Page Break</span>
           <div className="h-px flex-1 border-t-2 border-dashed border-muted-foreground/30" />
+        </div>
+      );
+    }
+    if (field.type === "paragraph") {
+      return (
+        <div className="text-sm text-foreground/70">
+          {field.description ? (
+            <div
+              className="prose-sm max-w-full"
+              dangerouslySetInnerHTML={{ __html: sanitize(field.description) }}
+            />
+          ) : (
+            <span className="text-muted-foreground italic">No content yet</span>
+          )}
+        </div>
+      );
+    }
+    if (field.type === "divider") {
+      return (
+        <div className="py-1">
+          <div className="h-px w-full bg-border" />
         </div>
       );
     }

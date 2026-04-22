@@ -519,7 +519,7 @@ export function BuilderCanvas({
 
   const handleSelectAllInSection = useCallback(() => {
     const ids = sectionFields
-      .filter(f => f.type !== "page_break" && f.type !== "section")
+      .filter(f => !["page_break", "section", "paragraph", "divider"].includes(f.type))
       .map(f => f.id);
     setMultiSelect(ids);
   }, [sectionFields, setMultiSelect]);

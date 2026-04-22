@@ -496,7 +496,7 @@ function ActionTargetEditor({
   sections: BuilderSection[];
   onChange: (patch: Partial<LogicRuleAction>) => void;
 }) {
-  const realFields = fields.filter((f) => f.type !== "page_break" && f.type !== "section");
+  const realFields = fields.filter((f) => !["page_break", "section", "paragraph", "divider"].includes(f.type));
 
   if (actionNeedsTargets(ruleAction.action)) {
     return (
@@ -640,7 +640,7 @@ function ActionSetValueEditor({
 
       {source.mode === "copy_field" && (
         <FieldPicker
-          fields={fields.filter((f) => f.type !== "page_break" && f.type !== "section")}
+          fields={fields.filter((f) => !["page_break", "section", "paragraph", "divider"].includes(f.type))}
           sections={sections}
           value={source.sourceFieldId ?? ""}
           onChange={(v) => onChange({ valueSource: { mode: "copy_field", sourceFieldId: v } })}

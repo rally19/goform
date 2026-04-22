@@ -346,6 +346,29 @@ function FieldRenderer({
     );
   }
 
+  if (field.type === "paragraph") {
+    return (
+      <div className="space-y-2">
+        {field.label && field.label !== "Paragraph" && (
+          <div
+            className="text-sm font-medium prose-sm max-w-full"
+            dangerouslySetInnerHTML={{ __html: sanitize(field.label) }}
+          />
+        )}
+        {field.description && (
+          <div
+            className="text-sm text-foreground/80 prose-sm max-w-full"
+            dangerouslySetInnerHTML={{ __html: sanitize(field.description) }}
+          />
+        )}
+      </div>
+    );
+  }
+
+  if (field.type === "divider") {
+    return <div className="h-px w-full bg-border" />;
+  }
+
   const inputClass = cn(
     "transition-shadow",
     error ? "border-destructive focus-visible:ring-destructive/30" : ""
@@ -649,7 +672,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
 
   const hasRequiredFields = useMemo(() => {
     return currentFields.some((field) => {
-      if (field.type === "section" || field.type === "page_break") return false;
+      if (["section", "page_break", "paragraph", "divider"].includes(field.type)) return false;
       const state = getDynamicState(field.id);
       return state.visible && state.required;
     });
@@ -658,7 +681,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
   const validatePage = useCallback(() => {
     const newErrors: Record<string, string> = {};
     for (const field of currentFields as FormField[]) {
-      if (field.type === "section" || field.type === "page_break") continue;
+      if (["section", "page_break", "paragraph", "divider"].includes(field.type)) continue;
       const state = getDynamicState(field.id);
       if (!state.visible) continue; // hidden fields are never required
       if (state.required) {
@@ -1016,7 +1039,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
       {/* Fields */}
       <div className="space-y-6">
         {(currentFields as FormField[]).map((field) => {
-          if (field.type === "section") {
+          if (["section", "paragraph", "divider"].includes(field.type)) {
             return (
               <div key={field.id} id={`field-${field.id}`}>
                 <FieldRenderer

@@ -48,6 +48,8 @@ export const fieldTypeEnum = pgEnum("field_type", [
   "file",
   "section",
   "page_break",
+  "paragraph",
+  "divider",
 ]);
 
 export const organizationRoleEnum = pgEnum("organization_role", [

@@ -201,7 +201,9 @@ export function FieldSettings({
                       </SelectTriggerPrimitive>
                       <SelectContentPrimitive>
                         <SelectItemPrimitive value="__auto__">
-                          Default (first success page in order)
+                          {sections.some((s) => s.type === "success")
+                            ? "Default (first success page in order)"
+                            : "Default (form settings success page)"}
                         </SelectItemPrimitive>
                         {[...sections]
                           .sort((a, b) => a.orderIndex - b.orderIndex)
@@ -214,7 +216,9 @@ export function FieldSettings({
                       </SelectContentPrimitive>
                     </SelectPrimitive>
                     <p className="text-[10px] text-muted-foreground leading-tight">
-                      Which success page to show after submission. Logic rules can override this at runtime.
+                      {sections.some((s) => s.type === "success")
+                        ? "Which success page to show after submission. Logic rules can override this at runtime."
+                        : "No success sections exist yet. The form settings success page will be used."}
                     </p>
                   </div>
                 </>

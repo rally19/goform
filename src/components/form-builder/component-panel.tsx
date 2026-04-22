@@ -16,14 +16,15 @@ import {
   Type, AlignLeft, Hash, Mail, Phone, Link, Calendar, Clock,
   CalendarClock, CircleDot, CheckSquare, ChevronDown, ListChecks,
   Star, SlidersHorizontal, Heading, Columns2, Upload, User, List,
-  BarChart2, Layout, Paperclip, Search, LayoutGrid, Trash2, X,
+  BarChart2, Eye, Paperclip, Search, LayoutGrid, Trash2, X,
+  TextQuote, Minus,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   Type, AlignLeft, Hash, Mail, Phone, Link, Calendar, Clock,
   CalendarClock, CircleDot, CheckSquare, ChevronDown, ListChecks,
   Star, SlidersHorizontal, Heading, Columns2, Upload, User, List,
-  BarChart2, Layout, Paperclip, Search,
+  BarChart2, Eye, Paperclip, Search, TextQuote, Minus,
 };
 
 const CATEGORY_COLORS: Record<FieldCategory, string> = {
@@ -32,7 +33,7 @@ const CATEGORY_COLORS: Record<FieldCategory, string> = {
   datetime: "bg-orange-500/15 text-orange-600 dark:text-orange-400",
   choice: "bg-green-500/15 text-green-600 dark:text-green-400",
   scale: "bg-yellow-500/15 text-yellow-600 dark:text-yellow-400",
-  layout: "bg-gray-500/15 text-gray-600 dark:text-gray-400",
+  visual: "bg-gray-500/15 text-gray-600 dark:text-gray-400",
   media: "bg-pink-500/15 text-pink-600 dark:text-pink-400",
 };
 
