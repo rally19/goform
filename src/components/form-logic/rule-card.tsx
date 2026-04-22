@@ -496,12 +496,17 @@ function ActionTargetEditor({
   sections: BuilderSection[];
   onChange: (patch: Partial<LogicRuleAction>) => void;
 }) {
-  const realFields = fields.filter((f) => !["page_break", "section", "paragraph", "divider"].includes(f.type));
+  const realFields = fields.filter((f) => !["page_break", "section"].includes(f.type));
+  // Paragraph/divider only support show/hide — exclude from other field-targeting actions
+  const visualOnlyActions: string[] = ["show_field", "hide_field"];
+  const targetFields = visualOnlyActions.includes(ruleAction.action)
+    ? realFields
+    : realFields.filter((f) => !["paragraph", "divider"].includes(f.type));
 
   if (actionNeedsTargets(ruleAction.action)) {
     return (
       <FieldMultiPicker
-        fields={realFields}
+        fields={targetFields}
         sections={sections}
         selected={ruleAction.targetFieldIds ?? []}
         onChange={(vals) => onChange({ targetFieldIds: vals })}

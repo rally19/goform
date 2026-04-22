@@ -256,7 +256,7 @@ export function FieldSettings({
   const hasScale = field.type === "scale";
   const hasValidation = ["short_text", "long_text", "number", "email", "phone", "url"].includes(field.type);
   const hasRows = field.type === "long_text";
-  const isLayout = ["section", "page_break"].includes(field.type);
+  const isLayout = ["section", "page_break", "paragraph", "divider"].includes(field.type);
   const isFile = field.type === "file";
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -335,6 +335,28 @@ export function FieldSettings({
                 placeholder="e.g., Select an option..."
               />
             </div>
+          )}
+
+          {["paragraph", "divider"].includes(field.type) && (
+            <>
+              <Separator />
+              <div className="flex items-center justify-between rounded-lg border border-border p-3 bg-background/50">
+                <div>
+                  <p className="text-sm font-medium">Hidden by default</p>
+                  <p className="text-xs text-muted-foreground">
+                    Starts hidden. Use a Logic rule to show it.
+                  </p>
+                </div>
+                <Switch
+                  checked={!!field.properties?.defaultHidden}
+                  onCheckedChange={(v) =>
+                    onUpdate?.({
+                      properties: { ...(field.properties ?? {}), defaultHidden: v },
+                    })
+                  }
+                />
+              </div>
+            </>
           )}
 
           {!isLayout && (

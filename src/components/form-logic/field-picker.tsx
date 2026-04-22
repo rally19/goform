@@ -31,7 +31,7 @@ function groupFieldsBySections(
   const grouped: SectionGroup[] = [];
 
   const unsectioned = fields
-    .filter((f) => !f.sectionId && !["page_break", "section", "paragraph", "divider"].includes(f.type))
+    .filter((f) => !f.sectionId && !["page_break", "section"].includes(f.type))
     .sort((a, b) => a.orderIndex - b.orderIndex);
   if (unsectioned.length > 0) {
     grouped.push({ section: null, fields: unsectioned });
@@ -39,7 +39,7 @@ function groupFieldsBySections(
 
   for (const sec of sorted) {
     const sectionFields = fields
-      .filter((f) => f.sectionId === sec.id && !["page_break", "section", "paragraph", "divider"].includes(f.type))
+      .filter((f) => f.sectionId === sec.id && !["page_break", "section"].includes(f.type))
       .sort((a, b) => a.orderIndex - b.orderIndex);
     // Always include sections (even with 0 fields) so the nav trigger is visible
     grouped.push({ section: sec, fields: sectionFields });

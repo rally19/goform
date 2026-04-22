@@ -1039,7 +1039,22 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
       {/* Fields */}
       <div className="space-y-6">
         {(currentFields as FormField[]).map((field) => {
-          if (["section", "paragraph", "divider"].includes(field.type)) {
+          if (field.type === "section") {
+            return (
+              <div key={field.id} id={`field-${field.id}`}>
+                <FieldRenderer
+                  field={field}
+                  value={null}
+                  onChange={() => {}}
+                  accentColor={accentColor}
+                />
+              </div>
+            );
+          }
+
+          if (["paragraph", "divider"].includes(field.type)) {
+            const state = getDynamicState(field.id);
+            if (!state.visible) return null;
             return (
               <div key={field.id} id={`field-${field.id}`}>
                 <FieldRenderer
