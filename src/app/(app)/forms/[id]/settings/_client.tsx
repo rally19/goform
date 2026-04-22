@@ -6,6 +6,7 @@ import { updateForm, deleteForm, setFormStatus } from "@/lib/actions/forms";
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
 } from "@/components/ui/card";
+import { RichText } from "@/components/ui/rich-text";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -123,21 +124,22 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="title">Form Title</Label>
-              <Input
-                id="title"
+              <RichText
                 value={form.title}
-                onChange={(e) => update({ title: e.target.value })}
+                onChange={(val) => update({ title: val })}
                 placeholder="Untitled Form"
+                workspaceId={initialForm.organizationId ?? undefined}
+                multiline={false}
               />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
+              <RichText
                 value={form.description}
-                onChange={(e) => update({ description: e.target.value })}
+                onChange={(val) => update({ description: val })}
                 placeholder="Describe what this form is about (optional)"
-                rows={2}
+                workspaceId={initialForm.organizationId ?? undefined}
+                minHeight="min-h-[100px]"
               />
             </div>
             <div className="space-y-1.5">
