@@ -19,7 +19,8 @@ import {
   Link as LinkIcon, 
   Link2Off,
   Image as ImageIcon,
-  ChevronDown
+  ChevronDown,
+  Eraser
 } from "lucide-react";
 import { Button } from "./button";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
@@ -537,9 +538,9 @@ export function RichText({
                     onClick={() => editor.chain().focus().toggleOrderedList().run()}
                     icon={<ListOrdered className="h-4 w-4" />}
                   />
+                  <Separator orientation="vertical" className="h-6" />
                 </>
               )}
-              <div className="w-px h-4 bg-border mx-1" />
               <Popover open={linkPopoverOpen} onOpenChange={handleLinkPopoverOpen}>
                 <PopoverTrigger asChild>
                   <ToolbarButton
@@ -613,8 +614,10 @@ export function RichText({
                   </form>
                 </PopoverContent>
               </Popover>
+              <Separator orientation="vertical" className="h-6" />
               {workspaceId && allowImages && (
-                <Popover open={imagePopoverOpen} onOpenChange={handleImagePopoverOpen}>
+                <>
+                  <Popover open={imagePopoverOpen} onOpenChange={handleImagePopoverOpen}>
                   <PopoverTrigger asChild>
                     <ToolbarButton
                       active={imagePopoverOpen}
@@ -748,7 +751,15 @@ export function RichText({
                     </div>
                   </PopoverContent>
                 </Popover>
+                <Separator orientation="vertical" className="h-6" />
+                </>
               )}
+              <ToolbarButton
+                active={false}
+                onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}
+                icon={<Eraser className="h-4 w-4" />}
+                title="Clear Formatting"
+              />
             </div>
           </motion.div>
         )}
