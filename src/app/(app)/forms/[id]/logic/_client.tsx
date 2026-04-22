@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useRef } from "react";
 import type { BuilderField, BuilderSection, LogicRule } from "@/lib/form-types";
 import { saveFormLogic } from "@/lib/actions/forms";
 import {
@@ -13,10 +13,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { RuleCard } from "@/components/form-logic/rule-card";
 import {
   GitBranch, Plus, Loader2, AlertTriangle, Info,
+  X, Copy, Trash2, CheckSquare2,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "motion/react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface LogicClientProps {
   formId: string;
@@ -36,6 +48,72 @@ export function LogicClient({
   const [savedRules, setSavedRules] = useState<LogicRule[]>(initialLogic);
   const [saving, setSaving] = useState(false);
   const [lastAddedRuleId, setLastAddedRuleId] = useState<string | null>(null);
+
+  // Multi-select
+  const [selectedRuleIds, setSelectedRuleIds] = useState<Set<string>>(new Set());
+  const [isMultiDeleteOpen, setIsMultiDeleteOpen] = useState(false);
+  const isMultiSelectMode = selectedRuleIds.size > 0;
+  const multiCount = selectedRuleIds.size;
+
+  const toggleRuleSelect = useCallback((id: string) => {
+    setSelectedRuleIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => setSelectedRuleIds(new Set()), []);
+
+  const selectAllRules = useCallback(() => {
+    setSelectedRuleIds(new Set(rules.map((r) => r.id)));
+  }, [rules]);
+
+  const handleBulkDelete = useCallback(() => {
+    const ids = selectedRuleIds;
+    setRules((prev) =>
+      prev
+        .filter((r) => !ids.has(r.id))
+        .map((r, i) => ({ ...r, orderIndex: i }))
+    );
+    clearSelection();
+    toast.success(`Deleted ${ids.size} rule${ids.size > 1 ? "s" : ""}`);
+  }, [selectedRuleIds, clearSelection]);
+
+  const handleBulkDuplicate = useCallback(() => {
+    setRules((prev) => {
+      let next = [...prev];
+      for (const id of selectedRuleIds) {
+        const idx = next.findIndex((r) => r.id === id);
+        if (idx === -1) continue;
+        const source = next[idx];
+        const copy: LogicRule = {
+          ...source,
+          id: crypto.randomUUID(),
+          name: `${source.name ?? "Untitled"} (copy)`,
+          orderIndex: idx + 1,
+          actions: (source.actions ?? []).map((a) => ({ ...a, id: crypto.randomUUID() })),
+          conditions: {
+            ...source.conditions,
+            id: crypto.randomUUID(),
+            conditions: source.conditions.conditions.map((c) => ({
+              ...c,
+              id: crypto.randomUUID(),
+            })),
+            groups: (source.conditions.groups ?? []).map((g) => ({
+              ...g,
+              id: crypto.randomUUID(),
+            })),
+          },
+        };
+        next.splice(idx + 1, 0, copy);
+      }
+      return next.map((r, i) => ({ ...r, orderIndex: i }));
+    });
+    const count = selectedRuleIds.size;
+    clearSelection();
+    toast.success(`Duplicated ${count} rule${count > 1 ? "s" : ""}`);
+  }, [selectedRuleIds, clearSelection]);
 
   const isDirty = useMemo(
     () => JSON.stringify(rules) !== JSON.stringify(savedRules),
@@ -279,6 +357,8 @@ export function LogicClient({
                   index={index}
                   totalRules={rules.length}
                   defaultExpanded={rule.id === lastAddedRuleId}
+                  isSelected={selectedRuleIds.has(rule.id)}
+                  onToggleSelect={() => toggleRuleSelect(rule.id)}
                   onChange={(patch) => updateRule(rule.id, patch)}
                   onDelete={() => deleteRule(rule.id)}
                   onDuplicate={() => duplicateRule(rule.id)}
@@ -294,6 +374,56 @@ export function LogicClient({
             </div>
           </div>
         )}
+
+        {/* Multi-select floating action bar */}
+        <AnimatePresence>
+          {isMultiSelectMode && (
+            <motion.div
+              initial={{ y: 80, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 80, opacity: 0 }}
+              transition={{ type: "spring", damping: 24, stiffness: 300 }}
+              className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 rounded-xl border border-border bg-card shadow-xl px-2 py-1.5"
+            >
+              <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-3 text-xs" onClick={clearSelection}>
+                <X className="h-3.5 w-3.5" />
+                {multiCount} selected
+              </Button>
+              <div className="w-px h-5 bg-border" />
+              <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-3 text-xs" onClick={selectAllRules}>
+                <CheckSquare2 className="h-3.5 w-3.5" />
+                Select all
+              </Button>
+              <div className="w-px h-5 bg-border" />
+              <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-3 text-xs" onClick={handleBulkDuplicate}>
+                <Copy className="h-3.5 w-3.5" />
+                Duplicate
+              </Button>
+              <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-3 text-xs text-destructive hover:text-destructive" onClick={() => setIsMultiDeleteOpen(true)}>
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Multi-select delete confirmation */}
+        <AlertDialog open={isMultiDeleteOpen} onOpenChange={setIsMultiDeleteOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete {multiCount} rule{multiCount > 1 ? "s" : ""}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will remove the selected rule{multiCount > 1 ? "s" : ""}. You can still discard unsaved changes to restore them.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
