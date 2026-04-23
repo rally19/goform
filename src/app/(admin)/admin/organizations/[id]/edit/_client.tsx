@@ -31,6 +31,7 @@ import {
   X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { sanitize } from "@/lib/sanitize";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -436,7 +437,10 @@ export function OrganizationEditClient({
                   organization.forms.map((form) => (
                     <TableRow key={form.id} className="hover:bg-muted/10 border-border/40">
                       <TableCell>
-                        <span className="text-sm font-medium">{form.title}</span>
+                        <span
+                          className="text-sm font-medium prose prose-sm dark:prose-invert max-w-none"
+                          dangerouslySetInnerHTML={{ __html: sanitize(form.title) }}
+                        />
                       </TableCell>
                       <TableCell>
                         <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded border border-border/50">
@@ -457,7 +461,7 @@ export function OrganizationEditClient({
                       </TableCell>
                       <TableCell className="text-right">
                         <Button asChild variant="ghost" size="icon" className="h-8 w-8">
-                          <Link href={`/s/${form.slug}`} target="_blank">
+                          <Link href={`/f/${form.slug}`} target="_blank">
                             <ExternalLink className="h-4 w-4 text-muted-foreground hover:text-primary" />
                           </Link>
                         </Button>
