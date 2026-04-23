@@ -426,7 +426,7 @@ export const FieldCard = memo(function FieldCard({
             </div>
           </div>
 
-          {field.description && (
+          {field.description && !["paragraph", "divider"].includes(field.type) && (
             <div 
               className="text-xs text-foreground/80 -mt-1 text-balance prose-xs max-w-full preserve-spaces"
               dangerouslySetInnerHTML={{ __html: sanitize(field.description) }}
