@@ -2,6 +2,7 @@
 
 import { useEditor, EditorContent, Extension, NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
 import { TextStyle } from "@tiptap/extension-text-style";
+import TextAlign from "@tiptap/extension-text-align";
 // Removed BubbleMenu import as it is no longer used for docked toolbar
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -20,7 +21,11 @@ import {
   Link2Off,
   Image as ImageIcon,
   ChevronDown,
-  Eraser
+  Eraser,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify
 } from "lucide-react";
 import { Button } from "./button";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
@@ -87,7 +92,14 @@ const ResizableImageComponent = ({ node, updateAttributes, selected, editor }: a
 
   return (
     <NodeViewWrapper 
-      className="relative inline-block leading-none group/img-wrapper max-w-full"
+      className={cn(
+        "relative leading-none group/img-wrapper max-w-full my-2",
+        node.attrs.textAlign === 'center' && "mx-auto flex justify-center",
+        node.attrs.textAlign === 'right' && "ml-auto flex justify-end",
+        node.attrs.textAlign === 'left' && "mr-auto flex justify-start",
+        "w-fit"
+      )}
+      style={{ textAlign: node.attrs.textAlign }}
       data-drag-handle
     >
       <img
@@ -139,6 +151,13 @@ const ResizableImage = Image.extend({
           height: attributes.height,
         }),
         parseHTML: element => element.getAttribute('height'),
+      },
+      textAlign: {
+        default: 'left',
+        renderHTML: attributes => ({
+          style: `text-align: ${attributes.textAlign}`,
+        }),
+        parseHTML: element => element.style.textAlign || 'left',
       },
     };
   },
@@ -277,11 +296,14 @@ export function RichText({
       ResizableImage.configure({
         allowBase64: true,
         HTMLAttributes: {
-          class: "max-w-full rounded-lg my-2",
+          class: "max-w-full rounded-lg",
         },
       }),
       TextStyle,
       FontSize,
+      TextAlign.configure({
+        types: ["heading", "paragraph", "image"],
+      }),
     ],
     content: value,
     onUpdate: ({ editor }) => {
@@ -508,6 +530,31 @@ export function RichText({
                 </PopoverContent>
               </Popover>
 
+              <Separator orientation="vertical" className="h-6" />
+              <ToolbarButton
+                active={editor.isActive({ textAlign: "left" })}
+                onClick={() => editor.chain().focus().setTextAlign("left").run()}
+                icon={<AlignLeft className="h-4 w-4" />}
+                title="Align Left"
+              />
+              <ToolbarButton
+                active={editor.isActive({ textAlign: "center" })}
+                onClick={() => editor.chain().focus().setTextAlign("center").run()}
+                icon={<AlignCenter className="h-4 w-4" />}
+                title="Align Center"
+              />
+              <ToolbarButton
+                active={editor.isActive({ textAlign: "right" })}
+                onClick={() => editor.chain().focus().setTextAlign("right").run()}
+                icon={<AlignRight className="h-4 w-4" />}
+                title="Align Right"
+              />
+              <ToolbarButton
+                active={editor.isActive({ textAlign: "justify" })}
+                onClick={() => editor.chain().focus().setTextAlign("justify").run()}
+                icon={<AlignJustify className="h-4 w-4" />}
+                title="Justify"
+              />
               <Separator orientation="vertical" className="h-6" />
 
               <ToolbarButton
