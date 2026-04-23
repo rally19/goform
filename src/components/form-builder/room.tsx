@@ -8,11 +8,12 @@ import {
   useStatus,
 } from "@liveblocks/react";
 import { LiveList, LiveObject } from "@liveblocks/client";
-import { Loader2 } from "lucide-react";
+import { UsersRound } from "lucide-react";
 import type { BuilderField, BuilderForm, BuilderSection } from "@/lib/form-types";
 import { useState, useEffect, useCallback } from "react";
 import { RoomErrorBoundary } from "./room-error-boundary";
 import { SyncErrorFallback } from "./error-fallback";
+import { motion } from "motion/react";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -160,11 +161,18 @@ function Loading() {
       <div className="relative h-16 w-16">
         <div className="absolute inset-0 border-4 border-primary/20 rounded-full" />
         <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-        <Loader2 className="absolute inset-0 m-auto h-6 w-6 text-primary animate-pulse" />
+        <UsersRound className="absolute inset-0 m-auto h-6 w-6 text-primary animate-pulse" />
       </div>
       <div className="flex flex-col items-center gap-1">
         <h3 className="text-sm font-semibold text-foreground">Entering Room</h3>
-        <p className="text-xs text-muted-foreground">Syncing collaborative state...</p>
+        <motion.p 
+          initial={{ opacity: 0.5 }}
+          animate={{ opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+          className="text-xs text-muted-foreground"
+        >
+          Syncing collaborative state...
+        </motion.p>
       </div>
     </div>
   );
