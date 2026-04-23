@@ -1,4 +1,5 @@
 import { getUserOrganizations, getActiveWorkspace } from "@/lib/actions/organizations";
+import type { Metadata } from "next";
 import { getCurrentUserProfile } from "@/lib/actions/users";
 import { OrganizationsClient } from "./_client";
 import { Suspense } from "react";
@@ -16,6 +17,10 @@ export const unstable_instant = {
       ]
     }
   ]
+};
+
+export const metadata: Metadata = {
+  title: "Organizations",
 };
 
 export default async function OrganizationsPage() {

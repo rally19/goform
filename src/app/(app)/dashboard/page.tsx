@@ -1,4 +1,5 @@
 import { getActiveWorkspace, getOrganization } from "@/lib/actions/organizations";
+import type { Metadata } from "next";
 import { PERSONAL_WORKSPACE_ID } from "@/lib/constants";
 import { getDashboardStats, getForms } from "@/lib/actions/forms";
 import { getCurrentUserProfile } from "@/lib/actions/users";
@@ -33,6 +34,10 @@ export const unstable_instant = {
       ]
     }
   ]
+};
+
+export const metadata: Metadata = {
+  title: "Dashboard",
 };
 
 export default async function DashboardPage() {

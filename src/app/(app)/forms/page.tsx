@@ -1,4 +1,5 @@
 import { getForms } from "@/lib/actions/forms";
+import type { Metadata } from "next";
 import { getUserOrganizations } from "@/lib/actions/organizations";
 import { PERSONAL_WORKSPACE_ID } from "@/lib/constants";
 import { FormsListClient } from "./_components/forms-list-client";
@@ -17,6 +18,10 @@ export const unstable_instant = {
       ]
     }
   ]
+};
+
+export const metadata: Metadata = {
+  title: "Forms",
 };
 
 export default async function FormsPage() {

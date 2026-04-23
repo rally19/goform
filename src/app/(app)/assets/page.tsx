@@ -1,14 +1,14 @@
 import { Suspense } from "react";
 import { getActiveWorkspace, getUserOrganizations } from "@/lib/actions/organizations";
+import type { Metadata } from "next";
 import { getWorkspaceAssets, getWorkspaceStorageUsage } from "@/lib/actions/assets";
 import { getCurrentUserProfile } from "@/lib/actions/users";
 import { AssetsClient } from "./assets-client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PERSONAL_WORKSPACE_ID } from "@/lib/constants";
 
-export const metadata = {
-  title: "Assets – FormTo.Link",
-  description: "Manage images, files, and media assets for your workspace",
+export const metadata: Metadata = {
+  title: "Assets",
 };
 
 export const unstable_instant = {

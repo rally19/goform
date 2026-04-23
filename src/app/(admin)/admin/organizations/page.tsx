@@ -3,8 +3,10 @@ import { OrganizationsClient } from "./_components/organizations-client";
 import { Suspense } from "react";
 import { Building2 } from "lucide-react";
 
-export const metadata = {
-  title: "Organization Management | Admin",
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Admin: Organizations",
 };
 
 export default function OrganizationsPage() {

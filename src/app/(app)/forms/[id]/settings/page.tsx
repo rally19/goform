@@ -3,8 +3,23 @@ import { redirect } from "next/navigation";
 import { SettingsClient } from "./_client";
 import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
+import type { Metadata } from "next";
+import { stripHtml } from "@/lib/sanitize";
 
 export const unstable_instant = false;
+
+interface PageProps {
+  params: Promise<{ id: string }>;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { id } = await params;
+  const result = await getForm(id);
+  if (!result.success || !result.data) return { title: "Form Settings" };
+  return {
+    title: `Settings: ${stripHtml(result.data.form.title)}`,
+  };
+}
 
 export default async function FormSettingsPage({
   params,

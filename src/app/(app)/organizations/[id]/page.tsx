@@ -1,4 +1,5 @@
 import { getOrganization, getOrganizationMembers } from "@/lib/actions/organizations";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { OrganizationManageClient } from "./_client";
 import { Suspense } from "react";
@@ -18,6 +19,15 @@ export const unstable_instant = {
     }
   ]
 };
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const result = await getOrganization(id);
+  if (!result.success || !result.data) return { title: "Manage Organization" };
+  return {
+    title: `Manage: ${result.data.name}`,
+  };
+}
 
 export default async function OrganizationManagePage({ params }: { params: Promise<{ id: string }> }) {
   return (

@@ -1,7 +1,12 @@
 import { adminGetUsers } from "@/lib/actions/admin";
+import type { Metadata } from "next";
 import { UsersClient } from "./_components/users-client";
 import { Users } from "lucide-react";
 import { Suspense } from "react";
+
+export const metadata: Metadata = {
+  title: "Admin: Users",
+};
 
 export default function AdminUsersPage() {
   return (

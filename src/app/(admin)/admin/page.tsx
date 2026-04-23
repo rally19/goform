@@ -1,4 +1,5 @@
 import { adminGetStats, adminGetUsers } from "@/lib/actions/admin";
+import type { Metadata } from "next";
 import {
   Users,
   FileText,
@@ -26,6 +27,10 @@ const roleLabels: Record<string, string> = {
   superadmin: "Super Admin",
   admin: "Admin",
   user: "User",
+};
+
+export const metadata: Metadata = {
+  title: "Admin Overview",
 };
 
 export default function AdminOverviewPage() {

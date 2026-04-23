@@ -6,6 +6,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { createClient } from "@/lib/server";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { stripHtml } from "@/lib/sanitize";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -18,8 +19,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const result = await getFormBySlug(slug);
   if (!result.success || !result.data) return { title: "Form" };
   return {
-    title: result.data.form.title,
-    description: result.data.form.description ?? undefined,
+    title: stripHtml(result.data.form.title),
+    description: result.data.form.description ? stripHtml(result.data.form.description) : undefined,
   };
 }
 

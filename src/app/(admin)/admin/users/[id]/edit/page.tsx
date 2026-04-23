@@ -5,9 +5,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
-export const metadata = {
-  title: "Edit User | Admin",
-};
+import type { Metadata } from "next";
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const result = await adminGetUser(id);
+  if (!result.success || !result.data) return { title: "Edit User | Admin" };
+  return {
+    title: `Admin: Edit ${result.data.name || result.data.email}`,
+  };
+}
 
 export default function AdminUserEditPage({
   params,

@@ -5,9 +5,16 @@ import { Building2, ChevronRight, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 
-export const metadata = {
-  title: "Edit Organization | Admin",
-};
+import type { Metadata } from "next";
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const result = await adminGetOrganization(id);
+  if (!result.success || !result.data) return { title: "Edit Organization | Admin" };
+  return {
+    title: `Admin: Edit ${result.data.name}`,
+  };
+}
 
 export default function EditOrganizationPage({
   params,

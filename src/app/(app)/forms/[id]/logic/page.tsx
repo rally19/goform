@@ -2,10 +2,25 @@ import { getForm } from "@/lib/actions/forms";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
+import type { Metadata } from "next";
+import { stripHtml } from "@/lib/sanitize";
 import { LogicClient } from "./_client";
 import type { BuilderField } from "@/lib/form-types";
 
 export const unstable_instant = false;
+
+interface PageProps {
+  params: Promise<{ id: string }>;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { id } = await params;
+  const result = await getForm(id);
+  if (!result.success || !result.data) return { title: "Form Logic" };
+  return {
+    title: `Logic: ${stripHtml(result.data.form.title)}`,
+  };
+}
 
 export default async function FormLogicPage({
   params,

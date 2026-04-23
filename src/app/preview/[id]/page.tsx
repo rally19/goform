@@ -5,8 +5,24 @@ import { forbidden } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import type { Metadata } from "next";
+import { stripHtml } from "@/lib/sanitize";
 
 export const unstable_instant = false;
+
+interface PageProps {
+  params: Promise<{ id: string }>;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { id } = await params;
+  const result = await getForm(id);
+  if (!result.success || !result.data) return { title: "Form Preview" };
+  return {
+    title: `Preview: ${stripHtml(result.data.form.title)}`,
+    description: result.data.form.description ? stripHtml(result.data.form.description) : undefined,
+  };
+}
 
 export default async function FormPreviewPage({
   params,

@@ -31,8 +31,8 @@ export function sanitize(html: string | null | undefined): string {
 export function stripHtml(html: string | null | undefined): string {
   if (!html) return "";
   
-  // Simple regex to remove tags
-  const stripped = html.replace(/<[^>]*>?/gm, "");
+  // Simple regex to remove tags - replace with space to avoid merging words
+  const stripped = html.replace(/<[^>]*>?/gm, " ");
   
   // Basic entity decoding for common cases
   return stripped
@@ -41,5 +41,7 @@ export function stripHtml(html: string | null | undefined): string {
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#039;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ") // Collapse multiple spaces
     .trim();
 }

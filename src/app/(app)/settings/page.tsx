@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/server';
+import type { Metadata } from "next";
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -19,6 +20,10 @@ export const unstable_instant = {
       ]
     }
   ]
+};
+
+export const metadata: Metadata = {
+  title: "Settings",
 };
 
 export default async function SettingsPage() {
