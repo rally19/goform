@@ -1,8 +1,8 @@
 "use server";
 
 import { db } from "@/db";
-import { organizations, organizationMembers, users, forms } from "@/db/schema";
-import { eq, count, sql, and, desc } from "drizzle-orm";
+import { organizations, organizationMembers, users, forms, assets } from "@/db/schema";
+import { eq, count, sql, and, desc, isNotNull, sum } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { assertAdmin } from "./utils";
 
@@ -17,6 +17,18 @@ export type AdminOrganization = {
   ownerDeletedAt: Date | null;
   memberCount: number;
   formCount: number;
+};
+
+export type AdminOrgAsset = {
+  id: string;
+  name: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  type: string;
+  url: string;
+  storagePath: string;
+  createdAt: Date;
 };
 
 export type AdminOrganizationDetail = AdminOrganization & {
@@ -38,6 +50,16 @@ export type AdminOrganizationDetail = AdminOrganization & {
     createdAt: Date;
     responsesCount: number;
   }[];
+  assets: AdminOrgAsset[];
+  storage: {
+    totalBytes: number;
+    totalFiles: number;
+    assetBytes: number;
+    assetFiles: number;
+    formBytes: number;
+    formFiles: number;
+    limitBytes: number;
+  };
 };
 
 // ─── Organization Management Actions ────────────────────────────────────────
@@ -101,6 +123,32 @@ export async function adminGetOrganization(id: string): Promise<
       orderBy: [desc(forms.createdAt)],
     });
 
+    const orgAssets = await db.query.assets.findMany({
+      where: isNotNull(assets.organizationId)
+        ? eq(assets.organizationId, id)
+        : undefined,
+      orderBy: [desc(assets.createdAt)],
+    });
+
+    const storageRows = await db
+      .select({
+        isForm: sql<boolean>`${assets.storagePath} LIKE 'forms/%'`,
+        totalBytes: sum(assets.size),
+        totalFiles: count(assets.id),
+      })
+      .from(assets)
+      .where(eq(assets.organizationId, id))
+      .groupBy(sql`${assets.storagePath} LIKE 'forms/%'`);
+
+    let totalBytes = 0, totalFiles = 0, assetBytes = 0, assetFiles = 0, formBytes = 0, formFiles = 0;
+    for (const row of storageRows) {
+      const b = Number(row.totalBytes ?? 0);
+      const c = Number(row.totalFiles ?? 0);
+      totalBytes += b; totalFiles += c;
+      if (row.isForm) { formBytes += b; formFiles += c; }
+      else { assetBytes += b; assetFiles += c; }
+    }
+
     return {
       success: true,
       data: {
@@ -120,6 +168,18 @@ export async function adminGetOrganization(id: string): Promise<
           createdAt: f.createdAt,
           responsesCount: f.responses.length,
         })),
+        assets: orgAssets.map((a) => ({
+          id: a.id,
+          name: a.name,
+          originalName: a.originalName,
+          mimeType: a.mimeType,
+          size: a.size,
+          type: a.type,
+          url: a.url,
+          storagePath: a.storagePath,
+          createdAt: a.createdAt,
+        })),
+        storage: { totalBytes, totalFiles, assetBytes, assetFiles, formBytes, formFiles, limitBytes: 100 * 1024 * 1024 },
       } as AdminOrganizationDetail,
     };
   } catch (err) {

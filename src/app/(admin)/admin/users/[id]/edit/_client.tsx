@@ -25,8 +25,10 @@ import {
   LogOut,
   FileText,
   ExternalLink,
-  Settings
+  Settings,
+  HardDrive
 } from "lucide-react";
+import { AssetsTabContent } from "@/app/(admin)/admin/organizations/[id]/edit/_client";
 import {
   Dialog,
   DialogContent,
@@ -281,6 +283,13 @@ export function UserEditClient({ user }: { user: AdminUser }) {
               {user.forms?.length ?? user.formCount}
             </Badge>
           </TabsTrigger>
+          <TabsTrigger value="assets" className="gap-2">
+            <HardDrive className="h-4 w-4" />
+            Assets
+            <Badge variant="secondary" className="ml-1 h-4 px-1.5 min-w-[1.25rem] text-[10px]">
+              {user.assets?.length ?? 0}
+            </Badge>
+          </TabsTrigger>
         </TabsList>
 
         {/* ── General Tab ─────────────────────────────────────────────────── */}
@@ -532,6 +541,14 @@ export function UserEditClient({ user }: { user: AdminUser }) {
               </Button>
             </div>
           </form>
+        </TabsContent>
+
+        {/* ── Assets Tab ──────────────────────────────────────────────────── */}
+        <TabsContent value="assets" className="focus-visible:outline-none space-y-4">
+          <AssetsTabContent
+            assets={user.assets ?? []}
+            storage={user.storage ?? { totalBytes: 0, totalFiles: 0, assetBytes: 0, assetFiles: 0, formBytes: 0, formFiles: 0, limitBytes: 100 * 1024 * 1024 }}
+          />
         </TabsContent>
 
         {/* ── Forms Tab ───────────────────────────────────────────────────── */}

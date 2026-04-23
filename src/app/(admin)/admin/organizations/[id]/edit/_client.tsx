@@ -28,7 +28,12 @@ import {
   ArrowRight,
   MoreVertical,
   Check,
-  X
+  X,
+  HardDrive,
+  ImageIcon,
+  FileIcon,
+  VideoIcon,
+  MusicIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sanitize } from "@/lib/sanitize";
@@ -174,6 +179,13 @@ export function OrganizationEditClient({
             Forms
             <Badge variant="secondary" className="ml-1 h-4 px-1.5 min-w-[1.25rem] text-[10px]">
               {organization.formCount}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="assets" className="gap-2">
+            <HardDrive className="h-4 w-4" />
+            Assets
+            <Badge variant="secondary" className="ml-1 h-4 px-1.5 min-w-[1.25rem] text-[10px]">
+              {organization.assets?.length ?? 0}
             </Badge>
           </TabsTrigger>
         </TabsList>
@@ -473,6 +485,14 @@ export function OrganizationEditClient({
             </Table>
           </Card>
         </TabsContent>
+
+        {/* ── Assets Tab ──────────────────────────────────────────────────── */}
+        <TabsContent value="assets" className="focus-visible:outline-none space-y-4">
+          <AssetsTabContent
+            assets={organization.assets ?? []}
+            storage={organization.storage ?? { totalBytes: 0, totalFiles: 0, assetBytes: 0, assetFiles: 0, formBytes: 0, formFiles: 0, limitBytes: 100 * 1024 * 1024 }}
+          />
+        </TabsContent>
       </Tabs>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
@@ -503,6 +523,171 @@ export function OrganizationEditClient({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+// ─── Shared Assets Tab ────────────────────────────────────────────────────────
+
+type AssetEntry = {
+  id: string;
+  name: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  type: string;
+  url: string;
+  storagePath: string;
+  createdAt: Date;
+};
+
+type StorageStats = {
+  totalBytes: number;
+  totalFiles: number;
+  assetBytes: number;
+  assetFiles: number;
+  formBytes: number;
+  formFiles: number;
+  limitBytes: number;
+};
+
+function fmtBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
+
+function AssetTypeIcon({ type, mimeType }: { type: string; mimeType: string }) {
+  if (type === "image") return <ImageIcon className="h-4 w-4 text-blue-500" />;
+  if (type === "video") return <VideoIcon className="h-4 w-4 text-violet-500" />;
+  if (type === "audio") return <MusicIcon className="h-4 w-4 text-pink-500" />;
+  return <FileIcon className="h-4 w-4 text-muted-foreground" />;
+}
+
+export function AssetsTabContent({ assets, storage }: { assets: AssetEntry[]; storage: StorageStats }) {
+  const usedPct = Math.min(100, (storage.totalBytes / storage.limitBytes) * 100);
+  const assetPct = Math.min(100, (storage.assetBytes / storage.limitBytes) * 100);
+  const formPct = Math.min(100, (storage.formBytes / storage.limitBytes) * 100);
+
+  const usageColor = usedPct > 90 ? "bg-destructive" : usedPct > 70 ? "bg-amber-500" : "bg-primary";
+
+  return (
+    <div className="space-y-4">
+      {/* Storage Usage Card */}
+      <Card className="border-border shadow-sm">
+        <CardHeader className="py-4 border-b border-border/50 bg-muted/20">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <HardDrive className="h-4 w-4 text-primary" />
+            Storage Usage
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-5 space-y-5">
+          {/* Total bar */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-medium text-muted-foreground">Total Used</span>
+              <span className="font-semibold tabular-nums">
+                {fmtBytes(storage.totalBytes)} <span className="text-muted-foreground font-normal">/ {fmtBytes(storage.limitBytes)}</span>
+              </span>
+            </div>
+            <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+              <div className={`h-full rounded-full transition-all ${usageColor}`} style={{ width: `${usedPct}%` }} />
+            </div>
+            <p className="text-[10px] text-muted-foreground">{usedPct.toFixed(1)}% of limit used</p>
+          </div>
+
+          {/* Breakdown */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Assets</p>
+              <p className="text-base font-bold tabular-nums">{fmtBytes(storage.assetBytes)}</p>
+              <p className="text-[10px] text-muted-foreground">{storage.assetFiles} file{storage.assetFiles !== 1 ? "s" : ""}</p>
+            </div>
+            <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Form Uploads</p>
+              <p className="text-base font-bold tabular-nums">{fmtBytes(storage.formBytes)}</p>
+              <p className="text-[10px] text-muted-foreground">{storage.formFiles} file{storage.formFiles !== 1 ? "s" : ""}</p>
+            </div>
+            <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Limit</p>
+              <p className="text-base font-bold tabular-nums">{fmtBytes(storage.limitBytes)}</p>
+              <p className="text-[10px] text-muted-foreground">5 MB per file</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Assets Table */}
+      <Card className="border-border shadow-sm">
+        <CardHeader className="py-4 border-b border-border/50 bg-muted/20">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <FileIcon className="h-4 w-4 text-primary" />
+            Asset Library
+          </CardTitle>
+        </CardHeader>
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent border-border/50">
+              <TableHead>Name</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Size</TableHead>
+              <TableHead>Uploaded</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {assets.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="h-32 text-center text-muted-foreground text-sm">
+                  No assets uploaded yet.
+                </TableCell>
+              </TableRow>
+            ) : (
+              assets.map((a) => (
+                <TableRow key={a.id} className="hover:bg-muted/10 border-border/40">
+                  <TableCell>
+                    <div className="flex items-center gap-2.5">
+                      {a.type === "image" && a.url ? (
+                        <div className="h-8 w-8 rounded border border-border/50 overflow-hidden shrink-0 bg-muted">
+                          <img src={a.url} alt={a.name} className="h-full w-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className="h-8 w-8 rounded border border-border/50 bg-muted/50 flex items-center justify-center shrink-0">
+                          <AssetTypeIcon type={a.type} mimeType={a.mimeType} />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate max-w-[200px]">{a.name}</p>
+                        <p className="text-[10px] text-muted-foreground truncate max-w-[200px]">{a.originalName}</p>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-[10px] py-0 capitalize">
+                      {a.type}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs tabular-nums text-muted-foreground">
+                    {fmtBytes(a.size)}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {new Date(a.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button asChild variant="ghost" size="icon" className="h-8 w-8">
+                      <Link href={a.url} target="_blank">
+                        <ExternalLink className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                      </Link>
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </Card>
     </div>
   );
 }
