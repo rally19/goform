@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "5mb",
     },
+    optimizePackageImports: ["lucide-react", "framer-motion", "recharts", "simple-icons"],
     instantNavigationDevToolsToggle: true,
     authInterrupts: true,
   },

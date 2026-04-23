@@ -1,6 +1,11 @@
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SquarePen } from "lucide-react";
 import Link from "next/link";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default function AuthLayout({
   children,

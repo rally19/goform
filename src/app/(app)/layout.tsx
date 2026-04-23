@@ -1,5 +1,6 @@
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/layout/app-header";
+import { Metadata } from "next";
 import { 
   SidebarProvider,
   Sidebar, 
@@ -15,6 +16,10 @@ import { OrganizationObserver } from "@/components/organization-observer";
 import { cookies } from "next/headers";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronDown } from "lucide-react";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: true },
+};
 
 export const unstable_instant = { 
   prefetch: 'static',

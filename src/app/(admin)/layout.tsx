@@ -8,6 +8,11 @@ import { AdminHeader } from "./_components/admin-header";
 import { Suspense } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { cookies } from "next/headers";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false }, // Admins pages shouldn't be followed either
+};
 
 export default function AdminLayout({
   children,
