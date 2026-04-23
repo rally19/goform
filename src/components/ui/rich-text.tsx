@@ -1007,7 +1007,7 @@ export function RichText({
                                 }}
                                 title={name}
                               >
-                                <Icon className="h-5 w-5" />
+                                  <Icon className="h-5 w-5" />
                               </Button>
                             );
                           })}
@@ -1018,6 +1018,9 @@ export function RichText({
                           )}
                         </div>
                       </ScrollArea>
+                      <div className="p-2 border-t bg-muted/20 text-[10px] text-center text-muted-foreground uppercase tracking-widest font-medium shrink-0">
+                        Search for 1000+ more icons
+                      </div>
                     </div>
                   </PopoverContent>
                 </Popover>
