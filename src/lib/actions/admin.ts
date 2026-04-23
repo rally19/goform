@@ -12,5 +12,5 @@ export {
   adminSignOutUser
 } from "./admin/users";
 
-// Types can be exported separately
+export * from "./admin/organizations";
 export type { AdminUser } from "./admin/users";

@@ -20,7 +20,7 @@ export function OrganizationObserver({ currentUserId, activeWorkspaceId }: Organ
   useEffect(() => {
     const supabase = createClient();
 
-    const channel = supabase
+    const membershipChannel = supabase
       .channel(`personal-memberships-${currentUserId}`)
       .on(
         "postgres_changes",
@@ -40,23 +40,15 @@ export function OrganizationObserver({ currentUserId, activeWorkspaceId }: Organ
           }
 
           if (payload.eventType === "DELETE") {
-            // If the user was kicked, we need to ensure they aren't on a page they no longer have access to.
             toast.error("Your organization access has been removed");
-            
-            // 1. Force a server-side refresh to update permissions/session
             router.refresh();
 
-            // 2. Pro-actively check if we are in restricted territory
-            // If we are in an organization-specific route or a form, we might need a push.
             setTimeout(async () => {
               const currentPath = window.location.pathname;
               const isOrgPath = currentPath.startsWith("/organizations/");
               const isFormPath = currentPath.startsWith("/forms/");
               
               if (isOrgPath || isFormPath) {
-                 // We don't know exactly which org was deleted (payload.old might be partial),
-                 // but a refresh + push to /forms is the safest "kick" behavior.
-                 // We only do this if the active workspace was an organization.
                  if (activeWorkspaceId !== PERSONAL_WORKSPACE_ID) {
                     await setActiveWorkspace(PERSONAL_WORKSPACE_ID);
                     router.push("/forms");
@@ -71,11 +63,39 @@ export function OrganizationObserver({ currentUserId, activeWorkspaceId }: Organ
             router.refresh();
           }
         }
-      )
-      .subscribe();
+      );
+
+    const userChannel = supabase
+      .channel(`user-profile-${currentUserId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "users",
+          filter: `id=eq.${currentUserId}`,
+        },
+        (payload: any) => {
+          console.log("User profile update detected:", payload);
+          const oldRole = (payload.old as any)?.role;
+          const newRole = (payload.new as any).role;
+          
+          if (oldRole && oldRole !== newRole) {
+            toast.success(`Your account permissions have been updated to ${newRole}`);
+          } else {
+            toast.info("Your profile information has been updated");
+          }
+          
+          router.refresh();
+        }
+      );
+
+    membershipChannel.subscribe();
+    userChannel.subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(membershipChannel);
+      supabase.removeChannel(userChannel);
     };
   }, [currentUserId, activeWorkspaceId, router, pathname]);
 

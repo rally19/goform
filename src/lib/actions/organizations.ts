@@ -44,7 +44,13 @@ export async function setActiveWorkspace(workspaceId: string) {
     )
   });
 
-  if (member) {
+  // Admin Override
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.id, user.id),
+    columns: { role: true }
+  });
+
+  if (member || dbUser?.role === "admin" || dbUser?.role === "superadmin") {
     cookieStore.set(WORKSPACE_COOKIE, workspaceId, { path: "/" });
   } else {
     cookieStore.set(WORKSPACE_COOKIE, PERSONAL_WORKSPACE_ID, { path: "/" });
@@ -70,6 +76,17 @@ export const verifyWorkspaceAccess = cache(async (
         eq(organizationMembers.userId, user.id)
       )
     });
+
+    // PLATFORM ADMIN OVERRIDE:
+    // If the user is a website administrator or superadmin, they get "owner" access to everything.
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.id, user.id),
+      columns: { role: true }
+    });
+
+    if (dbUser?.role === "admin" || dbUser?.role === "superadmin") {
+      return { success: true, role: "owner" };
+    }
 
     if (!member) {
       return { success: false, error: "You are not a member of this workspace" };

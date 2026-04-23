@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   ShieldCheck,
   Loader2,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -30,6 +31,7 @@ import { UserAccountWidget } from "@/components/user-account-widget";
 const navigation = [
   { name: "Overview", href: "/admin", icon: LayoutDashboard, exact: true },
   { name: "Users", href: "/admin/users", icon: Users, exact: false },
+  { name: "Organizations", href: "/admin/organizations", icon: Building2, exact: false },
 ];
 
 export function AdminSidebar({
