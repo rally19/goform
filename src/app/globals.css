@@ -181,7 +181,7 @@
     margin-bottom: 0.25rem;
   }
 
-  .prose, .prose-sm, .prose-xs, .prose-2xl, .prose-lg {
+  .preserve-spaces {
     white-space: pre-wrap !important;
   }
 }

@@ -61,7 +61,7 @@ async function FormPageData({ params }: PageProps) {
             />
             {form.description && (
               <div 
-                className="text-muted-foreground mt-3 prose-lg max-w-full"
+                className="text-muted-foreground mt-3 prose-lg max-w-full preserve-spaces"
                 dangerouslySetInnerHTML={{ __html: sanitize(form.description) }}
               />
             )}

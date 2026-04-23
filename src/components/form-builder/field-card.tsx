@@ -120,7 +120,7 @@ export const FieldCard = memo(function FieldCard({
           />
           {field.description && (
             <div 
-              className="text-sm text-foreground/70 mt-0.5 prose-sm max-w-full"
+              className="text-sm text-foreground/70 mt-0.5 prose-sm max-w-full preserve-spaces"
               dangerouslySetInnerHTML={{ __html: sanitize(field.description) }}
             />
           )}
@@ -141,7 +141,7 @@ export const FieldCard = memo(function FieldCard({
         <div className="text-sm text-foreground/70">
           {field.description ? (
             <div
-              className="prose-sm max-w-full"
+              className="prose-sm max-w-full preserve-spaces"
               dangerouslySetInnerHTML={{ __html: sanitize(field.description) }}
             />
           ) : (
@@ -428,7 +428,7 @@ export const FieldCard = memo(function FieldCard({
 
           {field.description && (
             <div 
-              className="text-xs text-foreground/80 -mt-1 text-balance prose-xs max-w-full"
+              className="text-xs text-foreground/80 -mt-1 text-balance prose-xs max-w-full preserve-spaces"
               dangerouslySetInnerHTML={{ __html: sanitize(field.description) }}
             />
           )}

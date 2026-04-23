@@ -833,9 +833,6 @@ export function RichText({
           .ProseMirror:focus {
             outline: none;
           }
-          .ProseMirror {
-            white-space: pre-wrap !important;
-          }
           .ProseMirror blockquote {
             padding-left: 1rem;
             border-left: 2px solid #e9ecef;
@@ -859,7 +856,10 @@ export function RichText({
         `}} />
         <EditorContent 
           editor={editor} 
-          className="prose prose-sm dark:prose-invert max-w-none" 
+          className={cn(
+            "prose prose-sm dark:prose-invert max-w-none",
+            multiline && "preserve-spaces"
+          )}
         />
       </div>
 

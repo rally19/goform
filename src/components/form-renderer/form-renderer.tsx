@@ -338,7 +338,7 @@ function FieldRenderer({
         />
         {field.description && (
           <div 
-            className="text-sm text-muted-foreground prose-sm max-w-full"
+            className="text-sm text-muted-foreground prose-sm max-w-full preserve-spaces"
             dangerouslySetInnerHTML={{ __html: sanitize(field.description) }}
           />
         )}
@@ -351,13 +351,13 @@ function FieldRenderer({
       <div className="space-y-2">
         {field.label && field.label !== "Paragraph" && (
           <div
-            className="text-sm font-medium prose-sm max-w-full"
+            className="text-sm font-medium prose-sm max-w-full preserve-spaces"
             dangerouslySetInnerHTML={{ __html: sanitize(field.label) }}
           />
         )}
         {field.description && (
           <div
-            className="text-sm text-foreground/80 prose-sm max-w-full"
+            className="text-sm text-foreground/80 prose-sm max-w-full preserve-spaces"
             dangerouslySetInnerHTML={{ __html: sanitize(field.description) }}
           />
         )}
@@ -950,7 +950,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
               )}
               {successSection.description && (
                 <div
-                  className="text-sm text-foreground/80 prose-sm max-w-full"
+                  className="text-sm text-foreground/80 prose-sm max-w-full preserve-spaces"
                   dangerouslySetInnerHTML={{ __html: sanitize(successSection.description) }}
                 />
               )}
@@ -984,7 +984,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
         </div>
         <h2 className="text-2xl font-bold">Thank you!</h2>
         <div 
-          className="text-foreground/80 prose-neutral max-w-full"
+          className="text-foreground/80 prose-neutral max-w-full preserve-spaces"
           dangerouslySetInnerHTML={{ __html: sanitize(form.successMessage ?? "Your response has been recorded.") }}
         />
       </div>
@@ -1022,7 +1022,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
           )}
           {currentPageData.sectionDescription && (
             <div 
-              className="text-sm text-foreground/80 prose-sm max-w-full"
+              className="text-sm text-foreground/80 prose-sm max-w-full preserve-spaces"
               dangerouslySetInnerHTML={{ __html: sanitize(currentPageData.sectionDescription) }}
             />
           )}
@@ -1083,7 +1083,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
             </Label>
             {field.description && (
               <div 
-                className="text-xs text-foreground/80 -mt-1 prose-xs max-w-full"
+                className="text-xs text-foreground/80 -mt-1 prose-xs max-w-full preserve-spaces"
                 dangerouslySetInnerHTML={{ __html: sanitize(field.description) }}
               />
             )}
