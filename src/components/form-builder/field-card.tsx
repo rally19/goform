@@ -108,7 +108,11 @@ export const FieldCard = memo(function FieldCard({
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition: isOverlay ? "none" : transition,
+    transition: isOverlay 
+      ? "none" 
+      : transition 
+        ? `${transition}, box-shadow 300ms, border-color 300ms, background-color 300ms` 
+        : "all 300ms cubic-bezier(0.4, 0, 0.2, 1)",
   };
 
   const renderFieldPreview = () => {
