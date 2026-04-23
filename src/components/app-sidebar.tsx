@@ -78,10 +78,10 @@ export function AppSidebar({
   };
 
   const hideNav = pathname.includes('/forms/') && (
-    pathname.endsWith('/edit') || 
-    pathname.endsWith('/logic') || 
-    pathname.endsWith('/results') || 
-    pathname.endsWith('/analytics') || 
+    pathname.endsWith('/edit') ||
+    pathname.endsWith('/logic') ||
+    pathname.endsWith('/results') ||
+    pathname.endsWith('/analytics') ||
     pathname.endsWith('/settings')
   );
 
@@ -90,9 +90,9 @@ export function AppSidebar({
   return (
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border h-14 flex flex-col justify-center px-2">
-        <WorkspaceSwitcher 
-          workspaces={workspaces} 
-          activeWorkspaceId={activeWorkspaceId} 
+        <WorkspaceSwitcher
+          workspaces={workspaces}
+          activeWorkspaceId={activeWorkspaceId}
           onWorkspaceChange={setActiveWorkspace}
         />
       </SidebarHeader>
@@ -103,17 +103,17 @@ export function AppSidebar({
             <SidebarMenu>
               {navigation.map((item) => {
                 const isLoading = isPending && pendingHref === item.href;
-                const isActive = isPending 
-                  ? pendingHref === item.href 
+                const isActive = isPending
+                  ? pendingHref === item.href
                   : pathname.startsWith(item.href);
 
                 return (
                   <SidebarMenuItem key={item.name}>
-                    <SidebarMenuButton 
-                      asChild 
+                    <SidebarMenuButton
+                      asChild
                       isActive={isActive}
                     >
-                      <Link 
+                      <Link
                         href={item.href}
                         onClick={(e) => {
                           e.preventDefault();
@@ -138,16 +138,26 @@ export function AppSidebar({
         {/* Admin Panel link — only visible to admins */}
         {(userRole === "admin" || userRole === "superadmin") && (
           <SidebarGroup>
-            <SidebarGroupLabel>System</SidebarGroupLabel>
+            <SidebarGroupLabel>App</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
-                    isActive={pathname.startsWith("/admin")}
+                    isActive={isPending ? pendingHref === "/admin" : pathname.startsWith("/admin")}
                   >
-                    <Link href="/admin">
-                      <ShieldCheck className="h-4 w-4 text-violet-500" />
+                    <Link
+                      href="/admin"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleNavigation("/admin");
+                      }}
+                    >
+                      {isPending && pendingHref === "/admin" ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      ) : (
+                        <ShieldCheck className="h-4 w-4" />
+                      )}
                       <span>Admin Panel</span>
                     </Link>
                   </SidebarMenuButton>
@@ -158,7 +168,7 @@ export function AppSidebar({
         )}
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border p-3">
-        <UserAccountWidget 
+        <UserAccountWidget
           handleNavigation={handleNavigation}
           isPending={isPending}
           pendingHref={pendingHref}

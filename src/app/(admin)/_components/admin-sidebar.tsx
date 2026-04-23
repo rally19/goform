@@ -6,7 +6,7 @@ import { useState, useTransition, useEffect } from "react";
 import {
   LayoutDashboard,
   Users,
-  ArrowLeft,
+  Home,
   ShieldCheck,
   Loader2,
   Building2,
@@ -79,8 +79,8 @@ export function AdminSidebar({
             <p className="text-sm font-semibold text-sidebar-foreground truncate">
               Admin Panel
             </p>
-            <p className="text-[10px] text-sidebar-foreground/50 font-mono truncate">
-              goform.app
+            <p className="text-[10px] text-sidebar-foreground/50 font-mono truncate tracking-tight">
+              FormTo.Link
             </p>
           </div>
         </div>
@@ -93,10 +93,10 @@ export function AdminSidebar({
             <SidebarMenu>
               {navigation.map((item) => {
                 const isLoading = isPending && pendingHref === item.href;
-                const isActive = isPending 
-                  ? pendingHref === item.href 
-                  : item.exact 
-                    ? pathname === item.href 
+                const isActive = isPending
+                  ? pendingHref === item.href
+                  : item.exact
+                    ? pathname === item.href
                     : pathname.startsWith(item.href);
 
                 return (
@@ -105,7 +105,7 @@ export function AdminSidebar({
                       asChild
                       isActive={isActive}
                     >
-                      <Link 
+                      <Link
                         href={item.href}
                         onClick={(e) => {
                           e.preventDefault();
@@ -133,7 +133,7 @@ export function AdminSidebar({
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <Link 
+                  <Link
                     href="/dashboard"
                     onClick={(e) => {
                       e.preventDefault();
@@ -143,9 +143,9 @@ export function AdminSidebar({
                     {pendingHref === "/dashboard" ? (
                       <Loader2 className="h-4 w-4 animate-spin text-primary" />
                     ) : (
-                      <ArrowLeft />
+                      <Home />
                     )}
-                    <span>Back to App</span>
+                    <span>App Dashboard</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -155,7 +155,7 @@ export function AdminSidebar({
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-3">
-        <UserAccountWidget 
+        <UserAccountWidget
           handleNavigation={handleNavigation}
           isPending={isPending}
           pendingHref={pendingHref}
