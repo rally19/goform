@@ -11,12 +11,12 @@ export function AdminHeader() {
         <SidebarTrigger className="-ml-1" />
       </div>
 
-      <div className="flex items-center gap-2">
+      {/* <div className="flex items-center gap-2">
         <div className="flex h-6 w-6 items-center justify-center rounded bg-primary text-primary-foreground">
           <ShieldCheck className="size-3.5" />
         </div>
         <span className="text-sm font-semibold tracking-tight">Admin Console</span>
-      </div>
+      </div> */}
 
       <div className="flex-1 flex items-center justify-end">
         <ThemeToggle />
