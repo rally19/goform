@@ -121,7 +121,7 @@ export const FieldCard = memo(function FieldCard({
           />
           {field.description && (
             <SafeHtml 
-              className="text-sm text-foreground/70 mt-0.5 prose-sm max-w-full preserve-spaces"
+              className="text-sm text-foreground/80 mt-0.5 prose-sm max-w-full preserve-spaces"
               html={field.description}
             />
           )}
@@ -139,7 +139,7 @@ export const FieldCard = memo(function FieldCard({
     }
     if (field.type === "paragraph") {
       return (
-        <div className="text-sm text-foreground/70">
+        <div className="text-sm text-foreground/80">
           {field.description ? (
             <SafeHtml
               className="prose-sm max-w-full preserve-spaces"

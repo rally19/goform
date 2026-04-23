@@ -61,7 +61,7 @@ async function FormPageData({ params }: PageProps) {
             />
             {form.description && (
               <SafeHtml 
-                className="text-muted-foreground mt-3 prose-lg max-w-full preserve-spaces"
+                className="text-foreground/80 mt-3 prose-lg max-w-full preserve-spaces"
                 html={form.description}
               />
             )}

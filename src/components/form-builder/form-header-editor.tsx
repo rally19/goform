@@ -43,7 +43,7 @@ export function FormHeaderEditor({
           onChange={(val) => onUpdate?.({ description: val })}
           placeholder="Form description (optional)"
           workspaceId={workspaceId}
-          className="w-full"
+          className="w-full text-foreground/80"
           minHeight="min-h-[60px]"
           onFocus={() => selectField(null)}
         />

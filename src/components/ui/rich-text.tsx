@@ -27,7 +27,9 @@ import {
   AlignRight,
   AlignJustify,
   SmilePlus,
-  HelpCircle
+  HelpCircle,
+  Baseline,
+  Highlighter
 } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { Button } from "./button";
@@ -357,6 +359,102 @@ const FontSize = Extension.create({
   },
 });
 
+// Custom Color Extension
+const Color = Extension.create({
+  name: "color",
+  addOptions() {
+    return {
+      types: ["textStyle"],
+    };
+  },
+  addGlobalAttributes() {
+    return [
+      {
+        types: this.options.types,
+        attributes: {
+          color: {
+            default: null,
+            parseHTML: (element) => element.style.color,
+            renderHTML: (attributes) => {
+              if (!attributes.color) {
+                return {};
+              }
+              return {
+                style: `color: ${attributes.color}`,
+              };
+            },
+          },
+        },
+      },
+    ];
+  },
+  addCommands() {
+    return {
+      setColor:
+        (color: string) =>
+        ({ chain }: { chain: any }) => {
+          return chain().setMark("textStyle", { color }).run();
+        },
+      unsetColor:
+        () =>
+        ({ chain }: { chain: any }) => {
+          return chain()
+            .setMark("textStyle", { color: null })
+            .removeEmptyTextStyle()
+            .run();
+        },
+    } as any;
+  },
+});
+
+// Custom Highlight Extension
+const Highlight = Extension.create({
+  name: "highlight",
+  addOptions() {
+    return {
+      types: ["textStyle"],
+    };
+  },
+  addGlobalAttributes() {
+    return [
+      {
+        types: this.options.types,
+        attributes: {
+          backgroundColor: {
+            default: null,
+            parseHTML: (element) => element.style.backgroundColor,
+            renderHTML: (attributes) => {
+              if (!attributes.backgroundColor) {
+                return {};
+              }
+              return {
+                style: `background-color: ${attributes.backgroundColor}`,
+              };
+            },
+          },
+        },
+      },
+    ];
+  },
+  addCommands() {
+    return {
+      setHighlight:
+        (color: string) =>
+        ({ chain }: { chain: any }) => {
+          return chain().setMark("textStyle", { backgroundColor: color }).run();
+        },
+      unsetHighlight:
+        () =>
+        ({ chain }: { chain: any }) => {
+          return chain()
+            .setMark("textStyle", { backgroundColor: null })
+            .removeEmptyTextStyle()
+            .run();
+        },
+    } as any;
+  },
+});
+
 const FONT_SIZES = [
   { label: "8pt", value: "8" },
   { label: "10pt", value: "10" },
@@ -366,6 +464,31 @@ const FONT_SIZES = [
   { label: "18pt", value: "18" },
   { label: "24pt", value: "24" },
   { label: "32pt", value: "32" },
+];
+
+const COLORS = [
+  { name: "Default", value: "" },
+  { name: "White", value: "#ffffff" },
+  { name: "Gray", value: "#6b7280" },
+  { name: "Red", value: "#ef4444" },
+  { name: "Orange", value: "#f97316" },
+  { name: "Yellow", value: "#eab308" },
+  { name: "Green", value: "#22c55e" },
+  { name: "Blue", value: "#3b82f6" },
+  { name: "Indigo", value: "#6366f1" },
+  { name: "Purple", value: "#a855f7" },
+  { name: "Pink", value: "#ec4899" },
+];
+
+const HIGHLIGHT_COLORS = [
+  { name: "Default", value: "" },
+  { name: "Yellow", value: "#fef08a" },
+  { name: "Green", value: "#bbf7d0" },
+  { name: "Blue", value: "#bfdbfe" },
+  { name: "Purple", value: "#e9d5ff" },
+  { name: "Pink", value: "#fbcfe8" },
+  { name: "Red", value: "#fecaca" },
+  { name: "Orange", value: "#fed7aa" },
 ];
 
 interface RichTextProps {
@@ -460,6 +583,8 @@ export function RichText({
       ResizableIcon,
       TextStyle,
       FontSize,
+      Color,
+      Highlight,
       TextAlign.configure({
         types: ["heading", "paragraph", "image", "resizableIcon"],
       }),
@@ -619,6 +744,8 @@ export function RichText({
   }, [value, editor]);
 
   const currentFontSize = editor?.getAttributes("textStyle").fontSize;
+  const currentColor = editor?.getAttributes("textStyle").color;
+  const currentHighlight = editor?.getAttributes("textStyle").backgroundColor;
 
   if (!editor) return null;
 
@@ -685,6 +812,131 @@ export function RichText({
                         )}
                       </Button>
                     ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              <Separator orientation="vertical" className="h-6" />
+
+              {/* Color Picker Popover */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={cn(
+                      "h-8 px-2 flex items-center gap-1.5",
+                      currentColor && "text-primary bg-primary/10"
+                    )}
+                    title="Text Color"
+                  >
+                    <div className="relative">
+                      <Baseline className="h-4 w-4" />
+                      <div 
+                        className="absolute -bottom-0.5 left-0 right-0 h-0.5 rounded-full" 
+                        style={{ backgroundColor: currentColor || 'currentColor' }} 
+                      />
+                    </div>
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="p-3 w-48" align="start">
+                  <div className="space-y-3">
+                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                      Text Color
+                    </div>
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {COLORS.map((color) => (
+                        <button
+                          key={color.name}
+                          className={cn(
+                            "w-6 h-6 rounded-md border border-border flex items-center justify-center transition-all hover:scale-110 active:scale-95",
+                            currentColor === color.value && "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                          )}
+                          style={{ 
+                            backgroundColor: color.value || 'transparent',
+                            backgroundImage: !color.value ? 'linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc), linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc)' : 'none',
+                            backgroundSize: '4px 4px',
+                            backgroundPosition: '0 0, 2px 2px'
+                          }}
+                          onClick={() => {
+                            if (!color.value) {
+                              (editor?.chain().focus() as any).unsetColor().run();
+                            } else {
+                              (editor?.chain().focus() as any).setColor(color.value).run();
+                            }
+                          }}
+                          title={color.name}
+                        >
+                          {currentColor === color.value && (
+                            <Check className={cn(
+                              "h-3 w-3",
+                              (color.name === 'White' || color.name === 'Yellow' || !color.value) ? "text-black" : "text-white"
+                            )} />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {/* Highlight Picker Popover */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={cn(
+                      "h-8 px-2 flex items-center gap-1.5",
+                      currentHighlight && "text-primary bg-primary/10"
+                    )}
+                    title="Highlight Color"
+                  >
+                    <div className="relative">
+                      <Highlighter className="h-4 w-4" />
+                      <div 
+                        className="absolute -bottom-0.5 left-0 right-0 h-0.5 rounded-full" 
+                        style={{ backgroundColor: currentHighlight || 'transparent', border: !currentHighlight ? '1px solid currentColor' : 'none' }} 
+                      />
+                    </div>
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="p-3 w-48" align="start">
+                  <div className="space-y-3">
+                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                      Highlight Color
+                    </div>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {HIGHLIGHT_COLORS.map((color) => (
+                        <button
+                          key={color.name}
+                          className={cn(
+                            "w-full aspect-square rounded-md border border-border flex items-center justify-center transition-all hover:scale-105 active:scale-95",
+                            currentHighlight === color.value && "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                          )}
+                          style={{ 
+                            backgroundColor: color.value || 'transparent',
+                            backgroundImage: !color.value ? 'linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc), linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc)' : 'none',
+                            backgroundSize: '4px 4px',
+                            backgroundPosition: '0 0, 2px 2px'
+                          }}
+                          onClick={() => {
+                            if (!color.value) {
+                              (editor?.chain().focus() as any).unsetHighlight().run();
+                            } else {
+                              (editor?.chain().focus() as any).setHighlight(color.value).run();
+                            }
+                          }}
+                          title={color.name}
+                        >
+                          {currentHighlight === color.value && (
+                            <Check className="h-3 w-3 text-black" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </PopoverContent>
               </Popover>
