@@ -122,10 +122,10 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground overflow-hidden;
   }
   html {
-    @apply font-sans;
+    @apply font-sans overflow-hidden;
   }
 
   /* Custom Scrollbar */
@@ -180,4 +180,4 @@
     margin-top: 0.25rem;
     margin-bottom: 0.25rem;
   }
-}
+}

@@ -30,11 +30,10 @@ import {
   Users, 
   FileText, 
   ExternalLink,
-  Edit,
   Trash2,
   AlertTriangle,
-  ArrowRight,
-  Loader2
+  Loader2,
+  Pencil
 } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -88,30 +87,25 @@ export function OrganizationsClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search organizations..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-background shadow-sm border-border/50 focus-visible:ring-primary/20"
-          />
-        </div>
-        <div className="text-xs font-medium text-muted-foreground bg-muted/30 px-2.5 py-1.5 rounded-md border border-border/50">
-          Total: {filteredOrgs.length} organizations
-        </div>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search organizations…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9 h-9 text-sm"
+        />
       </div>
 
-      <div className="rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden">
+      <div className="rounded-xl border border-border overflow-hidden bg-card">
         <Table>
-          <TableHeader className="bg-muted/30">
-            <TableRow className="hover:bg-transparent border-border/50">
-              <TableHead className="w-[300px]">Organization</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Activity</TableHead>
-              <TableHead>Created At</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+          <TableHeader>
+            <TableRow className="bg-muted/40 hover:bg-muted/40 border-b border-border">
+              <TableHead className="w-[300px] text-xs font-semibold uppercase tracking-wider">Organization</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider">Status</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider">Activity</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider">Created At</TableHead>
+              <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -176,38 +170,38 @@ export function OrganizationsClient({
                       year: "numeric",
                     })}
                   </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button asChild variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-                        <Link href={`/admin/organizations/${org.id}/edit`}>
-                          <Edit className="h-4 w-4" />
-                        </Link>
-                      </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuLabel className="text-xs font-medium opacity-50 uppercase tracking-wider">Options</DropdownMenuLabel>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/organizations/${org.id}`} target="_blank" className="flex items-center gap-2">
-                              <ExternalLink className="h-4 w-4" />
-                              View as Owner
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            className="text-destructive focus:bg-destructive/10 focus:text-destructive flex items-center gap-2"
-                            onClick={() => setOrgToDelete(org)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Delete Organization
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
+                  <TableCell className="text-right pr-4">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Open menu</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Actions</DropdownMenuLabel>
+                        <DropdownMenuItem asChild>
+                          <Link href={`/admin/organizations/${org.id}/edit`} className="flex items-center gap-2 cursor-pointer">
+                            <Pencil className="h-4 w-4" />
+                            Edit
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href={`/organizations/${org.id}`} target="_blank" className="flex items-center gap-2 cursor-pointer">
+                            <ExternalLink className="h-4 w-4" />
+                            View as Owner
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer"
+                          onClick={() => setOrgToDelete(org)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete Organization
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))
@@ -215,6 +209,12 @@ export function OrganizationsClient({
           </TableBody>
         </Table>
       </div>
+
+      {filteredOrgs.length > 0 && (
+        <p className="text-[11px] text-muted-foreground text-right font-medium">
+          Showing {filteredOrgs.length} of {organizations.length} organizations
+        </p>
+      )}
 
       <AlertDialog open={!!orgToDelete} onOpenChange={(open) => !open && setOrgToDelete(null)}>
         <AlertDialogContent>

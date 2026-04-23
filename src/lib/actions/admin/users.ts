@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { users, forms, assets, organizations, organizationMembers } from "@/db/schema";
-import { eq, count, sql, and } from "drizzle-orm";
+import { eq, count, sql, and, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/server";
 import type { UserRole } from "@/db/schema";
@@ -23,6 +23,14 @@ export type AdminUser = {
   confirmedAt?: string | null;
   appMetadata?: any;
   userMetadata?: any;
+  forms?: {
+    id: string;
+    title: string;
+    slug: string;
+    status: string;
+    createdAt: Date;
+    responsesCount: number;
+  }[];
 };
 
 // ─── User Management Actions ──────────────────────────────────────────────────
@@ -66,7 +74,12 @@ export async function adminGetUser(id: string): Promise<
       where: eq(users.id, id),
       with: {
         forms: {
-          columns: { id: true },
+          orderBy: [desc(forms.createdAt)],
+          with: {
+            responses: {
+              columns: { id: true },
+            },
+          },
         },
       },
     });
@@ -91,6 +104,14 @@ export async function adminGetUser(id: string): Promise<
         appMetadata: authUser?.app_metadata ?? {},
         lastSignInAt: authUser?.last_sign_in_at,
         confirmedAt: authUser?.confirmed_at,
+        forms: row.forms.map((f) => ({
+          id: f.id,
+          title: f.title,
+          slug: f.slug,
+          status: f.status,
+          createdAt: f.createdAt,
+          responsesCount: f.responses.length,
+        })),
       } as AdminUser,
     };
   } catch (err) {
