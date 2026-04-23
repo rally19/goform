@@ -180,4 +180,8 @@
     margin-top: 0.25rem;
     margin-bottom: 0.25rem;
   }
+
+  .prose, .prose-sm, .prose-xs, .prose-2xl, .prose-lg {
+    white-space: pre-wrap !important;
+  }
 }

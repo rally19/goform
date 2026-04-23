@@ -833,6 +833,9 @@ export function RichText({
           .ProseMirror:focus {
             outline: none;
           }
+          .ProseMirror {
+            white-space: pre-wrap !important;
+          }
           .ProseMirror blockquote {
             padding-left: 1rem;
             border-left: 2px solid #e9ecef;
