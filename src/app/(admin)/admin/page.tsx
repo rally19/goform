@@ -6,6 +6,7 @@ import {
   MessageSquare,
   TrendingUp,
   ShieldCheck,
+  ArrowUpRight,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { Suspense } from "react";
+import { AdminCharts } from "./_components/admin-charts";
 
 const roleStyles: Record<string, string> = {
   superadmin: "bg-violet-500/10 text-violet-600 border-violet-500/20",
@@ -28,29 +30,39 @@ const roleLabels: Record<string, string> = {
 
 export default function AdminOverviewPage() {
   return (
-    <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-8">
+    <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-8 pb-24">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-          <ShieldCheck className="h-5 w-5 text-primary" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+            <ShieldCheck className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Admin Overview</h1>
+            <p className="text-sm text-muted-foreground">
+              System-wide metrics and platform health
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Admin Overview</h1>
-          <p className="text-sm text-muted-foreground">
-            System-wide metrics and recent activity
-          </p>
+        <div className="hidden sm:flex items-center gap-2">
+           <Badge variant="outline" className="px-3 py-1 bg-emerald-500/5 text-emerald-600 border-emerald-500/20 gap-1.5 font-medium">
+              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              System Online
+           </Badge>
         </div>
       </div>
 
-      {/* Stats Grid */}
+      {/* Stats & Charts */}
       <Suspense fallback={<AdminStatsSkeleton />}>
         <AdminStats />
       </Suspense>
 
-      {/* Recent Users */}
-      <Suspense fallback={<AdminRecentUsersSkeleton />}>
-        <AdminRecentUsers />
-      </Suspense>
+      <div className="grid grid-cols-1 gap-8">
+        {/* Recent Users */}
+        <Suspense fallback={<AdminRecentUsersSkeleton />}>
+          <AdminRecentUsers />
+        </Suspense>
+      </div>
     </div>
   );
 }
@@ -59,10 +71,16 @@ async function AdminStats() {
   const statsResult = await adminGetStats();
   const stats = statsResult.success ? statsResult.data : null;
 
+  if (!stats) return (
+    <div className="p-8 text-center border border-dashed rounded-xl text-muted-foreground">
+      Failed to load statistics
+    </div>
+  );
+
   const statCards = [
     {
       title: "Total Users",
-      value: stats?.users ?? 0,
+      value: stats.users,
       icon: Users,
       color: "text-blue-500",
       bg: "bg-blue-500/10",
@@ -70,7 +88,7 @@ async function AdminStats() {
     },
     {
       title: "Total Forms",
-      value: stats?.forms ?? 0,
+      value: stats.forms,
       icon: FileText,
       color: "text-indigo-500",
       bg: "bg-indigo-500/10",
@@ -78,7 +96,7 @@ async function AdminStats() {
     },
     {
       title: "Organizations",
-      value: stats?.organizations ?? 0,
+      value: stats.organizations,
       icon: Building2,
       color: "text-emerald-500",
       bg: "bg-emerald-500/10",
@@ -86,7 +104,7 @@ async function AdminStats() {
     },
     {
       title: "Responses",
-      value: stats?.responses ?? 0,
+      value: stats.responses,
       icon: MessageSquare,
       color: "text-amber-500",
       bg: "bg-amber-500/10",
@@ -95,39 +113,50 @@ async function AdminStats() {
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-      {statCards.map((card) => (
-        <Card
-          key={card.title}
-          className="relative overflow-hidden border-border/60 hover:border-border transition-colors"
-        >
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-muted-foreground">
-                {card.title}
-              </p>
-              <div
-                className={cn(
-                  "h-8 w-8 rounded-lg flex items-center justify-center",
-                  card.bg
-                )}
-              >
-                <card.icon className={cn("h-4 w-4", card.color)} />
+    <div className="space-y-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        {statCards.map((card) => (
+          <Card
+            key={card.title}
+            className="relative overflow-hidden border-border/60 hover:border-border transition-all hover:shadow-sm"
+          >
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-muted-foreground">
+                  {card.title}
+                </p>
+                <div
+                  className={cn(
+                    "h-8 w-8 rounded-lg flex items-center justify-center",
+                    card.bg
+                  )}
+                >
+                  <card.icon className={cn("h-4 w-4", card.color)} />
+                </div>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-end gap-2">
-              <span className="text-3xl font-bold tabular-nums">
-                {card.value.toLocaleString()}
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {card.description}
-            </p>
-          </CardContent>
-        </Card>
-      ))}
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-bold tabular-nums">
+                  {card.value.toLocaleString()}
+                </span>
+                <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-0.5 mb-1">
+                  <ArrowUpRight className="h-3 w-3" />
+                  Live
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {card.description}
+              </p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <AdminCharts 
+        timeSeries={stats.timeSeries} 
+        distributions={stats.distributions} 
+      />
     </div>
   );
 }
@@ -148,16 +177,16 @@ async function AdminRecentUsers() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-lg font-semibold">Recent Users</h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground text-xs">
             Newest accounts on the platform
           </p>
         </div>
         <Link
           href="/admin/users"
-          className="text-sm text-primary hover:underline font-medium flex items-center gap-1"
+          className="text-xs text-primary hover:underline font-medium flex items-center gap-1 bg-primary/5 px-3 py-1.5 rounded-full border border-primary/10 transition-colors hover:bg-primary/10"
         >
-          View all
-          <TrendingUp className="h-3.5 w-3.5" />
+          View all members
+          <TrendingUp className="h-3 w-3" />
         </Link>
       </div>
 
@@ -173,9 +202,9 @@ async function AdminRecentUsers() {
           return (
             <div
               key={user.id}
-              className="flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-card hover:border-border transition-colors"
+              className="flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-card/50 hover:border-border transition-colors group"
             >
-              <Avatar className="h-9 w-9 shrink-0">
+              <Avatar className="h-9 w-9 shrink-0 ring-offset-background transition-all group-hover:ring-2 group-hover:ring-primary/20">
                 {user.avatarUrl && <AvatarImage src={user.avatarUrl} />}
                 <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
                   {initials}
@@ -208,7 +237,7 @@ async function AdminRecentUsers() {
       </div>
 
       {recentUsers.length === 0 && (
-        <div className="text-center py-12 text-muted-foreground text-sm border border-dashed border-border rounded-xl">
+        <div className="text-center py-12 text-muted-foreground text-sm border border-dashed border-border rounded-xl bg-muted/5">
           No users found
         </div>
       )}
@@ -218,13 +247,19 @@ async function AdminRecentUsers() {
 
 function AdminStatsSkeleton() {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-      {[1, 2, 3, 4].map((i) => (
-        <Card key={i} className="animate-pulse">
-          <CardHeader className="h-20" />
-          <CardContent className="h-16" />
-        </Card>
-      ))}
+    <div className="space-y-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <Card key={i} className="animate-pulse border-border/40">
+            <CardHeader className="h-20" />
+            <CardContent className="h-16" />
+          </Card>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 h-[400px] bg-muted/20 animate-pulse rounded-xl border border-border/40" />
+        <div className="h-[400px] bg-muted/20 animate-pulse rounded-xl border border-border/40" />
+      </div>
     </div>
   );
 }
