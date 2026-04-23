@@ -3,10 +3,11 @@
 import * as React from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, Menu, X, Rocket, Shield, BarChart3, Puzzle, Layout, Lock, SquarePen, MessageSquare, Headphones, Users, Info, Briefcase, Target, Zap } from "lucide-react";
+import { ChevronDown, Menu, X, Rocket, Shield, BarChart3, Puzzle, Layout, Lock, SquarePen, MessageSquare, Headphones, Users, Info, Briefcase, Target, Zap, Home, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useRouter } from "next/navigation";
 
 const NAV_ITEMS = [
   {
@@ -111,6 +112,8 @@ const NAV_ITEMS = [
 export function MarketingNavbar() {
   const [hoveredItem, setHoveredItem] = React.useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [isPending, startTransition] = React.useTransition();
+  const router = useRouter();
 
   React.useEffect(() => {
     if (isMobileMenuOpen) {
@@ -191,8 +194,25 @@ export function MarketingNavbar() {
 
         <div className="flex items-center gap-4">
           <ThemeToggle />
-          <Link href="/dashboard">
-            <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
+          <Link
+            href="/dashboard"
+            onClick={(e) => {
+              e.preventDefault();
+              startTransition(() => {
+                router.push("/dashboard");
+              });
+            }}
+          >
+            <Button
+              size="sm"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
+              disabled={isPending}
+            >
+              {isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Home className="h-4 w-4" />
+              )}
               Go to App
             </Button>
           </Link>

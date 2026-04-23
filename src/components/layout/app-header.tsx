@@ -2,11 +2,15 @@
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { SquarePen } from "lucide-react";
+import Link from "next/link";
+import { useTransition } from "react";
 
 export function AppHeader() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
 
   const hideNav = pathname.includes('/forms/') && (
     pathname.endsWith('/edit') || 
@@ -24,12 +28,21 @@ export function AppHeader() {
         <SidebarTrigger className="-ml-1" />
       </div>
 
-      <div className="flex items-center gap-2">
+      <Link
+        href="/"
+        className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+        onClick={(e) => {
+          e.preventDefault();
+          startTransition(() => {
+            router.push("/");
+          });
+        }}
+      >
         <div className="flex h-6 w-6 items-center justify-center rounded bg-primary text-primary-foreground">
           <SquarePen className="size-3.5" />
         </div>
         <span className="text-sm font-semibold tracking-tight">FormTo.Link</span>
-      </div>
+      </Link>
 
       <div className="flex-1 flex items-center justify-end">
         <ThemeToggle />
