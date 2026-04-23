@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
-import { adminUpdateUserRole, type AdminUser } from "@/lib/actions/admin";
+import { adminDeleteUser, type AdminUser } from "@/lib/actions/admin";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -12,17 +12,37 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { Search, Loader2, FileText, ShieldCheck, Shield, User } from "lucide-react";
+import { Search, Loader2, FileText, ShieldCheck, Shield, User, MoreHorizontal, Pencil, Eye, Trash2, Calendar, Mail } from "lucide-react";
 import type { UserRole } from "@/db/schema";
+import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 
 const roleStyles: Record<UserRole, string> = {
   superadmin: "bg-violet-500/10 text-violet-600 border-violet-500/20",
@@ -57,80 +77,17 @@ function RoleBadge({ role }: { role: UserRole }) {
   );
 }
 
-function RoleSelector({
-  userId,
-  currentRole,
-  onRoleChanged,
-}: {
-  userId: string;
-  currentRole: UserRole;
-  onRoleChanged: (userId: string, newRole: UserRole) => void;
-}) {
-  const [isPending, startTransition] = useTransition();
-  const [value, setValue] = useState<UserRole>(currentRole);
-
-  const handleChange = (newRole: UserRole) => {
-    setValue(newRole);
-    startTransition(async () => {
-      const result = await adminUpdateUserRole(userId, newRole);
-      if (result.success) {
-        onRoleChanged(userId, newRole);
-        toast.success("Role updated successfully");
-      } else {
-        setValue(currentRole); // revert on error
-        toast.error(result.error ?? "Failed to update role");
-      }
-    });
-  };
-
-  return (
-    <div className="flex items-center gap-2">
-      <Select
-        value={value}
-        onValueChange={(v) => handleChange(v as UserRole)}
-        disabled={isPending}
-      >
-        <SelectTrigger
-          className="h-7 w-[130px] text-xs"
-          aria-label="Change role"
-        >
-          {isPending ? (
-            <div className="flex items-center gap-1.5">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              <span>Saving…</span>
-            </div>
-          ) : (
-            <SelectValue />
-          )}
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="user" className="text-xs">
-            <span className="flex items-center gap-2">
-              <User className="h-3.5 w-3.5 text-muted-foreground" />
-              User
-            </span>
-          </SelectItem>
-          <SelectItem value="admin" className="text-xs">
-            <span className="flex items-center gap-2">
-              <Shield className="h-3.5 w-3.5 text-blue-500" />
-              Admin
-            </span>
-          </SelectItem>
-          <SelectItem value="superadmin" className="text-xs">
-            <span className="flex items-center gap-2">
-              <ShieldCheck className="h-3.5 w-3.5 text-violet-500" />
-              Super Admin
-            </span>
-          </SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-  );
-}
-
 export function UsersClient({ users }: { users: AdminUser[] }) {
   const [query, setQuery] = useState("");
   const [localUsers, setLocalUsers] = useState<AdminUser[]>(users);
+  const [isDeleting, startDeleteTransition] = useTransition();
+  const router = useRouter();
+
+  // State for View Dialog
+  const [viewingUser, setViewingUser] = useState<AdminUser | null>(null);
+  
+  // State for Delete Alert
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
   const filtered = query.trim()
     ? localUsers.filter(
@@ -140,10 +97,17 @@ export function UsersClient({ users }: { users: AdminUser[] }) {
       )
     : localUsers;
 
-  const handleRoleChanged = (userId: string, newRole: UserRole) => {
-    setLocalUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
-    );
+  const handleDelete = (userId: string) => {
+    startDeleteTransition(async () => {
+      const result = await adminDeleteUser(userId);
+      if (result.success) {
+        setLocalUsers((prev) => prev.filter((u) => u.id !== userId));
+        toast.success("User deleted successfully");
+      } else {
+        toast.error(result.error ?? "Failed to delete user");
+      }
+      setDeletingUserId(null);
+    });
   };
 
   const roleCounts = localUsers.reduce(
@@ -183,28 +147,29 @@ export function UsersClient({ users }: { users: AdminUser[] }) {
           placeholder="Search by name or email…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="pl-9 h-9"
+          className="pl-9 h-9 text-sm"
         />
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border border-border overflow-hidden">
+      <div className="rounded-xl border border-border overflow-hidden bg-card">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/40 hover:bg-muted/40">
+            <TableRow className="bg-muted/40 hover:bg-muted/40 border-b border-border">
               <TableHead className="w-12" />
-              <TableHead>User</TableHead>
-              <TableHead className="hidden md:table-cell">Joined</TableHead>
-              <TableHead className="hidden sm:table-cell text-center w-24">Forms</TableHead>
-              <TableHead className="w-40 text-right">Role</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wider">User</TableHead>
+              <TableHead className="hidden md:table-cell text-xs font-semibold uppercase tracking-wider">Joined</TableHead>
+              <TableHead className="hidden sm:table-cell text-center w-24 text-xs font-semibold uppercase tracking-wider">Forms</TableHead>
+              <TableHead className="w-32 text-center text-xs font-semibold uppercase tracking-wider">Role</TableHead>
+              <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={5}
-                  className="text-center py-12 text-muted-foreground text-sm"
+                  colSpan={6}
+                  className="text-center py-16 text-muted-foreground text-sm"
                 >
                   {query ? "No users match your search" : "No users found"}
                 </TableCell>
@@ -226,10 +191,10 @@ export function UsersClient({ users }: { users: AdminUser[] }) {
               return (
                 <TableRow
                   key={user.id}
-                  className="hover:bg-muted/30 transition-colors group"
+                  className="hover:bg-muted/30 transition-colors group border-b border-border last:border-0"
                 >
                   <TableCell>
-                    <Avatar className="h-8 w-8">
+                    <Avatar className="h-8 w-8 border border-border/50 shadow-sm">
                       {user.avatarUrl && (
                         <AvatarImage src={user.avatarUrl} alt={user.name ?? ""} />
                       )}
@@ -239,15 +204,15 @@ export function UsersClient({ users }: { users: AdminUser[] }) {
                     </Avatar>
                   </TableCell>
                   <TableCell>
-                    <div>
-                      <p className="text-sm font-medium leading-none">
+                    <div className="flex flex-col">
+                      <p className="text-sm font-medium">
                         {user.name ?? (
                           <span className="text-muted-foreground italic">
                             No name
                           </span>
                         )}
                       </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
+                      <p className="text-[11px] text-muted-foreground">
                         {user.email}
                       </p>
                     </div>
@@ -256,17 +221,42 @@ export function UsersClient({ users }: { users: AdminUser[] }) {
                     {joinedDate}
                   </TableCell>
                   <TableCell className="hidden sm:table-cell text-center">
-                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground font-medium">
                       <FileText className="h-3 w-3" />
                       {user.formCount}
                     </span>
                   </TableCell>
-                  <TableCell className="text-right">
-                    <RoleSelector
-                      userId={user.id}
-                      currentRole={user.role}
-                      onRoleChanged={handleRoleChanged}
-                    />
+                  <TableCell className="text-center">
+                    <RoleBadge role={user.role} />
+                  </TableCell>
+                  <TableCell className="text-right pr-4">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Open menu</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-40">
+                        <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Actions</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => setViewingUser(user)} className="cursor-pointer">
+                          <Eye className="mr-2 h-4 w-4" />
+                          <span>View</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => router.push(`/admin/users/${user.id}/edit`)} className="cursor-pointer">
+                          <Pencil className="mr-2 h-4 w-4" />
+                          <span>Edit</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={() => setDeletingUserId(user.id)}
+                          className="text-destructive focus:text-destructive cursor-pointer"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          <span>Delete</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               );
@@ -276,11 +266,120 @@ export function UsersClient({ users }: { users: AdminUser[] }) {
       </div>
 
       {filtered.length > 0 && (
-        <p className="text-xs text-muted-foreground text-right">
+        <p className="text-[11px] text-muted-foreground text-right font-medium">
           Showing {filtered.length} of {localUsers.length} users
         </p>
       )}
+
+      {/* View Dialog */}
+      <Dialog open={!!viewingUser} onOpenChange={(open) => !open && setViewingUser(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>User Information</DialogTitle>
+            <DialogDescription>
+              Detailed view of the user profile.
+            </DialogDescription>
+          </DialogHeader>
+          {viewingUser && (
+            <div className="space-y-6 py-4">
+              <div className="flex items-center gap-4">
+                <Avatar className="h-16 w-16 border-2 border-primary/10 shadow-md">
+                  {viewingUser.avatarUrl && (
+                    <AvatarImage src={viewingUser.avatarUrl} />
+                  )}
+                  <AvatarFallback className="text-lg bg-primary/10 text-primary font-bold">
+                    {viewingUser.name ? viewingUser.name.charAt(0).toUpperCase() : "U"}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="space-y-1">
+                  <h3 className="text-xl font-bold tracking-tight">
+                    {viewingUser.name || "Anonymous User"}
+                  </h3>
+                  <RoleBadge role={viewingUser.role} />
+                </div>
+              </div>
+
+              <div className="grid gap-4 bg-muted/30 p-4 rounded-xl border border-border/50">
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="h-8 w-8 rounded-lg bg-background flex items-center justify-center shadow-sm border border-border/50">
+                    <Mail className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Email Address</p>
+                    <p className="font-medium">{viewingUser.email}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="h-8 w-8 rounded-lg bg-background flex items-center justify-center shadow-sm border border-border/50">
+                    <Calendar className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Joined Date</p>
+                    <p className="font-medium">
+                      {new Date(viewingUser.createdAt).toLocaleDateString("en-US", {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="h-8 w-8 rounded-lg bg-background flex items-center justify-center shadow-sm border border-border/50">
+                    <FileText className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Forms Created</p>
+                    <p className="font-medium">{viewingUser.formCount} total forms</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <Button variant="outline" onClick={() => setViewingUser(null)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deletingUserId} onOpenChange={(open) => !open && setDeletingUserId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              Delete User?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the user account from both the database and Supabase Auth.
+              All forms and responses owned by this user will also be deleted. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeleting}
+              onClick={() => deletingUserId && handleDelete(deletingUserId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Account"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
+
 

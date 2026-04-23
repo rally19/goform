@@ -113,9 +113,15 @@ export async function uploadAvatarAction(formData: FormData) {
     .from('embersatu')
     .getPublicUrl(`avatars/${fileName}`)
 
+  // Update Drizzle
   await db.update(users)
     .set({ avatarUrl: publicUrlData.publicUrl })
     .where(eq(users.id, user.id))
+  
+  // Update Supabase Auth metadata for consistency
+  await supabase.auth.updateUser({
+    data: { avatar_url: publicUrlData.publicUrl }
+  })
 
   revalidatePath('/settings')
   return { success: true, avatarUrl: publicUrlData.publicUrl }
@@ -161,6 +167,11 @@ export async function removeAvatarAction() {
   if (!user) return { error: 'Not authenticated' }
 
   await db.update(users).set({ avatarUrl: null }).where(eq(users.id, user.id))
+  
+  // Clear from metadata
+  await supabase.auth.updateUser({
+    data: { avatar_url: null }
+  })
 
   revalidatePath('/settings')
   return { success: true }
