@@ -103,7 +103,7 @@ async function AdminSidebarDataWrapper() {
 
 function AdminSidebarGhost() {
   return (
-    <aside className="w-60 shrink-0 hidden md:flex flex-col h-full border-r border-border bg-sidebar animate-pulse">
+    <aside className="w-64 shrink-0 hidden md:flex flex-col h-full border-r border-border bg-sidebar animate-pulse">
       <div className="h-14 border-b border-sidebar-border" />
       <div className="flex-1 p-3 space-y-4">
         <div className="h-4 bg-sidebar-accent/50 rounded w-1/3" />
