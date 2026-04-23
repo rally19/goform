@@ -9,6 +9,7 @@ import type { FormAnswer, BuilderSection, LogicRule, BuilderField, SectionType }
 import { evaluateLogic, type FieldDynamicState } from "@/lib/form-logic";
 import { submitFormResponse, getPublicFormStatus, checkFormStorageQuota } from "@/lib/actions/responses";
 import { createClient } from "@/lib/client";
+import { SafeHtml } from "@/components/ui/safe-html";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -331,15 +332,14 @@ function FieldRenderer({
   if (field.type === "section") {
     return (
       <div className="space-y-4">
-        <h3 
+        <SafeHtml 
           className="text-lg font-semibold" 
-          style={{ color: accentColor }}
-          dangerouslySetInnerHTML={{ __html: sanitize(field.label) }}
+          html={field.label}
         />
         {field.description && (
-          <div 
+          <SafeHtml 
             className="text-sm text-muted-foreground prose-sm max-w-full preserve-spaces"
-            dangerouslySetInnerHTML={{ __html: sanitize(field.description) }}
+            html={field.description}
           />
         )}
       </div>
@@ -350,15 +350,15 @@ function FieldRenderer({
     return (
       <div className="space-y-2">
         {field.label && field.label !== "Paragraph" && (
-          <div
+          <SafeHtml
             className="text-sm font-medium prose-sm max-w-full preserve-spaces"
-            dangerouslySetInnerHTML={{ __html: sanitize(field.label) }}
+            html={field.label}
           />
         )}
         {field.description && (
-          <div
+          <SafeHtml
             className="text-sm text-foreground/80 prose-sm max-w-full preserve-spaces"
-            dangerouslySetInnerHTML={{ __html: sanitize(field.description) }}
+            html={field.description}
           />
         )}
       </div>
@@ -949,9 +949,9 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
                 />
               )}
               {successSection.description && (
-                <div
+                <SafeHtml
                   className="text-sm text-foreground/80 prose-sm max-w-full preserve-spaces"
-                  dangerouslySetInnerHTML={{ __html: sanitize(successSection.description) }}
+                  html={successSection.description}
                 />
               )}
             </div>
@@ -983,9 +983,9 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
           <CheckCircle2 className="h-8 w-8" style={{ color: accentColor }} />
         </div>
         <h2 className="text-2xl font-bold">Thank you!</h2>
-        <div 
+        <SafeHtml 
           className="text-foreground/80 prose-neutral max-w-full preserve-spaces"
-          dangerouslySetInnerHTML={{ __html: sanitize(form.successMessage ?? "Your response has been recorded.") }}
+          html={form.successMessage ?? "Your response has been recorded."}
         />
       </div>
     );
@@ -1021,9 +1021,9 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
             />
           )}
           {currentPageData.sectionDescription && (
-            <div 
+            <SafeHtml 
               className="text-sm text-foreground/80 prose-sm max-w-full preserve-spaces"
-              dangerouslySetInnerHTML={{ __html: sanitize(currentPageData.sectionDescription) }}
+              html={currentPageData.sectionDescription}
             />
           )}
         </div>
@@ -1082,9 +1082,9 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
               )}
             </Label>
             {field.description && (
-              <div 
+              <SafeHtml 
                 className="text-xs text-foreground/80 -mt-1 prose-xs max-w-full preserve-spaces"
-                dangerouslySetInnerHTML={{ __html: sanitize(field.description) }}
+                html={field.description}
               />
             )}
               <FieldRenderer

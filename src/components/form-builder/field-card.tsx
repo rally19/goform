@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useState, memo, useMemo, useCallback } from "react";
 import { sanitize } from "@/lib/sanitize";
+import { SafeHtml } from "@/components/ui/safe-html";
 
 const FIELD_ICONS: Record<string, React.ElementType> = {
   short_text: Type, long_text: AlignLeft, number: Hash, email: Mail,
@@ -114,14 +115,14 @@ export const FieldCard = memo(function FieldCard({
     if (field.type === "section") {
       return (
         <div className="border-l-2 pl-3" style={{ borderColor: accentColor }}>
-          <h3 
+          <SafeHtml 
             className="font-semibold text-base text-foreground prose-sm max-w-full"
-            dangerouslySetInnerHTML={{ __html: sanitize(field.label) }}
+            html={field.label}
           />
           {field.description && (
-            <div 
+            <SafeHtml 
               className="text-sm text-foreground/70 mt-0.5 prose-sm max-w-full preserve-spaces"
-              dangerouslySetInnerHTML={{ __html: sanitize(field.description) }}
+              html={field.description}
             />
           )}
         </div>
@@ -140,9 +141,9 @@ export const FieldCard = memo(function FieldCard({
       return (
         <div className="text-sm text-foreground/70">
           {field.description ? (
-            <div
+            <SafeHtml
               className="prose-sm max-w-full preserve-spaces"
-              dangerouslySetInnerHTML={{ __html: sanitize(field.description) }}
+              html={field.description}
             />
           ) : (
             <span className="text-muted-foreground italic">No content yet</span>
@@ -166,9 +167,9 @@ export const FieldCard = memo(function FieldCard({
                 "h-3.5 w-3.5 border border-muted-foreground/40 pointer-events-none shrink-0 mt-0.5",
                 field.type === "radio" ? "rounded-full" : "rounded-[3px]"
               )} />
-              <div 
+              <SafeHtml 
                 className="prose-sm max-w-full [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-md"
-                dangerouslySetInnerHTML={{ __html: sanitize(opt.label) }}
+                html={opt.label}
               />
             </div>
           ))}
@@ -187,9 +188,9 @@ export const FieldCard = memo(function FieldCard({
               {field.options.map((opt, i) => (
                 <div key={i} className="flex items-start gap-2 text-[11px] text-muted-foreground/80">
                   <div className="h-1 w-1 rounded-full bg-muted-foreground/30 mt-1.5 shrink-0" />
-                  <div 
+                  <SafeHtml 
                     className="prose-xs max-w-full opacity-80 [&_img]:max-h-24 [&_img]:w-auto [&_img]:rounded-sm"
-                    dangerouslySetInnerHTML={{ __html: sanitize(opt.label) }}
+                    html={opt.label}
                   />
                 </div>
               ))}
@@ -402,9 +403,9 @@ export const FieldCard = memo(function FieldCard({
           <div className="flex flex-row items-center gap-2">
             <div className="flex items-center gap-1.5 min-w-0 flex-1">
               <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <div 
+              <SafeHtml 
                 className="font-medium text-sm text-foreground prose-sm max-w-full"
-                dangerouslySetInnerHTML={{ __html: sanitize(field.label) }}
+                html={field.label}
               />
               {field.required && (
                 <span className="text-destructive text-sm leading-none shrink-0">*</span>
@@ -426,12 +427,12 @@ export const FieldCard = memo(function FieldCard({
             </div>
           </div>
 
-          {field.description && !["paragraph", "divider"].includes(field.type) && (
-            <div 
-              className="text-xs text-foreground/80 -mt-1 text-balance prose-xs max-w-full preserve-spaces"
-              dangerouslySetInnerHTML={{ __html: sanitize(field.description) }}
-            />
-          )}
+            {field.description && !["paragraph", "divider"].includes(field.type) && (
+              <SafeHtml 
+                className="text-xs text-foreground/80 -mt-1 text-balance prose-xs max-w-full preserve-spaces"
+                html={field.description}
+              />
+            )}
 
           {renderFieldPreview()}
         </div>

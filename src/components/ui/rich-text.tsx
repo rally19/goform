@@ -1,6 +1,6 @@
 "use client";
 
-import { useEditor, EditorContent, Extension, NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
+import { useEditor, EditorContent, Extension, Node, NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
 import { TextStyle } from "@tiptap/extension-text-style";
 import TextAlign from "@tiptap/extension-text-align";
 // Removed BubbleMenu import as it is no longer used for docked toolbar
@@ -8,7 +8,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
 // Link and Underline are now included in StarterKit v3
-import { useState, useEffect, useId, useRef } from "react";
+import { useState, useEffect, useId, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { 
@@ -25,8 +25,11 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
-  AlignJustify
+  AlignJustify,
+  SmilePlus,
+  HelpCircle
 } from "lucide-react";
+import * as LucideIcons from "lucide-react";
 import { Button } from "./button";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
 import { Input } from "./input";
@@ -131,6 +134,146 @@ const ResizableImageComponent = ({ node, updateAttributes, selected, editor }: a
     </NodeViewWrapper>
   );
 };
+
+const ResizableIconComponent = ({ node, updateAttributes, selected, editor }: any) => {
+  const [resizing, setResizing] = useState(false);
+  const [isEditorFocused, setIsEditorFocused] = useState(editor.isFocused);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onFocus = () => setIsEditorFocused(true);
+    const onBlur = () => setIsEditorFocused(false);
+    
+    editor.on('focus', onFocus);
+    editor.on('blur', onBlur);
+    
+    return () => {
+      editor.off('focus', onFocus);
+      editor.off('blur', onBlur);
+    };
+  }, [editor]);
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setResizing(true);
+    
+    const startX = e.pageX;
+    const startSize = node.attrs.size || 24;
+    
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const currentX = moveEvent.pageX;
+      const diffX = currentX - startX;
+      const newSize = Math.max(12, Math.min(200, startSize + diffX));
+      updateAttributes({ size: newSize });
+    };
+    
+    const onMouseUp = () => {
+      setResizing(false);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+    
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
+
+  let IconComponent = (LucideIcons as any)[node.attrs.name] || LucideIcons.HelpCircle;
+  if (typeof IconComponent !== 'function' && typeof IconComponent !== 'object') {
+    IconComponent = LucideIcons.HelpCircle;
+  }
+
+  return (
+    <NodeViewWrapper 
+      className={cn(
+        "relative leading-none group/icon-wrapper align-middle my-1 mx-0.5 w-fit",
+        node.attrs.textAlign === 'center' && "mx-auto flex justify-center",
+        node.attrs.textAlign === 'right' && "ml-auto flex justify-end",
+        (node.attrs.textAlign === 'left' || !node.attrs.textAlign) && "inline-flex justify-start"
+      )}
+      data-drag-handle
+    >
+      <div
+        ref={containerRef}
+        className={cn(
+          "rounded-md transition-all flex items-center justify-center p-0.5",
+          (selected && isEditorFocused) ? "ring-2 ring-primary ring-offset-1 ring-offset-background" : "hover:ring-1 hover:ring-primary/30 hover:ring-offset-1 hover:ring-offset-background"
+        )}
+        style={{ width: node.attrs.size, height: node.attrs.size }}
+      >
+        <IconComponent size={node.attrs.size} color="currentColor" />
+      </div>
+      {selected && isEditorFocused && (
+        <div
+          onMouseDown={onMouseDown}
+          className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-primary text-primary-foreground rounded-full cursor-nwse-resize shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-10 border border-background"
+          title="Resize icon"
+        >
+          <MoveDiagonal2 className="w-2.5 h-2.5" />
+        </div>
+      )}
+      {resizing && (
+        <div className="absolute top-0 right-0 translate-x-full bg-primary text-primary-foreground text-[8px] px-1 py-0.5 rounded-r-md font-bold z-20 shadow-sm pointer-events-none border border-background/20">
+          {Math.round(node.attrs.size || 0)}px
+        </div>
+      )}
+    </NodeViewWrapper>
+  );
+};
+
+const ResizableIcon = Node.create({
+  name: 'resizableIcon',
+  group: 'inline',
+  inline: true,
+  selectable: true,
+  draggable: true,
+
+  addAttributes() {
+    return {
+      name: {
+        default: 'HelpCircle',
+      },
+      size: {
+        default: 24,
+      },
+      textAlign: {
+        default: 'left',
+        parseHTML: element => element.style.textAlign || 'left',
+        renderHTML: attributes => ({
+          style: `text-align: ${attributes.textAlign}`,
+        }),
+      },
+    };
+  },
+
+  parseHTML() {
+    return [
+      {
+        tag: 'span[data-lucide-icon]',
+      },
+    ];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['span', { 'data-lucide-icon': '', ...HTMLAttributes }];
+  },
+
+  addNodeView() {
+    return ReactNodeViewRenderer(ResizableIconComponent);
+  },
+
+  addCommands() {
+    return {
+      setIcon: (options: { name: string, size?: number }) => ({ commands }: any) => {
+        return commands.insertContent({
+          type: this.name,
+          attrs: options,
+        });
+      },
+    } as any;
+  },
+});
 
 const ResizableImage = Image.extend({
   draggable: true,
@@ -261,14 +404,29 @@ export function RichText({
   const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
   const [hasLinkInRange, setHasLinkInRange] = useState(false);
 
+  const [isDragging, setIsDragging] = useState(false);
+  
   // Image management state
   const [imagePopoverOpen, setImagePopoverOpen] = useState(false);
+  const [iconPopoverOpen, setIconPopoverOpen] = useState(false);
+  const [iconSearch, setIconSearch] = useState("");
   const [assets, setAssets] = useState<Asset[]>([]);
   const [assetsLoading, setAssetsLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [imageSearch, setImageSearch] = useState("");
   const [externalUrl, setExternalUrl] = useState("");
-  const [isDragging, setIsDragging] = useState(false);
+
+  const filteredIcons = useMemo(() => {
+    return Object.keys(LucideIcons).filter(name => {
+      const item = (LucideIcons as any)[name];
+      return (
+        /^[A-Z]/.test(name) &&
+        name !== 'LucideIcon' &&
+        (typeof item === 'function' || (item && typeof item === 'object' && (item.$$typeof || item.render))) &&
+        name.toLowerCase().includes(iconSearch.toLowerCase())
+      );
+    }).slice(0, 100);
+  }, [iconSearch]);
 
 
   const editor = useEditor({
@@ -299,10 +457,11 @@ export function RichText({
           class: "max-w-full rounded-lg",
         },
       }),
+      ResizableIcon,
       TextStyle,
       FontSize,
       TextAlign.configure({
-        types: ["heading", "paragraph", "image"],
+        types: ["heading", "paragraph", "image", "resizableIcon"],
       }),
     ],
     content: value,
@@ -684,7 +843,7 @@ export function RichText({
                   >
                     <div className="flex flex-col max-h-[inherit] overflow-y-auto">
                       {/* Upload Section */}
-                      <div className="p-3 border-b bg-muted/30">
+                      <div className="p-3 border-b bg-muted/30 shrink-0">
                         <div 
                           className={cn(
                             "relative border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center gap-2 transition-colors cursor-pointer",
@@ -757,7 +916,7 @@ export function RichText({
                             className="h-7 text-xs border-none shadow-none focus-visible:ring-0 p-0"
                           />
                         </div>
-                        <ScrollArea className="flex-1">
+                        <ScrollArea className="flex-1 min-h-0">
                           <div className="p-2">
                             {assetsLoading ? (
                               <div className="flex items-center justify-center py-8">
@@ -800,6 +959,69 @@ export function RichText({
                     </div>
                   </PopoverContent>
                 </Popover>
+
+                <Popover open={iconPopoverOpen} onOpenChange={setIconPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <ToolbarButton
+                      active={iconPopoverOpen}
+                      icon={<SmilePlus className="h-4 w-4" />}
+                      onClick={() => {}} 
+                      title="Insert icon"
+                    />
+                  </PopoverTrigger>
+                  <PopoverContent 
+                    className="w-80 p-0 overflow-hidden" 
+                    align="start" 
+                    side="bottom" 
+                    sideOffset={8}
+                    data-slot="popover-content"
+                  >
+                    <div className="flex flex-col h-[350px]">
+                      <div className="p-3 border-b bg-muted/30 shrink-0">
+                        <div className="relative">
+                          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Search icons..."
+                            className="pl-9 h-9"
+                            value={iconSearch}
+                            onChange={(e) => setIconSearch(e.target.value)}
+                            autoFocus
+                          />
+                        </div>
+                      </div>
+                      <ScrollArea className="flex-1 min-h-0">
+                        <div className="p-3 grid grid-cols-6 gap-2">
+                          {filteredIcons.map((name) => {
+                            const Icon = (LucideIcons as any)[name];
+                            if (!Icon) return null;
+                            return (
+                              <Button
+                                key={name}
+                                variant="ghost"
+                                size="icon"
+                                className="h-10 w-10 p-0"
+                                onClick={() => {
+                                  (editor?.chain().focus() as any).setIcon({ name }).run();
+                                  setIconPopoverOpen(false);
+                                  setIconSearch("");
+                                }}
+                                title={name}
+                              >
+                                <Icon className="h-5 w-5" />
+                              </Button>
+                            );
+                          })}
+                          {filteredIcons.length === 0 && (
+                            <div className="col-span-6 py-10 text-center text-sm text-muted-foreground">
+                              No icons found
+                            </div>
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
                 <Separator orientation="vertical" className="h-6" />
                 </>
               )}

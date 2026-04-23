@@ -1,6 +1,6 @@
 import { getForm } from "@/lib/actions/forms";
 import { FormRenderer } from "@/components/form-renderer/form-renderer";
-import { sanitize } from "@/lib/sanitize";
+import { SafeHtml } from "@/components/ui/safe-html";
 import { forbidden } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -61,14 +61,14 @@ async function PreviewPageData({
         <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
           <div className="h-2.5" style={{ backgroundColor: accentColor }} />
           <div className="p-8 pb-6">
-            <h1 
+            <SafeHtml 
               className="text-3xl font-bold tracking-tight prose-2xl max-w-full"
-              dangerouslySetInnerHTML={{ __html: sanitize(form.title) }}
+              html={form.title}
             />
             {form.description && (
-              <div 
+              <SafeHtml 
                 className="text-muted-foreground mt-3 prose-lg max-w-full preserve-spaces"
-                dangerouslySetInnerHTML={{ __html: sanitize(form.description) }}
+                html={form.description}
               />
             )}
           </div>
