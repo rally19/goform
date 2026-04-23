@@ -7,6 +7,11 @@ import {
   useOthers, 
   useMyPresence,
   useSelf,
+  useUndo,
+  useRedo,
+  useCanUndo,
+  useCanRedo,
+  useHistory,
 } from "@liveblocks/react";
 import { LiveList, LiveObject } from "@liveblocks/client";
 import { useFormBuilder } from "./use-form-builder";
@@ -40,6 +45,11 @@ export function useFormCollaboration({
   const [myPresence, updateMyPresence] = useMyPresence();
   const others = useOthers();
   const self = useSelf();
+  const undo = useUndo();
+  const redo = useRedo();
+  const canUndo = useCanUndo();
+  const canRedo = useCanRedo();
+  const history = useHistory();
 
   // Update presence when local Zustand state changes
   useEffect(() => {
@@ -118,47 +128,49 @@ export function useFormCollaboration({
   // by assigning them to the first section. Also restores sections from DB
   // if the Liveblocks sections list is somehow empty.
   const reconcileStorage = useMutation(({ storage }, seedSections: BuilderSection[]) => {
-    const sectionsList = storage.get("sections");
-    const fieldsList = storage.get("fields");
-    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    history.disable(() => {
+      const sectionsList = storage.get("sections");
+      const fieldsList = storage.get("fields");
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-    // Replace any section with a non-UUID id (e.g. "default") with a valid UUID
-    for (let i = 0; i < sectionsList.length; i++) {
-      const s = sectionsList.get(i) as LiveObject<BuilderSection>;
-      const sid = s.get("id");
-      if (!uuidRe.test(sid)) {
-        s.set("id", crypto.randomUUID());
+      // Replace any section with a non-UUID id (e.g. "default") with a valid UUID
+      for (let i = 0; i < sectionsList.length; i++) {
+        const s = sectionsList.get(i) as LiveObject<BuilderSection>;
+        const sid = s.get("id");
+        if (!uuidRe.test(sid)) {
+          s.set("id", crypto.randomUUID());
+        }
       }
-    }
 
-    // If Liveblocks still has no valid sections, seed from DB or create a default
-    if (sectionsList.length === 0) {
-      const toSeed: BuilderSection[] = seedSections.length > 0
-        ? seedSections.map((s) => ({ ...s, id: uuidRe.test(s.id) ? s.id : crypto.randomUUID() }))
-        : [{ id: crypto.randomUUID(), name: "Section 1", description: "", orderIndex: 0, type: "next" as const }];
-      for (const s of toSeed) {
-        sectionsList.push(new LiveObject<BuilderSection>(s));
+      // If Liveblocks still has no valid sections, seed from DB or create a default
+      if (sectionsList.length === 0) {
+        const toSeed: BuilderSection[] = seedSections.length > 0
+          ? seedSections.map((s) => ({ ...s, id: uuidRe.test(s.id) ? s.id : crypto.randomUUID() }))
+          : [{ id: crypto.randomUUID(), name: "Section 1", description: "", orderIndex: 0, type: "next" as const }];
+        for (const s of toSeed) {
+          sectionsList.push(new LiveObject<BuilderSection>(s));
+        }
       }
-    }
 
-    // Determine the valid section IDs after reconciliation
-    const validIds = new Set<string>();
-    for (let i = 0; i < sectionsList.length; i++) {
-      validIds.add((sectionsList.get(i) as LiveObject<BuilderSection>).get("id"));
-    }
-
-    if (validIds.size === 0) return;
-    const firstSectionId = (sectionsList.get(0) as LiveObject<BuilderSection>).get("id");
-
-    // Patch fields that have no sectionId, a non-UUID sectionId, or an orphaned sectionId
-    for (let i = 0; i < fieldsList.length; i++) {
-      const f = fieldsList.get(i) as LiveObject<BuilderField>;
-      const sid = f.get("sectionId");
-      if (!sid || !uuidRe.test(sid) || !validIds.has(sid)) {
-        f.set("sectionId", firstSectionId);
+      // Determine the valid section IDs after reconciliation
+      const validIds = new Set<string>();
+      for (let i = 0; i < sectionsList.length; i++) {
+        validIds.add((sectionsList.get(i) as LiveObject<BuilderSection>).get("id"));
       }
-    }
-  }, []);
+
+      if (validIds.size === 0) return;
+      const firstSectionId = (sectionsList.get(0) as LiveObject<BuilderSection>).get("id");
+
+      // Patch fields that have no sectionId, a non-UUID sectionId, or an orphaned sectionId
+      for (let i = 0; i < fieldsList.length; i++) {
+        const f = fieldsList.get(i) as LiveObject<BuilderField>;
+        const sid = f.get("sectionId");
+        if (!sid || !uuidRe.test(sid) || !validIds.has(sid)) {
+          f.set("sectionId", firstSectionId);
+        }
+      }
+    });
+  }, [history]);
 
   const reorderSection = useMutation(({ storage }, id: string, toIndex: number) => {
     const list = storage.get("sections");
@@ -225,6 +237,17 @@ export function useFormCollaboration({
       }
     }
   }, []);
+
+  const updateFormMetaWithoutHistory = useMutation(({ storage }, changes: Partial<BuilderForm>) => {
+    history.disable(() => {
+      const meta = storage.get("formMetadata");
+      if (meta) {
+        for (const [key, value] of Object.entries(changes)) {
+          meta.set(key as keyof BuilderForm, value);
+        }
+      }
+    });
+  }, [history]);
 
   // ─── Persistence to Supabase ───────────────────────────────────────────────
   const lastSavedRef = useRef<string | null>(null);
@@ -344,7 +367,7 @@ export function useFormCollaboration({
     }
 
     if (hasChanges) {
-      updateFormMeta(changes);
+      updateFormMetaWithoutHistory(changes);
     }
     // We only want to run this once when the form becomes available
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -375,5 +398,9 @@ export function useFormCollaboration({
     setCurrentSectionId,
     selectedSectionId,
     selectSection,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
   };
 }

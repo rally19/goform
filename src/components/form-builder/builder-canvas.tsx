@@ -38,7 +38,7 @@ import {
   PlusCircle, Settings2, Palette,
   Plus, Loader2, Send, ChevronRight, CheckCircle2,
   GripVertical, Copy, Trash2, ChevronDown, MoveRight, Layers,
-  X, CheckSquare2
+  X, CheckSquare2, Undo2, Redo2
 } from "lucide-react";
 import { FieldMoveDialog } from "./field-move-dialog";
 import { SectionReorderDialog } from "./section-reorder-dialog";
@@ -114,8 +114,8 @@ function ActiveMembers({ self, others }: { self: any, others: readonly any[] }) 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           className="h-9 px-1.5 gap-1 hover:bg-muted/80 rounded-lg border border-transparent transition-all group"
         >
           <div className="flex items-center -space-x-1.5">
@@ -124,7 +124,7 @@ function ActiveMembers({ self, others }: { self: any, others: readonly any[] }) 
                 <Tooltip delayDuration={200}>
                   <TooltipTrigger asChild>
                     <div className="relative">
-                      <Avatar 
+                      <Avatar
                         className={cn(
                           "h-6 w-6 border-2 border-card shrink-0 transition-all duration-300",
                           user.isSelf ? "z-10" : "z-0"
@@ -173,12 +173,12 @@ function ActiveMembers({ self, others }: { self: any, others: readonly any[] }) 
         </div>
         <div className="max-h-[300px] overflow-y-auto">
           {allUsers.map((user) => (
-            <div 
-              key={user.connectionId || 'self'} 
+            <div
+              key={user.connectionId || 'self'}
               className="flex items-center gap-2.5 px-2 py-2 rounded-md hover:bg-muted/50 transition-colors group/item"
             >
               <div className="relative">
-                <Avatar 
+                <Avatar
                   className={cn(
                     "h-7 w-7 shrink-0 border border-border/50 transition-all duration-300",
                     (user.presence?.selectedFieldId || user.presence?.selectedSectionId) && "ring-2 ring-emerald-500 ring-offset-1 ring-offset-background"
@@ -201,11 +201,11 @@ function ActiveMembers({ self, others }: { self: any, others: readonly any[] }) 
                   )}
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                   <div className={cn(
-                     "h-1.5 w-1.5 rounded-full animate-pulse",
-                     (user.presence?.selectedFieldId || user.presence?.selectedSectionId) ? "bg-emerald-500" : "bg-muted-foreground/30"
-                   )} />
-                   <span className="text-[10px] text-muted-foreground font-medium truncate">
+                  <div className={cn(
+                    "h-1.5 w-1.5 rounded-full animate-pulse",
+                    (user.presence?.selectedFieldId || user.presence?.selectedSectionId) ? "bg-emerald-500" : "bg-muted-foreground/30"
+                  )} />
+                  <span className="text-[10px] text-muted-foreground font-medium truncate">
                     {(user.presence?.selectedFieldId || user.presence?.selectedSectionId) ? "Currently editing form" : "Spectating"}
                   </span>
                 </div>
@@ -259,6 +259,10 @@ export function BuilderCanvas({
     updateSection: collabUpdateSection,
     reorderSection: collabReorderSection,
     duplicateSection: collabDuplicateSection,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
   } = useFormCollaboration({
     formId,
     initialForm,
@@ -418,7 +422,7 @@ export function BuilderCanvas({
     if (String(active.id).startsWith("new:")) {
       const type = String(active.id).split(":")[1];
       const meta = FIELD_TYPE_META.find((m) => m.type === type);
-      
+
       const newField: BuilderField = {
         id: crypto.randomUUID(),
         type: type as any,
@@ -452,6 +456,42 @@ export function BuilderCanvas({
     }
   };
 
+
+  // ─── Keyboard Shortcuts ───────────────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input or textarea
+      if (
+        document.activeElement?.tagName === "INPUT" ||
+        document.activeElement?.tagName === "TEXTAREA" ||
+        (document.activeElement as HTMLElement)?.isContentEditable
+      ) {
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+        if (e.shiftKey) {
+          if (canRedo) {
+            e.preventDefault();
+            redo();
+          }
+        } else {
+          if (canUndo) {
+            e.preventDefault();
+            undo();
+          }
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "y") {
+        if (canRedo) {
+          e.preventDefault();
+          redo();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [undo, redo, canUndo, canRedo]);
 
   const handleUpdateField = useCallback((id: string, changes: Partial<BuilderField>) => {
     collabUpdateField(id, changes);
@@ -542,10 +582,10 @@ export function BuilderCanvas({
           {/* Header */}
           <header className="h-14 border-b border-border bg-card flex items-center justify-between px-4 shrink-0 z-20">
             <div className="flex items-center gap-3 min-w-0">
-                <ActiveMembers self={self} others={others} />
+              <ActiveMembers self={self} others={others} />
 
               <div className="w-px h-4 bg-border mx-1 hidden sm:block" />
-              
+
               <div className="flex items-center gap-1.5 min-w-0">
                 <Badge variant="secondary" className={cn(
                   "px-2 py-0.5 text-[10px] font-bold uppercase",
@@ -554,7 +594,7 @@ export function BuilderCanvas({
                   {form.status}
                 </Badge>
                 <div className="flex flex-col">
-                  <div 
+                  <div
                     className="text-xs font-semibold prose-xs max-w-full truncate leading-none"
                     dangerouslySetInnerHTML={{ __html: sanitize(form.title) }}
                   />
@@ -563,6 +603,47 @@ export function BuilderCanvas({
             </div>
 
             <div className="flex items-center gap-1 sm:gap-2">
+              {/* History Controls (Undo/Redo) - Desktop only */}
+              <div className="hidden md:flex items-center gap-0.5 mr-1 border-r border-border pr-2">
+                <TooltipProvider>
+                  <Tooltip delayDuration={400}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                        onClick={undo}
+                        disabled={!canUndo}
+                      >
+                        <Undo2 className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-[10px]">
+                      Undo <span className="text-muted-foreground ml-1">Ctrl+Z</span>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <TooltipProvider>
+                  <Tooltip delayDuration={400}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                        onClick={redo}
+                        disabled={!canRedo}
+                      >
+                        <Redo2 className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-[10px]">
+                      Redo <span className="text-muted-foreground ml-1">Ctrl+Y</span>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+
               {/* Section picker */}
               {sortedSections.length > 0 && (
                 <DropdownMenu>
@@ -825,10 +906,10 @@ export function BuilderCanvas({
           ) : (
             /* ─── Mobile: Normal bar ─────────────────────────────────────── */
             <div className="md:hidden h-16 border-t border-border bg-card flex items-center justify-around px-2 shrink-0 z-30 pb-safe">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px]" 
+              <Button
+                variant="ghost"
+                size="sm"
+                className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px]"
                 onClick={() => {
                   if (selectedSectionId) {
                     handleAddSection(currentSectionIndex);
@@ -841,10 +922,10 @@ export function BuilderCanvas({
                 <span className="text-[10px] font-medium">{selectedSectionId ? "Add Section" : "Add"}</span>
               </Button>
 
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px]" 
+              <Button
+                variant="ghost"
+                size="sm"
+                className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px]"
                 onClick={() => {
                   if (selectedSectionId) {
                     handleDuplicateSection(selectedSectionId);
@@ -878,10 +959,10 @@ export function BuilderCanvas({
               </Button>
 
               <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px] text-destructive disabled:opacity-30" 
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px] text-destructive disabled:opacity-30"
                   onClick={() => setIsDeleteConfirmOpen(true)}
                   disabled={(!selectedFieldId && !selectedSectionId) || (!!selectedSectionId && sections.length === 1)}
                 >
@@ -899,7 +980,7 @@ export function BuilderCanvas({
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction 
+                    <AlertDialogAction
                       onClick={() => {
                         if (selectedSectionId) {
                           handleDeleteSection(selectedSectionId);
@@ -908,7 +989,7 @@ export function BuilderCanvas({
                           handleRemoveField(selectedFieldId);
                           selectField(null);
                         }
-                      }} 
+                      }}
                       className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                     >
                       Delete
@@ -917,11 +998,11 @@ export function BuilderCanvas({
                 </AlertDialogContent>
               </AlertDialog>
 
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px]" 
-                onClick={() => setIsSettingsOpen(true)} 
+              <Button
+                variant="ghost"
+                size="sm"
+                className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[64px]"
+                onClick={() => setIsSettingsOpen(true)}
                 disabled={!selectedFieldId && !selectedSectionId}
               >
                 <Settings2 className="h-5 w-5" />
@@ -1017,18 +1098,58 @@ export function BuilderCanvas({
             onReorder={handleReorderSection}
           />
 
-          {/* Section Type Picker Dialog */}
           <SectionTypeDialog
             open={isSectionTypeOpen}
             onOpenChange={setIsSectionTypeOpen}
             onSelect={handleCreateSectionWithType}
           />
+
+          {/* Mobile Floating History Controls - Top Corners */}
+          <AnimatePresence>
+            {canUndo && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8, x: -20 }}
+                animate={{ opacity: 1, scale: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.8, x: -20 }}
+                className="md:hidden fixed top-[110px] left-4 z-40"
+              >
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="h-10 w-10 rounded-full shadow-lg border border-border/50 bg-card/90 backdrop-blur-md text-foreground active:scale-95 transition-all"
+                  onClick={(e) => { e.stopPropagation(); undo(); }}
+                >
+                  <Undo2 className="h-4 w-4" />
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {canRedo && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8, x: 20 }}
+                animate={{ opacity: 1, scale: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.8, x: 20 }}
+                className="md:hidden fixed top-[110px] right-4 z-40"
+              >
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="h-10 w-10 rounded-full shadow-lg border border-border/50 bg-card/90 backdrop-blur-md text-foreground active:scale-95 transition-all"
+                  onClick={(e) => { e.stopPropagation(); redo(); }}
+                >
+                  <Redo2 className="h-4 w-4" />
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Right Panel */}
         <CursorArea id={`settings-${selectedFieldId || selectedSectionId || 'none'}`} className="w-80 shrink-0 hidden lg:flex flex-col border-l border-border h-full bg-card overflow-hidden">
-          <FieldSettings 
-            currentUserId={currentUserId} 
+          <FieldSettings
+            currentUserId={currentUserId}
             field={fields.find(f => f.id === selectedFieldId)}
             selectedSection={selectedSectionId ? sections.find(s => s.id === selectedSectionId) : undefined}
             onUpdateSection={(changes) => selectedSectionId && collabUpdateSection(selectedSectionId, changes)}
@@ -1074,7 +1195,7 @@ export function BuilderCanvas({
                 }
               }
             }}
-            onMobileClose={() => {}}
+            onMobileClose={() => { }}
             workspaceId={workspaceId}
           />
         </CursorArea>
@@ -1105,8 +1226,8 @@ export function BuilderCanvas({
             </SheetDescription>
           </SheetHeader>
           <CursorArea id={`settings-${selectedFieldId || selectedSectionId || 'none'}`} className="h-[calc(100%-1px)]">
-            <FieldSettings 
-              currentUserId={currentUserId} 
+            <FieldSettings
+              currentUserId={currentUserId}
               field={fields.find(f => f.id === selectedFieldId)}
               selectedSection={selectedSectionId ? sections.find(s => s.id === selectedSectionId) : undefined}
               onUpdateSection={(changes) => selectedSectionId && collabUpdateSection(selectedSectionId, changes)}
@@ -1181,21 +1302,21 @@ export function BuilderCanvas({
           />
         ) : activeId && String(activeId).startsWith("new:") ? (
           <div className="w-full max-w-2xl px-4 md:px-8 pointer-events-none">
-             <div 
-               className="rounded-xl border border-primary bg-card/50 backdrop-blur-sm p-4 shadow-xl opacity-90 flex items-center gap-3"
-               style={{ borderColor: accentColor }}
-             >
-                <div 
-                  className="h-8 w-8 rounded flex items-center justify-center bg-primary/10"
-                  style={{ color: accentColor }}
-                >
-                   <PlusCircle className="h-5 w-5" />
-                </div>
-                <div>
-                   <p className="font-semibold text-sm">Add {activeId.split(':')[1].replace(/_/g, " ")}</p>
-                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider">New component</p>
-                </div>
-             </div>
+            <div
+              className="rounded-xl border border-primary bg-card/50 backdrop-blur-sm p-4 shadow-xl opacity-90 flex items-center gap-3"
+              style={{ borderColor: accentColor }}
+            >
+              <div
+                className="h-8 w-8 rounded flex items-center justify-center bg-primary/10"
+                style={{ color: accentColor }}
+              >
+                <PlusCircle className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">Add {activeId.split(':')[1].replace(/_/g, " ")}</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">New component</p>
+              </div>
+            </div>
           </div>
         ) : null}
       </DragOverlay>
