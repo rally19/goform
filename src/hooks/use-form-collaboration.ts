@@ -368,6 +368,7 @@ export function useFormCollaboration({
       "submissionLimitRemaining", "submissionLimitDecremental",
       "startsAt", "startsAtEnabled",
       "endsAt", "endsAtEnabled",
+      "showStartsAt", "showEndsAt",
     ];
 
     const changes: Partial<BuilderForm> = {};

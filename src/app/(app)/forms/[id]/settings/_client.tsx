@@ -31,6 +31,16 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Loader2, Trash2, Copy, ExternalLink, Globe, Lock, ShieldCheck, ToggleLeft, CalendarClock } from "lucide-react";
 
+// Helper to convert UTC Date to local datetime-local string format (YYYY-MM-DDTHH:mm)
+function toLocalDatetime(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 interface SettingsClientProps {
   formId: string;
   initialForm: Form;
@@ -58,10 +68,12 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
     submissionLimitEnabled: (initialForm as any).submissionLimitEnabled ?? false,
     submissionLimitDecremental: (initialForm as any).submissionLimitDecremental ?? false,
     submissionLimitRemaining: (initialForm as any).submissionLimitRemaining ?? null as number | null,
-    startsAt: (initialForm as any).startsAt ? new Date((initialForm as any).startsAt).toISOString().slice(0, 16) : "",
+    startsAt: (initialForm as any).startsAt ? toLocalDatetime(new Date((initialForm as any).startsAt)) : "",
     startsAtEnabled: (initialForm as any).startsAtEnabled ?? false,
-    endsAt: (initialForm as any).endsAt ? new Date((initialForm as any).endsAt).toISOString().slice(0, 16) : "",
+    endsAt: (initialForm as any).endsAt ? toLocalDatetime(new Date((initialForm as any).endsAt)) : "",
     endsAtEnabled: (initialForm as any).endsAtEnabled ?? false,
+    showStartsAt: (initialForm as any).showStartsAt ?? false,
+    showEndsAt: (initialForm as any).showEndsAt ?? false,
   });
 
   const [submissionCount, setSubmissionCount] = useState<number | null>(null);
@@ -106,10 +118,12 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
       submissionLimitEnabled: form.submissionLimitEnabled,
       submissionLimitDecremental: form.submissionLimitDecremental,
       submissionLimitRemaining: form.submissionLimitDecremental ? (form.submissionLimitRemaining ?? null) : null,
-      startsAt: form.startsAtEnabled && form.startsAt ? new Date(form.startsAt).toISOString() : null,
+      startsAt: form.startsAtEnabled && form.startsAt ? form.startsAt : null,
       startsAtEnabled: form.startsAtEnabled,
-      endsAt: form.endsAtEnabled && form.endsAt ? new Date(form.endsAt).toISOString() : null,
+      endsAt: form.endsAtEnabled && form.endsAt ? form.endsAt : null,
       endsAtEnabled: form.endsAtEnabled,
+      showStartsAt: form.showStartsAt,
+      showEndsAt: form.showEndsAt,
     });
     setSaving(false);
     if (result.success) {
@@ -397,6 +411,18 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
                   {form.endsAt && form.startsAt && form.endsAtEnabled && form.startsAt >= form.endsAt && (
                     <p className="text-xs text-destructive mt-1">Opening date must be before the closing date.</p>
                   )}
+                  {/* Show start date toggle */}
+                  <div className="flex items-center justify-between mt-3 rounded-md border border-border bg-muted/40 px-3 py-2">
+                    <div>
+                      <p className="text-xs font-medium">Show opening date to respondents</p>
+                      <p className="text-xs text-muted-foreground">Display the form opening date/time in the public form</p>
+                    </div>
+                    <Switch
+                      checked={form.showStartsAt}
+                      disabled={!form.acceptResponses}
+                      onCheckedChange={(v) => update({ showStartsAt: v })}
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -429,6 +455,18 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
                   {form.endsAt && form.startsAt && form.startsAtEnabled && form.endsAt <= form.startsAt && (
                     <p className="text-xs text-destructive mt-1">Closing date must be after the opening date.</p>
                   )}
+                  {/* Show end date toggle */}
+                  <div className="flex items-center justify-between mt-3 rounded-md border border-border bg-muted/40 px-3 py-2">
+                    <div>
+                      <p className="text-xs font-medium">Show closing date to respondents</p>
+                      <p className="text-xs text-muted-foreground">Display the form closing date/time under the description</p>
+                    </div>
+                    <Switch
+                      checked={form.showEndsAt}
+                      disabled={!form.acceptResponses}
+                      onCheckedChange={(v) => update({ showEndsAt: v })}
+                    />
+                  </div>
                 </div>
               )}
             </div>

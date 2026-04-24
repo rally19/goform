@@ -304,11 +304,18 @@ export async function updateForm(
     // Strip logic from metadata — logic is saved separately via saveFormLogic
     const { logic: _logic, ...safeData } = data;
 
-    // If collaboration is being toggled, track WHO did it to assign primary edit authority
+    // Convert date strings to Date objects for Drizzle timestamp columns
     const updateData: Record<string, any> = { 
       ...safeData, 
       updatedAt: new Date() 
     };
+    
+    if (safeData.startsAt !== undefined) {
+      updateData.startsAt = safeData.startsAt ? new Date(safeData.startsAt) : null;
+    }
+    if (safeData.endsAt !== undefined) {
+      updateData.endsAt = safeData.endsAt ? new Date(safeData.endsAt) : null;
+    }
     
     if (data.collaborationEnabled !== undefined) {
       updateData.lastToggledBy = user.id;

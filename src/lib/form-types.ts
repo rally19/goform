@@ -334,6 +334,8 @@ export interface BuilderForm {
   startsAtEnabled: boolean;
   endsAt?: string | null;
   endsAtEnabled: boolean;
+  showStartsAt: boolean;
+  showEndsAt: boolean;
   logic?: LogicRule[];
   // Index signature for Liveblocks compatibility
   [key: string]: any;

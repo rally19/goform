@@ -188,6 +188,8 @@ export const forms = pgTable(
     startsAtEnabled: boolean("starts_at_enabled").notNull().default(false),
     endsAt: timestamp("ends_at", { withTimezone: true }),
     endsAtEnabled: boolean("ends_at_enabled").notNull().default(false),
+    showStartsAt: boolean("show_starts_at").notNull().default(false),
+    showEndsAt: boolean("show_ends_at").notNull().default(false),
     sections: jsonb("sections").$type<{ id: string; name: string; description: string; orderIndex: number }[]>().notNull().default([]),
     logic: jsonb("logic").$type<unknown[]>().notNull().default([]),
     createdAt: timestamp("created_at").defaultNow().notNull(),

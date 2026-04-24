@@ -48,6 +48,8 @@ function buildInitialStorage(
       submissionLimitDecremental: false,
       startsAtEnabled: false,
       endsAtEnabled: false,
+      showStartsAt: false,
+      showEndsAt: false,
     }),
     sections: new LiveList(seedSections.map((s) => new LiveObject(s))),
   };
