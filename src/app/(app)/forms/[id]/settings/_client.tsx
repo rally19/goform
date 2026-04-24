@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { Form } from "@/db/schema";
 import { updateForm, deleteForm, setFormStatus } from "@/lib/actions/forms";
+import { getFormSubmissionCount } from "@/lib/actions/responses";
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
 } from "@/components/ui/card";
@@ -23,11 +24,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ACCENT_COLORS } from "@/lib/form-types";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Loader2, Trash2, Copy, ExternalLink, Globe, Lock, ShieldCheck } from "lucide-react";
+import { Loader2, Trash2, Copy, ExternalLink, Globe, Lock, ShieldCheck, ToggleLeft, CalendarClock } from "lucide-react";
 
 interface SettingsClientProps {
   formId: string;
@@ -52,7 +54,35 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
     redirectUrl: initialForm.redirectUrl ?? "",
     autoSave: initialForm.autoSave,
     status: initialForm.status,
+    submissionLimit: (initialForm as any).submissionLimit ?? null as number | null,
+    submissionLimitEnabled: (initialForm as any).submissionLimitEnabled ?? false,
+    submissionLimitDecremental: (initialForm as any).submissionLimitDecremental ?? false,
+    submissionLimitRemaining: (initialForm as any).submissionLimitRemaining ?? null as number | null,
+    startsAt: (initialForm as any).startsAt ? new Date((initialForm as any).startsAt).toISOString().slice(0, 16) : "",
+    startsAtEnabled: (initialForm as any).startsAtEnabled ?? false,
+    endsAt: (initialForm as any).endsAt ? new Date((initialForm as any).endsAt).toISOString().slice(0, 16) : "",
+    endsAtEnabled: (initialForm as any).endsAtEnabled ?? false,
   });
+
+  const [submissionCount, setSubmissionCount] = useState<number | null>(null);
+  const [countLoading, setCountLoading] = useState(false);
+  const [applyLimitChecked, setApplyLimitChecked] = useState(false);
+
+  const fetchSubmissionCount = useCallback(async () => {
+    setCountLoading(true);
+    const result = await getFormSubmissionCount(formId);
+    if (result.success && result.data) {
+      setSubmissionCount(result.data.count);
+    }
+    setCountLoading(false);
+  }, [formId]);
+
+  useEffect(() => {
+    if (form.submissionLimitEnabled) {
+      fetchSubmissionCount();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.submissionLimitEnabled]);
 
   const update = (changes: Partial<typeof form>) =>
     setForm((f) => ({ ...f, ...changes }));
@@ -72,10 +102,20 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
       redirectUrl: form.redirectUrl || undefined,
       autoSave: form.autoSave,
       status: form.status,
+      submissionLimit: form.submissionLimitEnabled ? (form.submissionLimit ?? null) : null,
+      submissionLimitEnabled: form.submissionLimitEnabled,
+      submissionLimitDecremental: form.submissionLimitDecremental,
+      submissionLimitRemaining: form.submissionLimitDecremental ? (form.submissionLimitRemaining ?? null) : null,
+      startsAt: form.startsAtEnabled && form.startsAt ? new Date(form.startsAt).toISOString() : null,
+      startsAtEnabled: form.startsAtEnabled,
+      endsAt: form.endsAtEnabled && form.endsAt ? new Date(form.endsAt).toISOString() : null,
+      endsAtEnabled: form.endsAtEnabled,
     });
     setSaving(false);
     if (result.success) {
       toast.success("Settings saved");
+      // Reset the apply limit checkbox after save
+      setApplyLimitChecked(false);
     } else {
       toast.error(result.error ?? "Failed to save");
     }
@@ -215,6 +255,186 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
           </CardContent>
         </Card>
 
+        {/* Response Acceptance */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Response Acceptance</CardTitle>
+            <CardDescription>Control when and how many responses your form accepts</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <ToggleSetting
+              id="acceptResponses"
+              label="Accept Responses"
+              description="Master switch — turn off to immediately close the form to new submissions"
+              checked={form.acceptResponses}
+              onCheckedChange={(v) => update({ acceptResponses: v })}
+            />
+
+            <Separator />
+
+            {/* Submission Limiter */}
+            <div className={cn("rounded-lg border border-border bg-background p-3 space-y-3", (!form.submissionLimitEnabled || !form.acceptResponses) && "opacity-60")}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-start gap-3">
+                  <ToggleLeft className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <Label htmlFor="submissionLimitEnabled" className="font-medium cursor-pointer">Submission Limit</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">Cap the total number of responses accepted</p>
+                  </div>
+                </div>
+                <Switch
+                  id="submissionLimitEnabled"
+                  checked={form.submissionLimitEnabled}
+                  disabled={!form.acceptResponses}
+                  onCheckedChange={(v) => {
+                    update({ submissionLimitEnabled: v });
+                    if (v) fetchSubmissionCount();
+                  }}
+                />
+              </div>
+              {form.submissionLimitEnabled && (
+                <div className="space-y-3 pt-1">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="submissionLimit">Maximum submissions</Label>
+                    <Input
+                      id="submissionLimit"
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={form.submissionLimit ?? ""}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        update({ submissionLimit: v === "" ? null : Math.max(1, Math.floor(Number(v))) });
+                      }}
+                      placeholder="e.g. 100"
+                      className="max-w-[160px]"
+                      disabled={!form.acceptResponses}
+                    />
+                  </div>
+
+                  {/* Decremental mode toggle */}
+                  <div className="flex items-center justify-between rounded-md border border-border bg-muted/40 px-3 py-2">
+                    <div>
+                      <p className="text-xs font-medium">Decremental mode</p>
+                      <p className="text-xs text-muted-foreground">Each submission counts down from the limit instead of counting up existing submissions</p>
+                    </div>
+                    <Switch
+                      checked={form.submissionLimitDecremental}
+                      disabled={!form.acceptResponses}
+                      onCheckedChange={(v) => update({ submissionLimitDecremental: v })}
+                    />
+                  </div>
+
+                  {/* Count display */}
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    {countLoading ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : form.submissionLimitDecremental ? (
+                      <span>
+                        {form.submissionLimitRemaining !== null
+                          ? `${form.submissionLimitRemaining} slot${form.submissionLimitRemaining !== 1 ? "s" : ""} remaining`
+                          : "Not applied yet — click Apply to set slots"}
+                      </span>
+                    ) : (
+                      <span>
+                        {submissionCount !== null
+                          ? `${submissionCount} submission${submissionCount !== 1 ? "s" : ""} used${
+                              form.submissionLimit != null
+                                ? ` — ${Math.max(0, form.submissionLimit - submissionCount)} remaining`
+                                : ""
+                            }`
+                          : "Loading count…"}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Apply checkbox — transient UI only; checking it resets remaining to limit in local state which is then saved with Save Settings */}
+                  {form.submissionLimitDecremental && (
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="applyLimit"
+                        checked={applyLimitChecked}
+                        disabled={!form.submissionLimit || !form.acceptResponses}
+                        onCheckedChange={(checked) => {
+                          setApplyLimitChecked(!!checked);
+                          if (checked && form.submissionLimit) {
+                            update({ submissionLimitRemaining: form.submissionLimit });
+                          }
+                        }}
+                      />
+                      <Label htmlFor="applyLimit" className="text-xs cursor-pointer">Reset remaining slots back to limit</Label>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Start Date */}
+            <div className={cn("rounded-lg border border-border bg-background p-3 space-y-3", (!form.startsAtEnabled || !form.acceptResponses) && "opacity-60")}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-start gap-3">
+                  <CalendarClock className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <Label htmlFor="startsAtEnabled" className="font-medium cursor-pointer">Opening Date &amp; Time</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">Form will not accept submissions before this date</p>
+                  </div>
+                </div>
+                <Switch
+                  id="startsAtEnabled"
+                  checked={form.startsAtEnabled}
+                  disabled={!form.acceptResponses}
+                  onCheckedChange={(v) => update({ startsAtEnabled: v })}
+                />
+              </div>
+              {form.startsAtEnabled && (
+                <div className="pt-1">
+                  <Input
+                    type="datetime-local"
+                    value={form.startsAt}
+                    onChange={(e) => update({ startsAt: e.target.value })}
+                    className="max-w-[260px]"
+                  />
+                  {form.endsAt && form.startsAt && form.endsAtEnabled && form.startsAt >= form.endsAt && (
+                    <p className="text-xs text-destructive mt-1">Opening date must be before the closing date.</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* End Date */}
+            <div className={cn("rounded-lg border border-border bg-background p-3 space-y-3", (!form.endsAtEnabled || !form.acceptResponses) && "opacity-60")}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-start gap-3">
+                  <CalendarClock className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <Label htmlFor="endsAtEnabled" className="font-medium cursor-pointer">Closing Date &amp; Time</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">Form stops accepting submissions after this date — overrides all other settings</p>
+                  </div>
+                </div>
+                <Switch
+                  id="endsAtEnabled"
+                  checked={form.endsAtEnabled}
+                  disabled={!form.acceptResponses}
+                  onCheckedChange={(v) => update({ endsAtEnabled: v })}
+                />
+              </div>
+              {form.endsAtEnabled && (
+                <div className="pt-1">
+                  <Input
+                    type="datetime-local"
+                    value={form.endsAt}
+                    onChange={(e) => update({ endsAt: e.target.value })}
+                    className="max-w-[260px]"
+                  />
+                  {form.endsAt && form.startsAt && form.startsAtEnabled && form.endsAt <= form.startsAt && (
+                    <p className="text-xs text-destructive mt-1">Closing date must be after the opening date.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Behavior */}
         <Card>
           <CardHeader>
@@ -222,13 +442,6 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
             <CardDescription>Control how the form works</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <ToggleSetting
-              id="acceptResponses"
-              label="Accept Responses"
-              description="Turn off to close the form to new submissions"
-              checked={form.acceptResponses}
-              onCheckedChange={(v) => update({ acceptResponses: v })}
-            />
             <ToggleSetting
               id="showProgress"
               label="Show Progress Bar"

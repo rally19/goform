@@ -361,9 +361,13 @@ export function useFormCollaboration({
     if (!form || !initialForm) return;
 
     const fieldsToSync: (keyof BuilderForm)[] = [
-      "status", "accentColor", "acceptResponses", "requireAuth", 
-      "showProgress", "oneResponsePerUser", "successMessage", 
-      "redirectUrl", "title", "description", "slug"
+      "status", "accentColor", "acceptResponses", "requireAuth",
+      "showProgress", "oneResponsePerUser", "successMessage",
+      "redirectUrl", "title", "description", "slug",
+      "submissionLimit", "submissionLimitEnabled",
+      "submissionLimitRemaining", "submissionLimitDecremental",
+      "startsAt", "startsAtEnabled",
+      "endsAt", "endsAtEnabled",
     ];
 
     const changes: Partial<BuilderForm> = {};

@@ -34,8 +34,42 @@ export async function submitFormResponse(
     if (form.status === "closed") {
       return { success: false, error: "This form is closed" };
     }
+
+    // Accept responses is the master gate — checked before date/limit controls
     if (!form.acceptResponses) {
       return { success: false, error: "This form is no longer accepting responses" };
+    }
+
+    const now = new Date();
+
+    // End date overrides start date and submission limit
+    if (form.endsAtEnabled && form.endsAt && now >= new Date(form.endsAt)) {
+      return { success: false, error: "This form is no longer accepting responses" };
+    }
+
+    // Start date check
+    if (form.startsAtEnabled && form.startsAt && now < new Date(form.startsAt)) {
+      return { success: false, error: "This form is not yet open for submissions" };
+    }
+
+    // Submission limit check
+    if (form.submissionLimitEnabled && form.submissionLimit != null) {
+      if (form.submissionLimitDecremental) {
+        // Decremental mode: use the remaining counter directly
+        const remaining = form.submissionLimitRemaining ?? form.submissionLimit;
+        if (remaining <= 0) {
+          return { success: false, error: "This form has reached its submission limit" };
+        }
+      } else {
+        // Count-existing mode: compare total responses to limit
+        const [{ total }] = await db
+          .select({ total: count(formResponses.id) })
+          .from(formResponses)
+          .where(eq(formResponses.formId, formId));
+        if (total >= form.submissionLimit) {
+          return { success: false, error: "This form has reached its submission limit" };
+        }
+      }
     }
 
     // Check auth if required
@@ -72,6 +106,19 @@ export async function submitFormResponse(
         metadata: metadata ?? null,
       })
       .returning({ id: formResponses.id });
+
+    // Decrement remaining counter if in decremental mode
+    if (
+      form.submissionLimitEnabled &&
+      form.submissionLimitDecremental &&
+      form.submissionLimit != null
+    ) {
+      const current = form.submissionLimitRemaining ?? form.submissionLimit;
+      await db
+        .update(forms)
+        .set({ submissionLimitRemaining: Math.max(0, current - 1) })
+        .where(eq(forms.id, formId));
+    }
 
     // Handle uploaded files by inserting them into the assets table
     if (metadata?.uploads && metadata.uploads.length > 0) {
@@ -557,7 +604,12 @@ export async function getPublicFormStatus(formId: string): Promise<ActionResult<
   try {
     const form = await db.query.forms.findFirst({
       where: eq(forms.id, formId),
-      columns: { id: true, acceptResponses: true, status: true, requireAuth: true },
+      columns: {
+        id: true, acceptResponses: true, status: true, requireAuth: true,
+        endsAt: true, endsAtEnabled: true, startsAt: true, startsAtEnabled: true,
+        submissionLimit: true, submissionLimitEnabled: true,
+        submissionLimitRemaining: true, submissionLimitDecremental: true,
+      },
     });
 
     if (!form) return { success: false, error: "Form not found" };
@@ -565,15 +617,54 @@ export async function getPublicFormStatus(formId: string): Promise<ActionResult<
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
+    const now = new Date();
+    let acceptResponses = form.acceptResponses;
+
+    if (!acceptResponses) {
+      // master gate already false — skip sub-checks
+    } else if (form.endsAtEnabled && form.endsAt && now >= new Date(form.endsAt)) {
+      acceptResponses = false;
+    } else if (form.startsAtEnabled && form.startsAt && now < new Date(form.startsAt)) {
+      acceptResponses = false;
+    } else if (form.submissionLimitEnabled && form.submissionLimit != null) {
+      if (form.submissionLimitDecremental) {
+        const remaining = form.submissionLimitRemaining ?? form.submissionLimit;
+        if (remaining <= 0) acceptResponses = false;
+      } else {
+        const [{ total }] = await db
+          .select({ total: count(formResponses.id) })
+          .from(formResponses)
+          .where(eq(formResponses.formId, formId));
+        if (total >= form.submissionLimit) acceptResponses = false;
+      }
+    }
+
     return {
       success: true,
       data: {
-        acceptResponses: form.acceptResponses,
+        acceptResponses,
         status: form.status,
         requireAuth: form.requireAuth,
         isAuthenticated: !!user,
       },
     };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+// ─── Get Form Submission Count (for settings display) ─────────────────────────
+
+export async function getFormSubmissionCount(
+  formId: string
+): Promise<ActionResult<{ count: number }>> {
+  try {
+    await enforceFormAccess(formId, "viewer");
+    const [{ total }] = await db
+      .select({ total: count(formResponses.id) })
+      .from(formResponses)
+      .where(eq(formResponses.formId, formId));
+    return { success: true, data: { count: total } };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }

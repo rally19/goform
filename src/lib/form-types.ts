@@ -326,6 +326,14 @@ export interface BuilderForm {
   autoSave: boolean;
   collaborationEnabled: boolean;
   lastToggledBy?: string | null;
+  submissionLimit?: number | null;
+  submissionLimitEnabled: boolean;
+  submissionLimitRemaining?: number | null;
+  submissionLimitDecremental: boolean;
+  startsAt?: string | null;
+  startsAtEnabled: boolean;
+  endsAt?: string | null;
+  endsAtEnabled: boolean;
   logic?: LogicRule[];
   // Index signature for Liveblocks compatibility
   [key: string]: any;
