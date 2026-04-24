@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import type { Form, FormField } from "@/db/schema";
 import type { ResponseRow, FormAnswer } from "@/lib/form-types";
-import { deleteResponse, deleteResponses, exportResponsesCSV } from "@/lib/actions/responses";
+import { deleteResponse, deleteResponses, exportResponsesCSV, getFormResponsesForExport } from "@/lib/actions/responses";
 import { createClient } from "@/lib/client";
 import {
   Table,
@@ -22,6 +22,13 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -39,8 +46,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  Trash2, Download, Inbox, Star, Clock, Mail, Search, Users, Calendar, ArrowUpDown, ChevronRight, ClipboardList, Paperclip
+  Trash2, Download, Inbox, Star, Clock, Mail, Search, Users, Calendar, ArrowUpDown, ChevronRight, ClipboardList, Paperclip,
+  FileSpreadsheet, FileText, FileCode, CheckCircle2, Loader2, Sheet as SheetIcon
 } from "lucide-react";
+import Papa from "papaparse";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { sanitize, stripHtml } from "@/lib/sanitize";
@@ -175,6 +187,8 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
   const [exporting, setExporting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exportType, setExportType] = useState<"csv" | "excel" | "pdf" | null>(null);
 
   const handleSelectAll = (checked: boolean) => {
     setSelectedIds(checked ? processedResponses.map((r) => r.id) : []);
@@ -258,24 +272,90 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
     setDeleteId(null);
   };
 
-  const handleExport = async () => {
+  const handleExport = async (type: "csv" | "excel" | "pdf") => {
     setExporting(true);
+    setExportType(type);
+    
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const result = await exportResponsesCSV(formId, tz);
+    const result = await getFormResponsesForExport(formId, tz);
 
     if (result.success && result.data) {
-      const blob = new Blob([result.data], { type: "text/csv" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${stripHtml(form.title)}-responses.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success("Exported successfully");
+      const { headers, rows, title } = result.data;
+      const timestamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+      const cleanTitle = stripHtml(title).replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const fileName = `${cleanTitle}_export_${timestamp}`;
+
+      try {
+        if (type === "csv") {
+          const csv = Papa.unparse({ 
+            fields: headers, 
+            data: rows 
+          }, { 
+            escapeFormulae: true 
+          });
+          const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${fileName}.csv`;
+          a.click();
+          URL.revokeObjectURL(url);
+        } else if (type === "excel") {
+          const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+          const workbook = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(workbook, worksheet, "Responses");
+          XLSX.writeFile(workbook, `${fileName}.xlsx`);
+        } else if (type === "pdf") {
+          const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+          
+          // Add Title
+          doc.setFontSize(18);
+          doc.text(stripHtml(title), 14, 22);
+          doc.setFontSize(11);
+          doc.setTextColor(100);
+          doc.text(`Exported on ${new Date().toLocaleString()}`, 14, 30);
+          
+          // Prepare rows for PDF: Truncate IDs and shorten long URLs/text
+          const fileIndex = headers.indexOf("Upload File");
+          const pdfRows = rows.map(row => row.map((cell, i) => {
+            if (i === 0) return String(cell).substring(0, 8); // Truncate ID
+            if (i === fileIndex && String(cell).startsWith("http")) {
+              return "File Link (See CSV/Excel)"; // Simplify URLs in PDF
+            }
+            return String(cell);
+          }));
+
+          autoTable(doc, {
+            head: [headers],
+            body: pdfRows,
+            startY: 40,
+            theme: "striped",
+            headStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: 'bold' },
+            styles: { 
+              fontSize: 7, 
+              cellPadding: 2, 
+              overflow: 'ellipsize', // Use ellipsize to prevent vertical text
+              minCellWidth: 15
+            },
+            alternateRowStyles: { fillColor: [245, 247, 255] },
+            margin: { top: 40, bottom: 20, left: 10, right: 10 },
+            rowPageBreak: 'auto',
+            pageBreak: 'auto',
+          });
+          
+          doc.save(`${fileName}.pdf`);
+        }
+        toast.success(`Exported as ${type.toUpperCase()} successfully`);
+        setExportDialogOpen(false);
+      } catch (err) {
+        console.error(`Export ${type} error:`, err);
+        toast.error(`Failed to generate ${type.toUpperCase()} file`);
+      }
     } else {
       toast.error(result.error ?? "Export failed");
     }
     setExporting(false);
+    setExportType(null);
   };
 
   const RespondentAvatar = ({ email }: { email?: string | null }) => {
@@ -329,12 +409,12 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
           <Button
             variant="outline"
             size="sm"
-            onClick={handleExport}
-            disabled={exporting || total === 0}
-            className="rounded-full shadow-sm"
+            onClick={() => setExportDialogOpen(true)}
+            disabled={total === 0}
+            className="rounded-full shadow-sm px-4 bg-background hover:bg-muted transition-all active:scale-95"
           >
-            <Download className="h-4 w-4 mr-1.5" />
-            {exporting ? "Exporting..." : "Export CSV"}
+            <Download className="h-4 w-4 mr-2" />
+            Export
           </Button>
         </div>
       </div>
@@ -595,6 +675,94 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
         )}
       </AnimatePresence>
     </div>
+
+      {/* Export Dialog */}
+      <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
+        <DialogContent className="sm:max-w-[420px] p-0 overflow-hidden border-none shadow-2xl rounded-3xl">
+          <div className="bg-primary/5 p-6 pb-4 border-b border-primary/10">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold flex items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-primary/10">
+                  <Download className="h-5 w-5 text-primary" />
+                </div>
+                Export Responses
+              </DialogTitle>
+              <DialogDescription className="text-sm pt-0.5">
+                Select a format to download your data.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          
+          <div className="p-6 space-y-4 bg-background">
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { 
+                  id: "csv", 
+                  label: "CSV", 
+                  desc: "Raw Data", 
+                  icon: FileSpreadsheet, 
+                  color: "text-blue-500", 
+                  bg: "bg-blue-500/10",
+                  border: "border-blue-500/20"
+                },
+                { 
+                  id: "excel", 
+                  label: "Excel", 
+                  desc: "Sheet", 
+                  icon: SheetIcon, 
+                  color: "text-emerald-500", 
+                  bg: "bg-emerald-500/10",
+                  border: "border-emerald-500/20"
+                },
+                { 
+                  id: "pdf", 
+                  label: "PDF", 
+                  desc: "Print", 
+                  icon: FileText, 
+                  color: "text-rose-500", 
+                  bg: "bg-rose-500/10",
+                  border: "border-rose-500/20"
+                }
+              ].map((opt) => (
+                <button
+                  key={opt.id}
+                  disabled={exporting}
+                  onClick={() => handleExport(opt.id as any)}
+                  className={cn(
+                    "group relative flex flex-col items-center justify-center p-3 rounded-xl border transition-all duration-300",
+                    "hover:shadow-sm hover:-translate-y-0.5 active:scale-95",
+                    opt.border,
+                    exporting && exportType === opt.id ? "ring-2 ring-primary bg-primary/5" : "bg-muted/30 hover:bg-muted/50"
+                  )}
+                >
+                  <div className={cn("p-2.5 rounded-xl mb-2 transition-transform group-hover:scale-105", opt.bg)}>
+                    {exporting && exportType === opt.id ? (
+                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                    ) : (
+                      <opt.icon className={cn("h-5 w-5", opt.color)} />
+                    )}
+                  </div>
+                  <span className="font-bold text-xs mb-0.5">{opt.label}</span>
+                  <span className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">{opt.desc}</span>
+                </button>
+              ))}
+            </div>
+            
+            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-muted/30 border border-border/50">
+              <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+              <p className="text-[11px] text-muted-foreground leading-tight">
+                Includes <span className="font-bold text-foreground">{total} responses</span> with full metadata and timestamps.
+              </p>
+            </div>
+          </div>
+          
+          <div className="p-4 bg-muted/20 border-t border-border/40 flex justify-end">
+            <Button variant="ghost" size="sm" onClick={() => setExportDialogOpen(false)} disabled={exporting} className="rounded-lg font-medium h-8">
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Response Detail Drawer */}
       <Sheet open={!!selectedResponse} onOpenChange={() => setSelectedResponse(null)}>

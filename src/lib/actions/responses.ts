@@ -484,7 +484,33 @@ export async function getFormAnalytics(formId: string, timezone = "UTC"): Promis
 // ─── Export CSV ───────────────────────────────────────────────────────────────
 
 export async function exportResponsesCSV(formId: string, timezone = "UTC"): Promise<ActionResult<string>> {
+  try {
+    const res = await getFormResponsesForExport(formId, timezone);
+    if (!res.success || !res.data) return { success: false, error: res.error };
 
+    const { headers, rows } = res.data;
+    const escape = (v: string) =>
+      v.includes(",") || v.includes('"') || v.includes("\n")
+        ? `"${v.replace(/"/g, '""')}"`
+        : v;
+
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => escape(String(cell))).join(","))
+      .join("\n");
+
+    return { success: true, data: csv };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+import { stripHtml } from "@/lib/sanitize";
+
+export async function getFormResponsesForExport(formId: string, timezone = "UTC"): Promise<ActionResult<{
+  title: string;
+  headers: string[];
+  rows: string[][];
+}>> {
   try {
     // Verify access (viewer role required for export)
     const form = await enforceFormAccess(formId, "viewer") as FormWithFields;
@@ -503,21 +529,62 @@ export async function exportResponsesCSV(formId: string, timezone = "UTC"): Prom
       .orderBy(desc(formResponses.submittedAt));
 
     const dataFields = form.fields.filter(
-      (f) => f.type !== "section" && f.type !== "page_break"
+      (f) => !["section", "page_break", "paragraph", "divider"].includes(f.type)
     );
 
     const headers = [
       "Response ID",
       "Email",
       "Submitted At",
-      ...dataFields.map((f) => f.label),
+      ...dataFields.map((f) => stripHtml(f.label)),
     ];
 
-    const rows = responses.map((r) => {
+    const supabase = await createClient();
+
+    const rows = await Promise.all(responses.map(async (r) => {
       const answers = r.answers as Record<string, FormAnswer>;
+      
+      const rowData = await Promise.all(dataFields.map(async (f) => {
+        const rawVal = answers[f.id];
+        
+        // Helper to get label for an option value
+        const getOptionLabel = (v: any) => {
+          if (!v) return "";
+          const options = f.options as { label: string, value: string }[] | undefined;
+          if (!options) return String(v);
+          const opt = options.find(o => o.value === String(v));
+          return opt ? stripHtml(opt.label) : String(v);
+        };
+
+        if (f.type === "file") {
+           if (Array.isArray(rawVal)) {
+              const urls = await Promise.all(rawVal.map(async (path) => {
+                 const { data } = await supabase.storage.from("form-uploads").createSignedUrl(String(path), 604800);
+                 return data?.signedUrl ?? String(path);
+              }));
+              return urls.join("; ");
+           }
+           if (rawVal) {
+              const { data } = await supabase.storage.from("form-uploads").createSignedUrl(String(rawVal), 604800);
+              return data?.signedUrl ?? String(rawVal);
+           }
+           return "";
+        }
+
+        if (["radio", "select", "checkbox", "multi_select"].includes(f.type)) {
+           if (Array.isArray(rawVal)) {
+              return rawVal.map(v => getOptionLabel(v)).join("; ");
+           }
+           return getOptionLabel(rawVal);
+        }
+
+        if (Array.isArray(rawVal)) return rawVal.join("; ");
+        return String(rawVal ?? "");
+      }));
+
       return [
         r.id,
-        r.respondentEmail ?? "",
+        r.respondentEmail ?? "Anonymous",
         new Intl.DateTimeFormat("en-US", {
           year: "numeric",
           month: "2-digit",
@@ -528,34 +595,18 @@ export async function exportResponsesCSV(formId: string, timezone = "UTC"): Prom
           timeZone: timezone,
           timeZoneName: "short",
         }).format(r.submittedAt),
-
-        ...dataFields.map((f) => {
-          const val = answers[f.id];
-          if (f.type === "file") {
-             if (Array.isArray(val)) {
-                return val.map((path) => {
-                   const name = String(path).split('/').pop() || String(path);
-                   return name.replace(/^\d+_/, '');
-                }).join("; ");
-             }
-             return String(val ?? "");
-          }
-          if (Array.isArray(val)) return val.join("; ");
-          return String(val ?? "");
-        }),
+        ...rowData,
       ];
-    });
+    }));
 
-    const escape = (v: string) =>
-      v.includes(",") || v.includes('"') || v.includes("\n")
-        ? `"${v.replace(/"/g, '""')}"`
-        : v;
-
-    const csv = [headers, ...rows]
-      .map((row) => row.map((cell) => escape(String(cell))).join(","))
-      .join("\n");
-
-    return { success: true, data: csv };
+    return { 
+      success: true, 
+      data: { 
+        title: form.title,
+        headers, 
+        rows 
+      } 
+    };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
