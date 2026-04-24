@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -7,6 +8,7 @@ import * as z from "zod";
 import { motion } from "motion/react";
 import { useTransition, useState } from "react";
 import { resetPasswordAction } from "../actions";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +30,8 @@ const forgotPasswordSchema = z.object({
 export default function ForgotPasswordPage() {
   const [isPending, startTransition] = useTransition();
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = React.useRef<TurnstileInstance>(null);
 
   const form = useForm<z.infer<typeof forgotPasswordSchema>>({
     resolver: zodResolver(forgotPasswordSchema),
@@ -39,11 +43,15 @@ export default function ForgotPasswordPage() {
   function onSubmit(values: z.infer<typeof forgotPasswordSchema>) {
     const formData = new FormData();
     formData.append("email", values.email);
+    if (turnstileToken) formData.append("cf-turnstile-response", turnstileToken);
 
     startTransition(async () => {
       const res = await resetPasswordAction(formData);
       if (res?.error) {
         toast.error(res.error);
+        // Reset turnstile on error
+        turnstileRef.current?.reset();
+        setTurnstileToken(null);
       } else {
         setIsSubmitted(true);
       }
@@ -96,10 +104,20 @@ export default function ForgotPasswordPage() {
                 )}
               </div>
 
+              <div className="flex justify-center py-2">
+                <Turnstile
+                  ref={turnstileRef}
+                  siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA"}
+                  onSuccess={(token) => setTurnstileToken(token)}
+                  onExpire={() => setTurnstileToken(null)}
+                  onError={() => setTurnstileToken(null)}
+                />
+              </div>
+
               <Button
                 type="submit"
                 className="w-full transition-transform active:scale-[0.98]"
-                disabled={isPending || form.formState.isSubmitting}
+                disabled={isPending || form.formState.isSubmitting || !turnstileToken}
               >
                 {isPending ? "Sending OTP..." : "Send Reset OTP"}
               </Button>
