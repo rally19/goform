@@ -11,13 +11,13 @@ import Image from "@tiptap/extension-image";
 import { useState, useEffect, useId, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { 
-  Bold, 
-  Italic, 
-  Underline as UnderlineIcon, 
-  List, 
-  ListOrdered, 
-  Link as LinkIcon, 
+import {
+  Bold,
+  Italic,
+  Underline as UnderlineIcon,
+  List,
+  ListOrdered,
+  Link as LinkIcon,
   Link2Off,
   Image as ImageIcon,
   ChevronDown,
@@ -40,10 +40,10 @@ import { ScrollArea } from "./scroll-area";
 import { Separator } from "./separator";
 import { getWorkspaceAssets, uploadAsset } from "@/lib/actions/assets";
 import type { Asset } from "@/db/schema";
-import { 
-  Upload, 
-  Search, 
-  Loader2, 
+import {
+  Upload,
+  Search,
+  Loader2,
   X,
   Plus,
   Check
@@ -59,10 +59,10 @@ const ResizableImageComponent = ({ node, updateAttributes, selected, editor }: a
   useEffect(() => {
     const onFocus = () => setIsEditorFocused(true);
     const onBlur = () => setIsEditorFocused(false);
-    
+
     editor.on('focus', onFocus);
     editor.on('blur', onBlur);
-    
+
     return () => {
       editor.off('focus', onFocus);
       editor.off('blur', onBlur);
@@ -72,31 +72,31 @@ const ResizableImageComponent = ({ node, updateAttributes, selected, editor }: a
   const onMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     setResizing(true);
-    
+
     const startX = e.pageX;
     const startWidth = imgRef.current?.width || 0;
-    
+
     const onMouseMove = (moveEvent: MouseEvent) => {
       const currentX = moveEvent.pageX;
       const diffX = currentX - startX;
       const newWidth = Math.max(50, startWidth + diffX);
       updateAttributes({ width: newWidth });
     };
-    
+
     const onMouseUp = () => {
       setResizing(false);
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
     };
-    
+
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
   };
 
   return (
-    <NodeViewWrapper 
+    <NodeViewWrapper
       className={cn(
         "relative leading-none group/img-wrapper max-w-full my-2",
         node.attrs.textAlign === 'center' && "mx-auto flex justify-center",
@@ -145,10 +145,10 @@ const ResizableIconComponent = ({ node, updateAttributes, selected, editor }: an
   useEffect(() => {
     const onFocus = () => setIsEditorFocused(true);
     const onBlur = () => setIsEditorFocused(false);
-    
+
     editor.on('focus', onFocus);
     editor.on('blur', onBlur);
-    
+
     return () => {
       editor.off('focus', onFocus);
       editor.off('blur', onBlur);
@@ -158,25 +158,25 @@ const ResizableIconComponent = ({ node, updateAttributes, selected, editor }: an
   const onMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     setResizing(true);
-    
+
     const startX = e.pageX;
     const startSize = node.attrs.size || 24;
-    
+
     const onMouseMove = (moveEvent: MouseEvent) => {
       const currentX = moveEvent.pageX;
       const diffX = currentX - startX;
       const newSize = Math.max(12, Math.min(200, startSize + diffX));
       updateAttributes({ size: newSize });
     };
-    
+
     const onMouseUp = () => {
       setResizing(false);
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
     };
-    
+
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
   };
@@ -187,7 +187,7 @@ const ResizableIconComponent = ({ node, updateAttributes, selected, editor }: an
   }
 
   return (
-    <NodeViewWrapper 
+    <NodeViewWrapper
       className={cn(
         "relative leading-none group/icon-wrapper align-middle my-1 mx-0.5 w-fit",
         node.attrs.textAlign === 'center' && "mx-auto flex justify-center",
@@ -344,17 +344,17 @@ const FontSize = Extension.create({
     return {
       setFontSize:
         (fontSize: string) =>
-        ({ chain }: { chain: any }) => {
-          return chain().setMark("textStyle", { fontSize }).run();
-        },
+          ({ chain }: { chain: any }) => {
+            return chain().setMark("textStyle", { fontSize }).run();
+          },
       unsetFontSize:
         () =>
-        ({ chain }: { chain: any }) => {
-          return chain()
-            .setMark("textStyle", { fontSize: null })
-            .removeEmptyTextStyle()
-            .run();
-        },
+          ({ chain }: { chain: any }) => {
+            return chain()
+              .setMark("textStyle", { fontSize: null })
+              .removeEmptyTextStyle()
+              .run();
+          },
     } as any;
   },
 });
@@ -392,17 +392,17 @@ const Color = Extension.create({
     return {
       setColor:
         (color: string) =>
-        ({ chain }: { chain: any }) => {
-          return chain().setMark("textStyle", { color }).run();
-        },
+          ({ chain }: { chain: any }) => {
+            return chain().setMark("textStyle", { color }).run();
+          },
       unsetColor:
         () =>
-        ({ chain }: { chain: any }) => {
-          return chain()
-            .setMark("textStyle", { color: null })
-            .removeEmptyTextStyle()
-            .run();
-        },
+          ({ chain }: { chain: any }) => {
+            return chain()
+              .setMark("textStyle", { color: null })
+              .removeEmptyTextStyle()
+              .run();
+          },
     } as any;
   },
 });
@@ -440,17 +440,17 @@ const Highlight = Extension.create({
     return {
       setHighlight:
         (color: string) =>
-        ({ chain }: { chain: any }) => {
-          return chain().setMark("textStyle", { backgroundColor: color }).run();
-        },
+          ({ chain }: { chain: any }) => {
+            return chain().setMark("textStyle", { backgroundColor: color }).run();
+          },
       unsetHighlight:
         () =>
-        ({ chain }: { chain: any }) => {
-          return chain()
-            .setMark("textStyle", { backgroundColor: null })
-            .removeEmptyTextStyle()
-            .run();
-        },
+          ({ chain }: { chain: any }) => {
+            return chain()
+              .setMark("textStyle", { backgroundColor: null })
+              .removeEmptyTextStyle()
+              .run();
+          },
     } as any;
   },
 });
@@ -505,10 +505,10 @@ interface RichTextProps {
 }
 
 
-export function RichText({ 
-  value, 
-  onChange, 
-  placeholder = "Type something...", 
+export function RichText({
+  value,
+  onChange,
+  placeholder = "Type something...",
   className,
   workspaceId,
   minHeight = "min-h-[40px]",
@@ -520,7 +520,7 @@ export function RichText({
   const uploadInputId = useId();
   const [isFocused, setIsFocused] = useState(false);
   const blurTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
-  
+
   // Link state
   const [linkUrl, setLinkUrl] = useState("");
   const [linkText, setLinkText] = useState("");
@@ -528,7 +528,7 @@ export function RichText({
   const [hasLinkInRange, setHasLinkInRange] = useState(false);
 
   const [isDragging, setIsDragging] = useState(false);
-  
+
   // Image management state
   const [imagePopoverOpen, setImagePopoverOpen] = useState(false);
   const [iconPopoverOpen, setIconPopoverOpen] = useState(false);
@@ -548,7 +548,7 @@ export function RichText({
         (typeof item === 'function' || (item && typeof item === 'object' && (item.$$typeof || item.render))) &&
         name.toLowerCase().includes(iconSearch.toLowerCase())
       );
-    }).slice(0, 100);
+    }).slice(0, 102);
   }, [iconSearch]);
 
 
@@ -654,11 +654,11 @@ export function RichText({
       const { from, to } = editor.state.selection;
       const selectedText = editor.state.doc.textBetween(from, to, " ");
       const isExactlyLink = editor.isActive("link");
-      
+
       // Check if ANY part of the selection contains a link
       const anyLinkInRange = editor.state.doc.rangeHasMark(from, to, editor.schema.marks.link);
       setHasLinkInRange(anyLinkInRange);
-      
+
       if (anyLinkInRange || isExactlyLink) {
         setLinkUrl(editor.getAttributes("link").href || "");
       } else {
@@ -750,7 +750,7 @@ export function RichText({
   if (!editor) return null;
 
   return (
-    <div 
+    <div
       className={cn(
         "relative flex flex-col-reverse lg:flex-col w-full rounded-lg border border-input transition-all ring-offset-background bg-card",
         isFocused && "ring-2 ring-ring/50 border-ring",
@@ -759,7 +759,7 @@ export function RichText({
     >
       <AnimatePresence>
         {editor && (isFocused || linkPopoverOpen || imagePopoverOpen) && (
-          <motion.div 
+          <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -785,7 +785,12 @@ export function RichText({
                     <ChevronDown className="h-3 w-3 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="p-1 w-32" align="start">
+                <PopoverContent
+                  className="p-1 w-32"
+                  align="start"
+                  avoidCollisions
+                  collisionPadding={10}
+                >
                   <div className="flex flex-col">
                     {FONT_SIZES.map((size) => (
                       <Button
@@ -832,15 +837,20 @@ export function RichText({
                   >
                     <div className="relative">
                       <Baseline className="h-4 w-4" />
-                      <div 
-                        className="absolute -bottom-0.5 left-0 right-0 h-0.5 rounded-full" 
-                        style={{ backgroundColor: currentColor || 'currentColor' }} 
+                      <div
+                        className="absolute -bottom-0.5 left-0 right-0 h-0.5 rounded-full"
+                        style={{ backgroundColor: currentColor || 'currentColor' }}
                       />
                     </div>
                     <ChevronDown className="h-3 w-3 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="p-3 w-48" align="start">
+                <PopoverContent
+                  className="p-3 w-48"
+                  align="start"
+                  avoidCollisions
+                  collisionPadding={10}
+                >
                   <div className="space-y-3">
                     <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                       Text Color
@@ -853,7 +863,7 @@ export function RichText({
                             "w-6 h-6 rounded-md border border-border flex items-center justify-center transition-all hover:scale-110 active:scale-95",
                             currentColor === color.value && "ring-2 ring-primary ring-offset-2 ring-offset-background"
                           )}
-                          style={{ 
+                          style={{
                             backgroundColor: color.value || 'transparent',
                             backgroundImage: !color.value ? 'linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc), linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc)' : 'none',
                             backgroundSize: '4px 4px',
@@ -895,15 +905,20 @@ export function RichText({
                   >
                     <div className="relative">
                       <Highlighter className="h-4 w-4" />
-                      <div 
-                        className="absolute -bottom-0.5 left-0 right-0 h-0.5 rounded-full" 
-                        style={{ backgroundColor: currentHighlight || 'transparent', border: !currentHighlight ? '1px solid currentColor' : 'none' }} 
+                      <div
+                        className="absolute -bottom-0.5 left-0 right-0 h-0.5 rounded-full"
+                        style={{ backgroundColor: currentHighlight || 'transparent', border: !currentHighlight ? '1px solid currentColor' : 'none' }}
                       />
                     </div>
                     <ChevronDown className="h-3 w-3 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="p-3 w-48" align="start">
+                <PopoverContent
+                  className="p-3 w-48"
+                  align="start"
+                  avoidCollisions
+                  collisionPadding={10}
+                >
                   <div className="space-y-3">
                     <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                       Highlight Color
@@ -916,7 +931,7 @@ export function RichText({
                             "w-full aspect-square rounded-md border border-border flex items-center justify-center transition-all hover:scale-105 active:scale-95",
                             currentHighlight === color.value && "ring-2 ring-primary ring-offset-2 ring-offset-background"
                           )}
-                          style={{ 
+                          style={{
                             backgroundColor: color.value || 'transparent',
                             backgroundImage: !color.value ? 'linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc), linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc)' : 'none',
                             backgroundSize: '4px 4px',
@@ -1006,10 +1021,17 @@ export function RichText({
                   <ToolbarButton
                     active={editor.isActive("link")}
                     icon={<LinkIcon className="h-4 w-4" />}
-                    onClick={() => {}} // Handled by PopoverTrigger
+                    onClick={() => { }} // Handled by PopoverTrigger
                   />
                 </PopoverTrigger>
-                <PopoverContent className="w-80 p-4" align="start" side="top" data-slot="popover-content">
+                <PopoverContent
+                  className="w-80 p-4"
+                  align="start"
+                  side="top"
+                  avoidCollisions
+                  collisionPadding={10}
+                  data-slot="popover-content"
+                >
                   <form onSubmit={handleLinkSubmit} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="link-url">URL</Label>
@@ -1052,17 +1074,17 @@ export function RichText({
                         <div />
                       )}
                       <div className="flex gap-2">
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
+                        <Button
+                          type="button"
+                          variant="ghost"
                           size="sm"
                           onMouseDown={(e) => e.preventDefault()}
                           onClick={() => setLinkPopoverOpen(false)}
                         >
                           Cancel
                         </Button>
-                        <Button 
-                          type="submit" 
+                        <Button
+                          type="submit"
                           size="sm"
                           onMouseDown={(e) => e.preventDefault()}
                           disabled={hasLinkInRange && !editor.isActive("link")}
@@ -1078,206 +1100,211 @@ export function RichText({
               {workspaceId && allowImages && (
                 <>
                   <Popover open={imagePopoverOpen} onOpenChange={handleImagePopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <ToolbarButton
-                      active={imagePopoverOpen}
-                      icon={<ImageIcon className="h-4 w-4" />}
-                      onClick={() => {}} 
-                    />
-                  </PopoverTrigger>
-                  <PopoverContent 
-                    className="w-80 p-0 overflow-hidden" 
-                    align="start" 
-                    side="bottom" 
-                    sideOffset={8}
-                    data-slot="popover-content"
-                    style={{ maxHeight: 'var(--radix-popover-content-available-height)' }}
-                  >
-                    <div className="flex flex-col max-h-[inherit] overflow-y-auto">
-                      {/* Upload Section */}
-                      <div className="p-3 border-b bg-muted/30 shrink-0">
-                        <div 
-                          className={cn(
-                            "relative border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center gap-2 transition-colors cursor-pointer",
-                            isDragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/50",
-                            uploading && "opacity-50 pointer-events-none"
-                          )}
-                          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                          onDragLeave={() => setIsDragging(false)}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            setIsDragging(false);
-                            const file = e.dataTransfer.files?.[0];
-                            if (file) handleFileUpload(file);
-                          }}
-                          onClick={() => document.getElementById(uploadInputId)?.click()}
-                        >
-                          <input
-                            id={uploadInputId}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
+                    <PopoverTrigger asChild>
+                      <ToolbarButton
+                        active={imagePopoverOpen}
+                        icon={<ImageIcon className="h-4 w-4" />}
+                        onClick={() => { }}
+                      />
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-80 p-0 overflow-hidden"
+                      align="start"
+                      side="bottom"
+                      sideOffset={8}
+                      avoidCollisions
+                      collisionPadding={10}
+                      data-slot="popover-content"
+                      style={{ maxHeight: 'var(--radix-popover-content-available-height)' }}
+                    >
+                      <div className="flex flex-col max-h-[inherit] overflow-y-auto">
+                        {/* Upload Section */}
+                        <div className="p-3 border-b bg-muted/30 shrink-0">
+                          <div
+                            className={cn(
+                              "relative border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center gap-2 transition-colors cursor-pointer",
+                              isDragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/50",
+                              uploading && "opacity-50 pointer-events-none"
+                            )}
+                            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                            onDragLeave={() => setIsDragging(false)}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              setIsDragging(false);
+                              const file = e.dataTransfer.files?.[0];
                               if (file) handleFileUpload(file);
                             }}
-                          />
-                          {uploading ? (
-                            <>
-                              <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                              <span className="text-xs font-medium">Uploading...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Upload className="h-5 w-5 text-muted-foreground" />
-                              <div className="text-center">
-                                <p className="text-xs font-semibold">Click or drag image</p>
-                                <p className="text-[10px] text-muted-foreground">PNG, JPG, GIF up to 5MB</p>
-                              </div>
-                            </>
-                          )}
+                            onClick={() => document.getElementById(uploadInputId)?.click()}
+                          >
+                            <input
+                              id={uploadInputId}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleFileUpload(file);
+                              }}
+                            />
+                            {uploading ? (
+                              <>
+                                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                                <span className="text-xs font-medium">Uploading...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="h-5 w-5 text-muted-foreground" />
+                                <div className="text-center">
+                                  <p className="text-xs font-semibold">Click or drag image</p>
+                                  <p className="text-[10px] text-muted-foreground">PNG, JPG, GIF up to 5MB</p>
+                                </div>
+                              </>
+                            )}
+                          </div>
                         </div>
-                      </div>
 
-                      {/* URL Section */}
-                      <div className="p-3 border-b">
-                        <form onSubmit={handleExternalUrlSubmit} className="flex gap-2">
-                          <div className="relative flex-1">
-                            <LinkIcon className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                        {/* URL Section */}
+                        <div className="p-3 border-b">
+                          <form onSubmit={handleExternalUrlSubmit} className="flex gap-2">
+                            <div className="relative flex-1">
+                              <LinkIcon className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                              <Input
+                                placeholder="Insert image URL..."
+                                value={externalUrl}
+                                onChange={(e) => setExternalUrl(e.target.value)}
+                                className="pl-8 h-8 text-xs"
+                              />
+                            </div>
+                            <Button type="submit" size="sm" className="h-8 px-3" disabled={!externalUrl}>
+                              Insert
+                            </Button>
+                          </form>
+                        </div>
+
+                        {/* Asset Browser */}
+                        <div className="flex flex-col flex-1 min-h-0">
+                          <div className="px-3 py-2 border-b flex items-center gap-2">
+                            <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                             <Input
-                              placeholder="Insert image URL..."
-                              value={externalUrl}
-                              onChange={(e) => setExternalUrl(e.target.value)}
-                              className="pl-8 h-8 text-xs"
+                              placeholder="Search library..."
+                              value={imageSearch}
+                              onChange={(e) => setImageSearch(e.target.value)}
+                              className="h-7 text-xs border-none shadow-none focus-visible:ring-0 p-0"
                             />
                           </div>
-                          <Button type="submit" size="sm" className="h-8 px-3" disabled={!externalUrl}>
-                            Insert
-                          </Button>
-                        </form>
+                          <ScrollArea className="flex-1 min-h-0">
+                            <div className="p-2">
+                              {assetsLoading ? (
+                                <div className="flex items-center justify-center py-8">
+                                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/40" />
+                                </div>
+                              ) : filteredAssets.length === 0 ? (
+                                <div className="text-center py-8 text-muted-foreground">
+                                  <ImageIcon className="h-8 w-8 mx-auto mb-2 opacity-10" />
+                                  <p className="text-[10px]">No images found</p>
+                                </div>
+                              ) : (
+                                <div className="grid grid-cols-3 gap-2">
+                                  {filteredAssets.map((asset) => (
+                                    <button
+                                      key={asset.id}
+                                      onClick={() => {
+                                        editor.chain().focus().setImage({ src: asset.url }).run();
+                                        setImagePopoverOpen(false);
+                                      }}
+                                      className="group relative aspect-square rounded-md overflow-hidden bg-muted border border-border hover:border-primary transition-all"
+                                    >
+                                      <img
+                                        src={asset.url}
+                                        alt={asset.name}
+                                        className="w-full h-full object-cover"
+                                      />
+                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <Plus className="h-4 w-4 text-white" />
+                                      </div>
+                                      <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-1.5 opacity-100 group-hover:opacity-0 transition-opacity">
+                                        <p className="text-[9px] text-white truncate font-medium">{asset.name}</p>
+                                      </div>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </ScrollArea>
+                        </div>
                       </div>
+                    </PopoverContent>
+                  </Popover>
 
-                      {/* Asset Browser */}
-                      <div className="flex flex-col flex-1 min-h-0">
-                        <div className="px-3 py-2 border-b flex items-center gap-2">
-                          <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <Input
-                            placeholder="Search library..."
-                            value={imageSearch}
-                            onChange={(e) => setImageSearch(e.target.value)}
-                            className="h-7 text-xs border-none shadow-none focus-visible:ring-0 p-0"
-                          />
+                  <Popover open={iconPopoverOpen} onOpenChange={setIconPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <ToolbarButton
+                        active={iconPopoverOpen}
+                        icon={<SmilePlus className="h-4 w-4" />}
+                        onClick={() => { }}
+                        title="Insert icon"
+                      />
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-80 p-0 overflow-hidden"
+                      align="start"
+                      side="bottom"
+                      sideOffset={8}
+                      avoidCollisions
+                      collisionPadding={10}
+                      data-slot="popover-content"
+                      style={{ maxHeight: 'var(--radix-popover-content-available-height)' }}
+                    >
+                      <div className="flex flex-col h-[350px] max-h-[inherit]">
+                        <div className="p-3 border-b bg-muted/30 shrink-0">
+                          <div className="relative">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              placeholder="Search icons..."
+                              className="pl-9 h-9"
+                              value={iconSearch}
+                              onChange={(e) => setIconSearch(e.target.value)}
+                              autoFocus
+                            />
+                          </div>
                         </div>
                         <ScrollArea className="flex-1 min-h-0">
-                          <div className="p-2">
-                            {assetsLoading ? (
-                              <div className="flex items-center justify-center py-8">
-                                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/40" />
-                              </div>
-                            ) : filteredAssets.length === 0 ? (
-                              <div className="text-center py-8 text-muted-foreground">
-                                <ImageIcon className="h-8 w-8 mx-auto mb-2 opacity-10" />
-                                <p className="text-[10px]">No images found</p>
-                              </div>
-                            ) : (
-                              <div className="grid grid-cols-3 gap-2">
-                                {filteredAssets.map((asset) => (
-                                  <button
-                                    key={asset.id}
-                                    onClick={() => {
-                                      editor.chain().focus().setImage({ src: asset.url }).run();
-                                      setImagePopoverOpen(false);
-                                    }}
-                                    className="group relative aspect-square rounded-md overflow-hidden bg-muted border border-border hover:border-primary transition-all"
-                                  >
-                                    <img
-                                      src={asset.url}
-                                      alt={asset.name}
-                                      className="w-full h-full object-cover"
-                                    />
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                      <Plus className="h-4 w-4 text-white" />
-                                    </div>
-                                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-1.5 opacity-100 group-hover:opacity-0 transition-opacity">
-                                      <p className="text-[9px] text-white truncate font-medium">{asset.name}</p>
-                                    </div>
-                                  </button>
-                                ))}
+                          <div className="p-3 grid grid-cols-6 gap-2">
+                            {filteredIcons.map((name) => {
+                              const Icon = (LucideIcons as any)[name];
+                              if (!Icon) return null;
+                              return (
+                                <Button
+                                  key={name}
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-10 w-10 p-0"
+                                  onClick={() => {
+                                    (editor?.chain().focus() as any).setIcon({ name }).run();
+                                    setIconPopoverOpen(false);
+                                    setIconSearch("");
+                                  }}
+                                  title={name}
+                                >
+                                  <Icon className="h-5 w-5" />
+                                </Button>
+                              );
+                            })}
+                            {filteredIcons.length === 0 && (
+                              <div className="col-span-6 py-10 text-center text-sm text-muted-foreground">
+                                No icons found
                               </div>
                             )}
                           </div>
                         </ScrollArea>
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-
-                <Popover open={iconPopoverOpen} onOpenChange={setIconPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <ToolbarButton
-                      active={iconPopoverOpen}
-                      icon={<SmilePlus className="h-4 w-4" />}
-                      onClick={() => {}} 
-                      title="Insert icon"
-                    />
-                  </PopoverTrigger>
-                  <PopoverContent 
-                    className="w-80 p-0 overflow-hidden" 
-                    align="start" 
-                    side="bottom" 
-                    sideOffset={8}
-                    data-slot="popover-content"
-                  >
-                    <div className="flex flex-col h-[350px]">
-                      <div className="p-3 border-b bg-muted/30 shrink-0">
-                        <div className="relative">
-                          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                          <Input
-                            placeholder="Search icons..."
-                            className="pl-9 h-9"
-                            value={iconSearch}
-                            onChange={(e) => setIconSearch(e.target.value)}
-                            autoFocus
-                          />
+                        <div className="p-2 border-t bg-muted/20 text-[10px] text-center text-muted-foreground uppercase tracking-widest font-medium shrink-0">
+                          Search for 1000+ more icons
                         </div>
                       </div>
-                      <ScrollArea className="flex-1 min-h-0">
-                        <div className="p-3 grid grid-cols-6 gap-2">
-                          {filteredIcons.map((name) => {
-                            const Icon = (LucideIcons as any)[name];
-                            if (!Icon) return null;
-                            return (
-                              <Button
-                                key={name}
-                                variant="ghost"
-                                size="icon"
-                                className="h-10 w-10 p-0"
-                                onClick={() => {
-                                  (editor?.chain().focus() as any).setIcon({ name }).run();
-                                  setIconPopoverOpen(false);
-                                  setIconSearch("");
-                                }}
-                                title={name}
-                              >
-                                  <Icon className="h-5 w-5" />
-                              </Button>
-                            );
-                          })}
-                          {filteredIcons.length === 0 && (
-                            <div className="col-span-6 py-10 text-center text-sm text-muted-foreground">
-                              No icons found
-                            </div>
-                          )}
-                        </div>
-                      </ScrollArea>
-                      <div className="p-2 border-t bg-muted/20 text-[10px] text-center text-muted-foreground uppercase tracking-widest font-medium shrink-0">
-                        Search for 1000+ more icons
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                    </PopoverContent>
+                  </Popover>
 
-                <Separator orientation="vertical" className="h-6" />
+                  <Separator orientation="vertical" className="h-6" />
                 </>
               )}
               <ToolbarButton
@@ -1291,7 +1318,7 @@ export function RichText({
         )}
       </AnimatePresence>
 
-      <div 
+      <div
         className={cn(
           "w-full px-3 py-2 cursor-text transition-all",
           minHeight,
@@ -1299,7 +1326,8 @@ export function RichText({
         )}
         onClick={() => editor.chain().focus().run()}
       >
-        <style dangerouslySetInnerHTML={{ __html: `
+        <style dangerouslySetInnerHTML={{
+          __html: `
           .ProseMirror p.is-editor-empty:first-child::before {
             content: attr(data-placeholder);
             float: left;
@@ -1331,8 +1359,8 @@ export function RichText({
             border-radius: 0.375rem;
           }
         `}} />
-        <EditorContent 
-          editor={editor} 
+        <EditorContent
+          editor={editor}
           className={cn(
             "prose prose-sm dark:prose-invert max-w-none",
             multiline && "preserve-spaces"
@@ -1344,15 +1372,15 @@ export function RichText({
   );
 }
 
-function ToolbarButton({ 
-  active, 
-  onClick, 
+function ToolbarButton({
+  active,
+  onClick,
   icon,
   ...props
-}: { 
-  active?: boolean; 
-  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void; 
-  icon: React.ReactNode; 
+}: {
+  active?: boolean;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  icon: React.ReactNode;
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <Button
