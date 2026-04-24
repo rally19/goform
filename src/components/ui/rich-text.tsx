@@ -786,10 +786,13 @@ export function RichText({
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent
-                  className="p-1 w-32"
+                  className="p-1 w-32 max-h-[300px] overflow-y-auto overscroll-contain"
                   align="start"
                   avoidCollisions
                   collisionPadding={10}
+                  sticky="always"
+                  onWheelCapture={(e) => e.stopPropagation()}
+                  onTouchMoveCapture={(e) => e.stopPropagation()}
                 >
                   <div className="flex flex-col">
                     {FONT_SIZES.map((size) => (
@@ -846,10 +849,13 @@ export function RichText({
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent
-                  className="p-3 w-48"
+                  className="p-3 w-48 max-h-[300px] overflow-y-auto overscroll-contain"
                   align="start"
                   avoidCollisions
                   collisionPadding={10}
+                  sticky="always"
+                  onWheelCapture={(e) => e.stopPropagation()}
+                  onTouchMoveCapture={(e) => e.stopPropagation()}
                 >
                   <div className="space-y-3">
                     <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
@@ -914,10 +920,13 @@ export function RichText({
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent
-                  className="p-3 w-48"
+                  className="p-3 w-48 max-h-[300px] overflow-y-auto overscroll-contain"
                   align="start"
                   avoidCollisions
                   collisionPadding={10}
+                  sticky="always"
+                  onWheelCapture={(e) => e.stopPropagation()}
+                  onTouchMoveCapture={(e) => e.stopPropagation()}
                 >
                   <div className="space-y-3">
                     <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
@@ -1030,6 +1039,7 @@ export function RichText({
                   side="top"
                   avoidCollisions
                   collisionPadding={10}
+                  sticky="always"
                   data-slot="popover-content"
                 >
                   <form onSubmit={handleLinkSubmit} className="space-y-4">
@@ -1108,16 +1118,20 @@ export function RichText({
                       />
                     </PopoverTrigger>
                     <PopoverContent
-                      className="w-80 p-0 overflow-hidden"
+                      className={cn(
+                        "w-80 p-0 overflow-hidden",
+                        "data-[side=bottom]:mt-[min(0px,calc(var(--radix-popover-content-available-height)-380px))]",
+                        "data-[side=top]:mb-[min(0px,calc(var(--radix-popover-content-available-height)-380px))]"
+                      )}
                       align="start"
                       side="bottom"
                       sideOffset={8}
                       avoidCollisions
                       collisionPadding={10}
+                      sticky="always"
                       data-slot="popover-content"
-                      style={{ maxHeight: 'var(--radix-popover-content-available-height)' }}
                     >
-                      <div className="flex flex-col max-h-[inherit] overflow-y-auto">
+                      <div className="flex flex-col h-[380px] max-h-[85vh] overflow-y-auto">
                         {/* Upload Section */}
                         <div className="p-3 border-b bg-muted/30 shrink-0">
                           <div
@@ -1192,7 +1206,11 @@ export function RichText({
                               className="h-7 text-xs border-none shadow-none focus-visible:ring-0 p-0"
                             />
                           </div>
-                          <ScrollArea className="flex-1 min-h-0">
+                          <div 
+                            className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
+                            onWheelCapture={(e) => e.stopPropagation()}
+                            onTouchMoveCapture={(e) => e.stopPropagation()}
+                          >
                             <div className="p-2">
                               {assetsLoading ? (
                                 <div className="flex items-center justify-center py-8">
@@ -1230,7 +1248,7 @@ export function RichText({
                                 </div>
                               )}
                             </div>
-                          </ScrollArea>
+                          </div>
                         </div>
                       </div>
                     </PopoverContent>
@@ -1246,16 +1264,20 @@ export function RichText({
                       />
                     </PopoverTrigger>
                     <PopoverContent
-                      className="w-80 p-0 overflow-hidden"
+                      className={cn(
+                        "w-80 p-0 overflow-hidden",
+                        "data-[side=bottom]:mt-[min(0px,calc(var(--radix-popover-content-available-height)-350px))]",
+                        "data-[side=top]:mb-[min(0px,calc(var(--radix-popover-content-available-height)-350px))]"
+                      )}
                       align="start"
                       side="bottom"
                       sideOffset={8}
                       avoidCollisions
                       collisionPadding={10}
+                      sticky="always"
                       data-slot="popover-content"
-                      style={{ maxHeight: 'var(--radix-popover-content-available-height)' }}
                     >
-                      <div className="flex flex-col h-[350px] max-h-[inherit]">
+                      <div className="flex flex-col h-[350px] max-h-[85vh]">
                         <div className="p-3 border-b bg-muted/30 shrink-0">
                           <div className="relative">
                             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -1268,7 +1290,11 @@ export function RichText({
                             />
                           </div>
                         </div>
-                        <ScrollArea className="flex-1 min-h-0">
+                        <div 
+                          className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
+                          onWheelCapture={(e) => e.stopPropagation()}
+                          onTouchMoveCapture={(e) => e.stopPropagation()}
+                        >
                           <div className="p-3 grid grid-cols-6 gap-2">
                             {filteredIcons.map((name) => {
                               const Icon = (LucideIcons as any)[name];
@@ -1296,7 +1322,7 @@ export function RichText({
                               </div>
                             )}
                           </div>
-                        </ScrollArea>
+                        </div>
                         <div className="p-2 border-t bg-muted/20 text-[10px] text-center text-muted-foreground uppercase tracking-widest font-medium shrink-0">
                           Search for 1000+ more icons
                         </div>
