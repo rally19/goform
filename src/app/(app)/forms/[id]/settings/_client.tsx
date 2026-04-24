@@ -182,7 +182,10 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
                 onChange={(val) => update({ title: val })}
                 placeholder="Untitled Form"
                 workspaceId={initialForm.organizationId ?? undefined}
+                className="w-full text-foreground"
+                minHeight="min-h-[40px]"
                 multiline={false}
+                allowImages={false}
               />
             </div>
             <div className="space-y-1.5">
