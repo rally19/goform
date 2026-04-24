@@ -2,6 +2,8 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { usePathname } from "next/navigation";
+import { db } from "@/lib/db";
+import { FormMenu } from "./form-menu";
 import { sanitize } from "@/lib/sanitize";
 import type { FormField } from "@/db/schema";
 import type { Form } from "@/db/schema";
@@ -645,6 +647,86 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const startTime = useRef(0);
+  const isLoaded = useRef(false);
+
+  // ── Autosave logic ────────────────────────────────────────────────────────
+  // Load progress on mount
+  useEffect(() => {
+    if (isLoaded.current) return;
+    
+    const loadProgress = async () => {
+      try {
+        const saved = await db.progress.get(form.id);
+        if (saved) {
+          if (saved.answers && Object.keys(saved.answers).length > 0) {
+            setAnswers((prev) => ({ ...prev, ...saved.answers }));
+            toast.success("Progress restored", {
+              description: "We've restored your previous answers.",
+              duration: 3000,
+            });
+          }
+          if (typeof saved.currentPage === "number" && saved.currentPage < pages.length) {
+            setCurrentPage(saved.currentPage);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load saved progress", e);
+      } finally {
+        isLoaded.current = true;
+      }
+    };
+
+    loadProgress();
+  }, [form.id, pages.length]);
+
+  // Save progress on changes
+  useEffect(() => {
+    // Don't save if we haven't loaded yet, if we're submitting, or if already submitted
+    if (submitted || submitting || !isLoaded.current) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        let hasData = false;
+        
+        for (const [_, value] of Object.entries(answers)) {
+          if (value !== null && value !== undefined && value !== "" && !(Array.isArray(value) && value.length === 0)) {
+            hasData = true;
+            break;
+          }
+        }
+
+        // If the form has data OR it previously had data (exists in storage), we save the current state
+        // This ensures that "clearing" the form is also persisted.
+        const existing = await db.progress.get(form.id);
+        if (hasData || currentPage > 0 || existing) {
+          await db.progress.put({
+            id: form.id,
+            answers, // Dexie handles File objects natively
+            currentPage,
+            updatedAt: Date.now(),
+          });
+        }
+      } catch (e) {
+        // Silent fail for storage errors
+        console.warn("Autosave failed:", e);
+      }
+    }, 1000); // Debounce save
+
+    return () => clearTimeout(timer);
+  }, [answers, currentPage, form.id, submitted, submitting]);
+
+  const resetProgress = async () => {
+    try {
+      await db.progress.delete(form.id);
+      setAnswers({});
+      setCurrentPage(0);
+      toast.success("Progress reset", {
+        description: "Your answers have been cleared.",
+      });
+    } catch (e) {
+      toast.error("Failed to reset progress");
+    }
+  };
 
   // ── Logic runtime ─────────────────────────────────────────────────────────
   const builderFieldsForEngine = useMemo<BuilderField[]>(
@@ -938,6 +1020,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
     const result = await submitFormResponse(form.id, cleanedAnswers, { timeTaken, uploads: uploadStats });
     if (result.success) {
       setSubmitted(true);
+      await db.progress.delete(form.id);
     } else {
       if (mode === "preview") {
         toast.error(result.error ?? "Submission failed");
@@ -1064,7 +1147,11 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate>
+    <>
+      <div className="fixed top-4 right-4 z-50">
+        <FormMenu onReset={resetProgress} />
+      </div>
+      <form onSubmit={handleSubmit} noValidate>
       {/* Progress bar */}
       {form.showProgress && totalPages > 1 && (
         <div className="mb-6">
@@ -1230,5 +1317,6 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
         )}
       </div>
     </form>
+    </>
   );
 }

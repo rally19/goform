@@ -5,7 +5,6 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { createClient } from "@/lib/server";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { stripHtml } from "@/lib/sanitize";
 
 interface PageProps {
@@ -69,9 +68,6 @@ async function FormPageData({ params }: PageProps) {
   return (
     <div className="relative min-h-screen py-10 px-4 animate-in fade-in duration-500">
       <div className="fixed inset-0 bg-muted/20 -z-10" />
-      <div className="fixed top-4 right-4 z-50">
-        <ThemeToggle />
-      </div>
       <div className="max-w-2xl mx-auto space-y-4">
         {/* Header card */}
         <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">

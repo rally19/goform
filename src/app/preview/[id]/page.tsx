@@ -4,7 +4,6 @@ import { SafeHtml } from "@/components/ui/safe-html";
 import { forbidden } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
-import { ThemeToggle } from "@/components/theme-toggle";
 import type { Metadata } from "next";
 import { stripHtml } from "@/lib/sanitize";
 
@@ -54,9 +53,6 @@ async function PreviewPageData({
   return (
     <div className="relative min-h-screen py-10 px-4 animate-in fade-in duration-500">
       <div className="fixed inset-0 bg-muted/20 -z-10" />
-      <div className="fixed top-4 right-4 z-50">
-        <ThemeToggle />
-      </div>
       {/* Preview banner */}
       <div className="max-w-2xl mx-auto mb-4">
         <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 px-4 py-2.5 flex items-center justify-between text-sm shadow-sm ring-1 ring-amber-900/5">
