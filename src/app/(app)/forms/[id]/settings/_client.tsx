@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import type { Form } from "@/db/schema";
 import { updateForm, deleteForm, setFormStatus, generateNewSuffixAction } from "@/lib/actions/forms";
+import QRCodeStyling from "qr-code-styling";
 import { getFormSubmissionCount } from "@/lib/actions/responses";
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
@@ -30,7 +31,7 @@ import { ACCENT_COLORS } from "@/lib/form-types";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Loader2, Trash2, Copy, ExternalLink, Globe, Lock, ShieldCheck, ToggleLeft, CalendarClock, RefreshCw } from "lucide-react";
+import { Loader2, Trash2, Copy, ExternalLink, Globe, Lock, ShieldCheck, ToggleLeft, CalendarClock, RefreshCw, Download } from "lucide-react";
 
 // Helper to convert UTC Date to local datetime-local string format (YYYY-MM-DDTHH:mm)
 function toLocalDatetime(date: Date): string {
@@ -195,9 +196,95 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
     setOrigin(window.location.origin);
   }, []);
 
+  const cleanTitle = useMemo(() => {
+    if (typeof document === "undefined") return "";
+    const tmp = document.createElement("div");
+    tmp.innerHTML = form.title;
+    return tmp.textContent || tmp.innerText || "";
+  }, [form.title]);
+
+  const qrRef = useRef<HTMLDivElement>(null);
+  const qrCode = useRef<QRCodeStyling | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      qrCode.current = new QRCodeStyling({
+        width: 240,
+        height: 240,
+        type: "svg",
+        data: "",
+        image: "/favicon.ico",
+        margin: 30,
+        dotsOptions: {
+          color: "#000000",
+          type: "rounded"
+        },
+        backgroundOptions: {
+          color: "#ffffff",
+        },
+        imageOptions: {
+          crossOrigin: "anonymous",
+          margin: 6
+        },
+        qrOptions: {
+          errorCorrectionLevel: 'Q'
+        }
+      });
+
+      if (qrRef.current) {
+        qrCode.current.append(qrRef.current);
+      }
+    }
+  }, []);
+
   const publicUrl = origin
     ? `${origin}/f/${form.slugCustom}-${form.slugSuffix}`
     : `/f/${form.slugCustom}-${form.slugSuffix}`;
+
+  useEffect(() => {
+    if (qrCode.current) {
+      qrCode.current.update({
+        data: publicUrl
+      });
+
+      qrCode.current.applyExtension((svg) => {
+        // Clear existing text to prevent duplicates
+        const existingTexts = svg.querySelectorAll("text");
+        existingTexts.forEach(t => t.remove());
+
+        const header = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        header.setAttribute("x", "120");
+        header.setAttribute("y", "20");
+        header.setAttribute("text-anchor", "middle");
+        header.setAttribute("font-family", "system-ui, -apple-system, sans-serif");
+        header.setAttribute("font-weight", "bold");
+        header.setAttribute("font-size", "15px");
+        header.setAttribute("fill", "#000000");
+        header.textContent = "FormTo.Link";
+        svg.appendChild(header);
+
+        const footer = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        footer.setAttribute("x", "120");
+        footer.setAttribute("y", "235");
+        footer.setAttribute("text-anchor", "middle");
+        footer.setAttribute("font-family", "system-ui, -apple-system, sans-serif");
+        footer.setAttribute("font-weight", "bold");
+        footer.setAttribute("font-size", "15px");
+        footer.setAttribute("fill", "#000000");
+        footer.textContent = cleanTitle.length > 25 ? cleanTitle.substring(0, 22) + "..." : cleanTitle;
+        svg.appendChild(footer);
+      });
+    }
+  }, [publicUrl, cleanTitle]);
+
+  const downloadQR = () => {
+    if (qrCode.current) {
+      qrCode.current.download({
+        name: `qr-${form.slugCustom || "form"}`,
+        extension: "png"
+      });
+    }
+  };
 
   const copyLink = () => {
     navigator.clipboard.writeText(publicUrl);
@@ -272,7 +359,7 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
             <CardTitle>Sharing</CardTitle>
             <CardDescription>Control how people access your form</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
             <div className="space-y-1.5">
               <Label htmlFor="slugCustom">Form URL</Label>
               <div className="flex flex-col gap-2">
@@ -316,6 +403,21 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
                   </Button>
                 </div>
               </div>
+            </div>
+
+            <div className="flex flex-col items-center gap-2 p-2 bg-muted/20 rounded-xl border border-dashed border-border/60">
+              <div className="p-1 bg-white rounded-lg shadow-sm border border-border/40 overflow-hidden">
+                <div ref={qrRef} />
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="h-7 text-[10px] uppercase tracking-wider font-bold gap-1.5 text-muted-foreground hover:text-primary transition-colors bg-background" 
+                onClick={downloadQR}
+              >
+                <Download className="h-3 w-3" />
+                Download QR Code
+              </Button>
             </div>
 
             <Separator />
