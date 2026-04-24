@@ -390,8 +390,39 @@ function FieldRenderer({
             : field.type === "number" ? "number"
             : "text"
           }
+          inputMode={
+            field.type === "number" ? "decimal"
+            : field.type === "phone" ? "tel"
+            : field.type === "email" ? "email"
+            : field.type === "url" ? "url"
+            : undefined
+          }
+          onKeyDown={(e) => {
+            if (field.type === "number" && (e.key === "e" || e.key === "E" || e.key === "+")) {
+              e.preventDefault();
+            }
+          }}
           value={(value as string) ?? ""}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => {
+            let val = e.target.value;
+            if (field.type === "number") {
+              // Standard sanitization for numeric input to prevent letters/pasted garbage
+              val = val.replace(/[^0-9.-]/g, "");
+              
+              // Further cleanup: ensure only one decimal point
+              const dotIndex = val.indexOf(".");
+              if (dotIndex !== -1) {
+                val = val.slice(0, dotIndex + 1) + val.slice(dotIndex + 1).replace(/\./g, "");
+              }
+              
+              // Ensure minus sign only at the beginning
+              if (val.lastIndexOf("-") > 0) {
+                const isNegative = val.startsWith("-");
+                val = (isNegative ? "-" : "") + val.replace(/-/g, "");
+              }
+            }
+            onChange(val);
+          }}
           placeholder={field.placeholder ?? ""}
           className={cn("h-11", inputClass)}
           min={val.min}
