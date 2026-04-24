@@ -322,7 +322,6 @@ export interface BuilderForm {
   showProgress: boolean;
   oneResponsePerUser: boolean;
   successMessage: string;
-  redirectUrl?: string;
   autoSave: boolean;
   collaborationEnabled: boolean;
   lastToggledBy?: string | null;

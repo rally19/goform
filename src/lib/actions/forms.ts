@@ -574,7 +574,6 @@ export async function duplicateForm(id: string): Promise<ActionResult<{ id: stri
         requireAuth: form.requireAuth,
         showProgress: form.showProgress,
         successMessage: form.successMessage,
-        redirectUrl: form.redirectUrl,
         autoSave: form.autoSave,
         sections: sections.length > 0 ? sections : null,
         logic: (logic ?? []) as any,

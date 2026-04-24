@@ -61,7 +61,6 @@ async function BuilderData({ params }: { params: Promise<{ id: string }> }) {
     showProgress: form.showProgress,
     oneResponsePerUser: form.oneResponsePerUser,
     successMessage: form.successMessage,
-    redirectUrl: form.redirectUrl ?? undefined,
     autoSave: form.autoSave,
     collaborationEnabled: form.collaborationEnabled,
     lastToggledBy: (form as any).lastToggledBy,

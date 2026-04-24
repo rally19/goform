@@ -363,7 +363,7 @@ export function useFormCollaboration({
     const fieldsToSync: (keyof BuilderForm)[] = [
       "status", "accentColor", "acceptResponses", "requireAuth",
       "showProgress", "oneResponsePerUser", "successMessage",
-      "redirectUrl", "title", "description", "slug",
+      "title", "description", "slug",
       "submissionLimit", "submissionLimitEnabled",
       "submissionLimitRemaining", "submissionLimitDecremental",
       "startsAt", "startsAtEnabled",

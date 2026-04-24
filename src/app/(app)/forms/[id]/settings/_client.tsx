@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import type { Form } from "@/db/schema";
 import { updateForm, deleteForm, setFormStatus } from "@/lib/actions/forms";
 import { getFormSubmissionCount } from "@/lib/actions/responses";
@@ -61,7 +62,6 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
     showProgress: initialForm.showProgress,
     oneResponsePerUser: initialForm.oneResponsePerUser,
     successMessage: initialForm.successMessage,
-    redirectUrl: initialForm.redirectUrl ?? "",
     autoSave: initialForm.autoSave,
     status: initialForm.status,
     submissionLimit: (initialForm as any).submissionLimit ?? null as number | null,
@@ -111,7 +111,6 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
       showProgress: form.showProgress,
       oneResponsePerUser: form.oneResponsePerUser,
       successMessage: form.successMessage,
-      redirectUrl: form.redirectUrl || undefined,
       autoSave: form.autoSave,
       status: form.status,
       submissionLimit: form.submissionLimitEnabled ? (form.submissionLimit ?? null) : null,
@@ -543,17 +542,11 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
                 placeholder="Thank you for your response!"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="redirectUrl">Redirect URL (optional)</Label>
-              <Input
-                id="redirectUrl"
-                type="url"
-                value={form.redirectUrl}
-                onChange={(e) => update({ redirectUrl: e.target.value })}
-                placeholder="https://example.com/thank-you"
-              />
-              <p className="text-xs text-muted-foreground">
-                If set, respondents will be redirected here instead of seeing the success message.
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 border border-border/50 text-xs text-muted-foreground mt-2">
+              <ExternalLink className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              <p>
+                For more complex success pages or to set up a conditional redirect URL after submission, 
+                please use the <Link href={`/forms/${formId}/logic`} className="text-primary hover:underline font-medium">Logic builder</Link>.
               </p>
             </div>
           </CardContent>
