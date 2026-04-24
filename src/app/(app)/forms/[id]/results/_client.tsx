@@ -774,7 +774,7 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
 
       {/* Response Detail Drawer */}
       <Sheet open={!!selectedResponse} onOpenChange={() => setSelectedResponse(null)}>
-        <SheetContent className="h-full w-full sm:w-[500px] p-0 overflow-hidden flex flex-col gap-0 border-l border-border/50">
+        <SheetContent className="h-full w-[85vw] data-[side=right]:w-[85vw] data-[side=right]:max-w-[85vw] data-[side=right]:sm:max-w-none lg:data-[side=right]:w-[50vw] lg:data-[side=right]:max-w-[50vw] p-0 overflow-hidden flex flex-col gap-0 border-l border-border/50">
           <div className="p-6 pb-4 border-b border-border/40 bg-muted/10 shrink-0">
             <SheetHeader className="text-left space-y-1">
               <div className="flex items-center gap-2 mb-2">
