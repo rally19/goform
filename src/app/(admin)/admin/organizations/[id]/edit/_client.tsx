@@ -566,13 +566,46 @@ function AssetTypeIcon({ type, mimeType }: { type: string; mimeType: string }) {
   return <FileIcon className="h-4 w-4 text-muted-foreground" />;
 }
 
+function StorageBar({ assetBytes, formBytes, total }: { assetBytes: number; formBytes: number; total: number }) {
+  const totalUsed = assetBytes + formBytes;
+  const pctAsset = Math.min((assetBytes / total) * 100, 100);
+  const pctForm = Math.min((formBytes / total) * 100, 100 - pctAsset);
+  const pctTotal = Math.min((totalUsed / total) * 100, 100);
+  const isDanger = pctTotal > 90;
+  const isWarning = pctTotal > 70 && !isDanger;
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <div className={`w-2 h-2 rounded-full ${isDanger ? "bg-red-500" : isWarning ? "bg-amber-500" : "bg-primary"}`} />
+            <span>Assets: {fmtBytes(assetBytes)}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-muted-foreground/40" />
+            <span>Forms: {fmtBytes(formBytes)}</span>
+          </div>
+        </div>
+        <span>{fmtBytes(totalUsed)} / {fmtBytes(total)}</span>
+      </div>
+      <div className="h-1.5 rounded-full bg-muted overflow-hidden flex">
+        <div
+          className={`h-full transition-all ${isDanger ? "bg-red-500" : isWarning ? "bg-amber-500" : "bg-primary"}`}
+          style={{ width: `${pctAsset}%` }}
+          title={`Assets: ${fmtBytes(assetBytes)}`}
+        />
+        <div
+          className="h-full bg-muted-foreground/40 transition-all border-l border-background/20"
+          style={{ width: `${pctForm}%` }}
+          title={`Form Uploads: ${fmtBytes(formBytes)}`}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function AssetsTabContent({ assets, storage }: { assets: AssetEntry[]; storage: StorageStats }) {
-  const usedPct = Math.min(100, (storage.totalBytes / storage.limitBytes) * 100);
-  const assetPct = Math.min(100, (storage.assetBytes / storage.limitBytes) * 100);
-  const formPct = Math.min(100, (storage.formBytes / storage.limitBytes) * 100);
-
-  const usageColor = usedPct > 90 ? "bg-destructive" : usedPct > 70 ? "bg-amber-500" : "bg-primary";
-
   return (
     <div className="space-y-4">
       {/* Storage Usage Card */}
@@ -584,21 +617,10 @@ export function AssetsTabContent({ assets, storage }: { assets: AssetEntry[]; st
           </CardTitle>
         </CardHeader>
         <CardContent className="p-5 space-y-5">
-          {/* Total bar */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-medium text-muted-foreground">Total Used</span>
-              <span className="font-semibold tabular-nums">
-                {fmtBytes(storage.totalBytes)} <span className="text-muted-foreground font-normal">/ {fmtBytes(storage.limitBytes)}</span>
-              </span>
-            </div>
-            <div className="h-2.5 rounded-full bg-muted overflow-hidden">
-              <div className={`h-full rounded-full transition-all ${usageColor}`} style={{ width: `${usedPct}%` }} />
-            </div>
-            <p className="text-[10px] text-muted-foreground">{usedPct.toFixed(1)}% of limit used</p>
-          </div>
+          {/* Segmented bar */}
+          <StorageBar assetBytes={storage.assetBytes} formBytes={storage.formBytes} total={storage.limitBytes} />
 
-          {/* Breakdown */}
+          {/* Breakdown tiles */}
           <div className="grid grid-cols-3 gap-4">
             <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Assets</p>

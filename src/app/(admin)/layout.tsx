@@ -5,6 +5,7 @@ import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { AdminSidebar } from "./_components/admin-sidebar";
 import { AdminHeader } from "./_components/admin-header";
+import { BodyOverflowLock } from "./_components/body-overflow-lock";
 import { Suspense } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { cookies } from "next/headers";
@@ -60,6 +61,7 @@ function AdminLayoutContent({
 }) {
   return (
     <div className="flex h-svh w-full overflow-hidden bg-background">
+      <BodyOverflowLock />
       <Suspense fallback={<AdminSidebarGhost />}>
         <AdminSidebarDataWrapper />
       </Suspense>
