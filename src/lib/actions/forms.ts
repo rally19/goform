@@ -20,16 +20,31 @@ async function getAuthUser() {
   return user;
 }
 
+function generateRandomSuffix(length: number = 8): string {
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let result = "";
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
 function generateSlug(title: string): string {
-  return (
-    title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")
-      .substring(0, 80) +
-    "-" +
-    Math.random().toString(36).substring(2, 7)
-  );
+  const custom = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .substring(0, 80);
+  return `${custom}-${generateRandomSuffix(8)}`;
+}
+
+export async function generateNewSuffixAction(): Promise<ActionResult<string>> {
+  try {
+    const user = await getAuthUser(); // Basic auth check
+    return { success: true, data: generateRandomSuffix(8) };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
 }
 
 // ─── List Forms ───────────────────────────────────────────────────────────────
@@ -294,9 +309,9 @@ export async function moveForms(formIds: string[], targetWorkspaceId: string): P
 
 export async function updateForm(
   id: string,
-  data: Partial<BuilderForm>,
+  data: Partial<BuilderForm & { slugCustom?: string; slugSuffix?: string; refreshSuffix?: boolean }>,
   shouldRevalidate = true
-): Promise<ActionResult> {
+): Promise<ActionResult<{ slug?: string }>> {
   try {
     const user = await getAuthUser();
     await enforceFormAccess(id, "editor");
@@ -321,10 +336,47 @@ export async function updateForm(
       updateData.lastToggledBy = user.id;
     }
 
-    await db
-      .update(forms)
-      .set(updateData)
-      .where(eq(forms.id, id));
+    // Handle secure slug updates
+    if (data.slugCustom !== undefined || data.slugSuffix !== undefined || data.refreshSuffix) {
+      const currentForm = await db.query.forms.findFirst({ where: eq(forms.id, id) });
+      if (!currentForm) throw new Error("Form not found");
+
+      const parts = currentForm.slug.split("-");
+      
+      // Suffix priority: 1. data.slugSuffix, 2. newly generated if refreshSuffix, 3. existing suffix (if 8 chars), 4. fallback
+      let finalSuffix = data.slugSuffix;
+      
+      if (!finalSuffix && data.refreshSuffix) {
+        finalSuffix = generateRandomSuffix(8);
+      }
+      
+      if (!finalSuffix) {
+        const currentSuffix = parts.length > 1 ? parts[parts.length - 1] : "";
+        finalSuffix = currentSuffix.length === 8 ? currentSuffix : generateRandomSuffix(8);
+      }
+
+      const customPart = data.slugCustom !== undefined 
+        ? data.slugCustom.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/^-|-$/g, "")
+        : (parts.length > 1 ? parts.slice(0, -1).join("-") : currentForm.slug);
+
+      updateData.slug = `${customPart}-${finalSuffix}`;
+      // Remove temporary fields
+      delete updateData.slugCustom;
+      delete updateData.slugSuffix;
+      delete updateData.refreshSuffix;
+    }
+
+    try {
+      await db
+        .update(forms)
+        .set(updateData)
+        .where(eq(forms.id, id));
+    } catch (err: any) {
+      if (err.code === "23505" || err.message?.includes("unique constraint")) {
+        return { success: false, error: "This URL is already taken. Please try a different custom part or refresh the suffix." };
+      }
+      throw err;
+    }
 
     if (shouldRevalidate) {
       revalidatePath(`/forms/${id}`);
@@ -347,7 +399,10 @@ export async function updateForm(
       console.error("Liveblocks sync failed:", err);
     }
 
-    return { success: true };
+    return { 
+      success: true, 
+      data: updateData.slug ? { slug: updateData.slug } : undefined 
+    };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }

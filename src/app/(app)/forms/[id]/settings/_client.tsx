@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import type { Form } from "@/db/schema";
-import { updateForm, deleteForm, setFormStatus } from "@/lib/actions/forms";
+import { updateForm, deleteForm, setFormStatus, generateNewSuffixAction } from "@/lib/actions/forms";
 import { getFormSubmissionCount } from "@/lib/actions/responses";
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
@@ -30,7 +30,7 @@ import { ACCENT_COLORS } from "@/lib/form-types";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Loader2, Trash2, Copy, ExternalLink, Globe, Lock, ShieldCheck, ToggleLeft, CalendarClock } from "lucide-react";
+import { Loader2, Trash2, Copy, ExternalLink, Globe, Lock, ShieldCheck, ToggleLeft, CalendarClock, RefreshCw } from "lucide-react";
 
 // Helper to convert UTC Date to local datetime-local string format (YYYY-MM-DDTHH:mm)
 function toLocalDatetime(date: Date): string {
@@ -46,7 +46,9 @@ function createFormState(f: Form) {
   return {
     title: f.title,
     description: f.description ?? "",
-    slug: f.slug,
+    slugCustom: f.slug.split("-").length > 1 ? f.slug.split("-").slice(0, -1).join("-") : f.slug,
+    slugSuffix: f.slug.split("-").length > 1 ? f.slug.split("-").slice(-1)[0] : "",
+    refreshSuffix: false,
     accentColor: f.accentColor,
     acceptResponses: f.acceptResponses,
     requireAuth: f.requireAuth,
@@ -111,12 +113,26 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
   const update = (changes: Partial<typeof form>) =>
     setForm((f) => ({ ...f, ...changes }));
 
+  const [refreshingSuffix, setRefreshingSuffix] = useState(false);
+  const handleRefreshSuffix = async () => {
+    setRefreshingSuffix(true);
+    const result = await generateNewSuffixAction();
+    if (result.success && result.data) {
+      update({ slugSuffix: result.data });
+      toast.success("New suffix generated");
+    } else {
+      toast.error(result.error ?? "Failed to generate suffix");
+    }
+    setRefreshingSuffix(false);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     const result = await updateForm(formId, {
       title: form.title,
       description: form.description || undefined,
-      slug: form.slug,
+      slugCustom: form.slugCustom,
+      slugSuffix: form.slugSuffix,
       accentColor: form.accentColor,
       acceptResponses: form.acceptResponses,
       requireAuth: form.requireAuth,
@@ -139,7 +155,18 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
     setSaving(false);
     if (result.success) {
       toast.success("Settings saved");
-      setSavedForm(form);
+      
+      let updatedForm = { ...form, refreshSuffix: false };
+      // If the server returned a new slug (e.g. after refresh or custom change), update state
+      const serverData = result.data as { slug?: string } | undefined;
+      if (serverData?.slug) {
+        const parts = serverData.slug.split("-");
+        updatedForm.slugSuffix = parts[parts.length - 1];
+        updatedForm.slugCustom = parts.slice(0, -1).join("-");
+      }
+
+      setForm(updatedForm);
+      setSavedForm(updatedForm);
       // Reset the apply limit checkbox after save
       setApplyLimitChecked(false);
     } else {
@@ -169,8 +196,8 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
   }, []);
 
   const publicUrl = origin
-    ? `${origin}/f/${form.slug}`
-    : `/f/${form.slug}`;
+    ? `${origin}/f/${form.slugCustom}-${form.slugSuffix}`
+    : `/f/${form.slugCustom}-${form.slugSuffix}`;
 
   const copyLink = () => {
     navigator.clipboard.writeText(publicUrl);
@@ -247,31 +274,47 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="slug">Custom URL Slug</Label>
-              <div className="flex items-center gap-2">
-                <div className="px-3 py-2 bg-muted text-muted-foreground rounded-md text-sm border font-mono whitespace-nowrap">
-                  /f/
+              <Label htmlFor="slugCustom">Form URL</Label>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="px-3 py-2 bg-muted text-muted-foreground rounded-md text-sm border font-mono whitespace-nowrap">
+                    /f/
+                  </div>
+                  <Input
+                    id="slugCustom"
+                    value={form.slugCustom}
+                    onChange={(e) => update({ slugCustom: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-") })}
+                    className="font-mono flex-1"
+                    placeholder="custom-url"
+                  />
+                  <div className="px-3 py-2 bg-muted/50 text-muted-foreground/70 rounded-md text-sm border font-mono whitespace-nowrap min-w-[90px] text-center">
+                    -{form.slugSuffix || "········"}
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    type="button"
+                    onClick={handleRefreshSuffix}
+                    disabled={refreshingSuffix}
+                    title="Refresh random suffix"
+                  >
+                    <RefreshCw className={cn("h-4 w-4", refreshingSuffix && "animate-spin text-primary")} />
+                  </Button>
                 </div>
-                <Input
-                  id="slug"
-                  value={form.slug}
-                  onChange={(e) => update({ slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-") })}
-                  className="font-mono flex-1"
-                />
-              </div>
-              <div className="flex items-center gap-2 mt-2">
-                <code className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded flex-1 truncate">
-                  {publicUrl}
-                </code>
-                <Button variant="outline" size="sm" onClick={copyLink}>
-                  <Copy className="h-3.5 w-3.5 mr-1" />
-                  Copy
-                </Button>
-                <Button variant="outline" size="sm" asChild>
-                  <a href={publicUrl} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
-                </Button>
+                <div className="flex items-center gap-2 mt-1">
+                  <code className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded flex-1 truncate">
+                    {publicUrl}
+                  </code>
+                  <Button variant="outline" size="sm" onClick={copyLink}>
+                    <Copy className="h-3.5 w-3.5 mr-1" />
+                    Copy
+                  </Button>
+                  <Button variant="outline" size="sm" asChild>
+                    <a href={publicUrl} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </Button>
+                </div>
               </div>
             </div>
 
