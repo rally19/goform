@@ -66,6 +66,14 @@ async function BuilderData({ params }: { params: Promise<{ id: string }> }) {
     collaborationEnabled: form.collaborationEnabled,
     lastToggledBy: (form as any).lastToggledBy,
     logic,
+    submissionLimit: (form as any).submissionLimit ?? null,
+    submissionLimitEnabled: (form as any).submissionLimitEnabled ?? false,
+    submissionLimitRemaining: (form as any).submissionLimitRemaining ?? null,
+    submissionLimitDecremental: (form as any).submissionLimitDecremental ?? false,
+    startsAt: (form as any).startsAt ?? null,
+    startsAtEnabled: (form as any).startsAtEnabled ?? false,
+    endsAt: (form as any).endsAt ?? null,
+    endsAtEnabled: (form as any).endsAtEnabled ?? false,
   };
 
   const builderFields: BuilderField[] = fields.map((f) => ({

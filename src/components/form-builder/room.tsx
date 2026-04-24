@@ -44,6 +44,10 @@ function buildInitialStorage(
       successMessage: "Thank you for your response!",
       autoSave: true,
       collaborationEnabled: true,
+      submissionLimitEnabled: false,
+      submissionLimitDecremental: false,
+      startsAtEnabled: false,
+      endsAtEnabled: false,
     }),
     sections: new LiveList(seedSections.map((s) => new LiveObject(s))),
   };
