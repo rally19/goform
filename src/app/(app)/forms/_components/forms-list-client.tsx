@@ -58,6 +58,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "./date-utils";
+import { motion, AnimatePresence } from "motion/react";
 
 type FormRow = {
   id: string;
@@ -556,56 +557,65 @@ export function FormsListClient({
   };
 
   return (
-    <>
-      <div className="flex-1 p-4 pt-6 md:p-8 space-y-6 overflow-y-auto h-full relative">
+    <div className="h-full flex flex-col relative overflow-hidden">
         {/* Bulk Action Bar (Overlay) */}
-        {selectedIds.length > 0 && (
-          <div className="absolute top-0 inset-x-0 h-16 bg-primary/5 border-b border-primary/20 flex items-center justify-between px-8 z-10 animate-in slide-in-from-top-4">
-            <div className="flex items-center gap-4">
-               <Checkbox 
-                 checked={selectedIds.length === filtered.length}
-                 onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
-               />
-               <span className="text-sm font-medium">{selectedIds.length} selected</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
-                Cancel
-              </Button>
-              {hasLockedForms ? (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="cursor-not-allowed">
-                        <Button size="sm" disabled className="opacity-50 pointer-events-none h-8">
-                          <MoveRight className="h-4 w-4 mr-2" /> Move To...
-                        </Button>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Cannot move forms that are currently being edited</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              ) : (
-                <Button size="sm" className="h-8" onClick={() => setMoveOpen(true)}>
-                  <MoveRight className="h-4 w-4 mr-2" /> Move To...
-                </Button>
-              )}
+        <AnimatePresence>
+          {selectedIds.length > 0 && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 64, opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="relative overflow-hidden z-10 bg-background"
+            >
+              <div className="h-16 bg-primary/5 border-b border-primary/20 flex items-center justify-between px-8">
+                <div className="flex items-center gap-4">
+                  <Checkbox 
+                    checked={selectedIds.length === filtered.length}
+                    onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
+                  />
+                  <span className="text-sm font-medium">{selectedIds.length} selected</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
+                    Cancel
+                  </Button>
+                  {hasLockedForms ? (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="cursor-not-allowed">
+                            <Button size="sm" disabled className="opacity-50 pointer-events-none h-8">
+                              <MoveRight className="h-4 w-4 mr-2" /> Move To...
+                            </Button>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Cannot move forms that are currently being edited</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : (
+                    <Button size="sm" className="h-8" onClick={() => setMoveOpen(true)}>
+                      <MoveRight className="h-4 w-4 mr-2" /> Move To...
+                    </Button>
+                  )}
 
-              <Button 
-                variant="destructive" 
-                size="sm" 
-                className="h-8 w-8 p-0"
-                onClick={() => setMultiDeleteOpen(true)}
-              >
-                <Trash className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        )}
+                  <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    className="h-8 w-8 p-0"
+                    onClick={() => setMultiDeleteOpen(true)}
+                  >
+                    <Trash className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        <div className={cn("transition-all", selectedIds.length > 0 ? "pt-10" : "")}>
+      <div className="flex-1 p-4 pt-6 md:p-8 space-y-6 overflow-y-auto relative">
+        <div>
           {/* Header */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
             <div>
@@ -847,6 +857,6 @@ export function FormsListClient({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
 }

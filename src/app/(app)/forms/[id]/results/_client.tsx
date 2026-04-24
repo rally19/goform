@@ -372,33 +372,41 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
 
   return (
     <div className="h-full flex flex-col relative overflow-hidden">
-      {/* Bulk Action Bar (Overlay) */}
-      {selectedIds.length > 0 && (
-        <div className="absolute top-0 inset-x-0 h-16 bg-primary/5 border-b border-primary/20 flex items-center justify-between px-8 z-20 animate-in slide-in-from-top-4">
-          <div className="flex items-center gap-4">
-             <Checkbox 
-               checked={selectedIds.length === processedResponses.length && processedResponses.length > 0}
-               onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
-             />
-             <span className="text-sm font-medium">{selectedIds.length} selected</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
-              Cancel
-            </Button>
-            <Button 
-              variant="destructive" 
-              size="sm" 
-              className="gap-2 h-9 px-4"
-              onClick={() => setMultiDeleteOpen(true)}
-            >
-              <Trash2 className="h-4 w-4" /> Delete
-            </Button>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {selectedIds.length > 0 && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 64, opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="relative overflow-hidden z-20 bg-background"
+          >
+            <div className="h-16 bg-primary/5 border-b border-primary/20 flex items-center justify-between px-8">
+              <div className="flex items-center gap-4">
+                 <Checkbox 
+                   checked={selectedIds.length === processedResponses.length && processedResponses.length > 0}
+                   onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
+                 />
+                 <span className="text-sm font-medium">{selectedIds.length} selected</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
+                  Cancel
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  className="gap-2 h-9 px-4"
+                  onClick={() => setMultiDeleteOpen(true)}
+                >
+                  <Trash2 className="h-4 w-4" /> Delete
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      <div className={cn("flex-1 overflow-y-auto relative scrollbar-edge transition-all duration-300", selectedIds.length > 0 ? "mt-16" : "")}>
+      <div className="flex-1 overflow-y-auto relative scrollbar-edge">
         <div className="p-4 pt-6 md:p-8 space-y-8 max-w-7xl mx-auto">
       {/* Header & Export */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

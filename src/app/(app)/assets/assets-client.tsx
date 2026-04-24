@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { uploadAsset, deleteAsset, renameAsset, deleteAssets, moveAssets, copyAssets } from "@/lib/actions/assets";
 import type { Asset } from "@/db/schema";
+import { motion, AnimatePresence } from "motion/react";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -373,35 +374,45 @@ export function AssetsClient({ workspaceId, initialAssets, usage, targetWorkspac
   // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-full relative">
+    <div className="flex flex-col h-full relative overflow-hidden">
       {/* ─── Bulk Action Bar ─────────────────────────────────────────────────── */}
-      {selectedIds.length > 0 && (
-        <div className="absolute top-0 inset-x-0 h-14 bg-primary/5 border-b border-primary/20 flex items-center justify-between px-6 z-20 animate-in slide-in-from-top-2">
-          <div className="flex items-center gap-3">
-            <Checkbox
-              checked={selectedIds.length === filtered.length && filtered.length > 0}
-              onCheckedChange={(c) => handleSelectAll(c as boolean)}
-            />
-            <span className="text-sm font-medium">{selectedIds.length} selected</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
-              Cancel
-            </Button>
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setCopyOpen(true)}>
-              <Copy className="h-4 w-4" /> Copy To…
-            </Button>
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setMoveOpen(true)}>
-              <MoveRight className="h-4 w-4" /> Move To…
-            </Button>
-            <Button size="sm" variant="destructive" className="gap-1.5" onClick={() => setMultiDeleteOpen(true)}>
-              <Trash2 className="h-4 w-4" /> Delete
-            </Button>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {selectedIds.length > 0 && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 56, opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="relative overflow-hidden z-20 bg-background"
+          >
+            <div className="h-14 bg-primary/5 border-b border-primary/20 flex items-center justify-between px-6">
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  checked={selectedIds.length === filtered.length && filtered.length > 0}
+                  onCheckedChange={(c) => handleSelectAll(c as boolean)}
+                />
+                <span className="text-sm font-medium">{selectedIds.length} selected</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
+                  Cancel
+                </Button>
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setCopyOpen(true)}>
+                  <Copy className="h-4 w-4" /> Copy To…
+                </Button>
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setMoveOpen(true)}>
+                  <MoveRight className="h-4 w-4" /> Move To…
+                </Button>
+                <Button size="sm" variant="destructive" className="gap-1.5" onClick={() => setMultiDeleteOpen(true)}>
+                  <Trash2 className="h-4 w-4" /> Delete
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ─── Header ────────────────────────────────────────────────────────── */}
-      <div className={`border-b border-border bg-background/80 backdrop-blur-sm sticky z-10 transition-all ${selectedIds.length > 0 ? "top-14" : "top-0"}`}>
+      <div className="border-b border-border bg-background/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 space-y-4">
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -474,9 +485,7 @@ export function AssetsClient({ workspaceId, initialAssets, usage, targetWorkspac
       </div>
 
       {/* ─── Drop zone + content ────────────────────────────────────────────── */}
-      <div
-        className={`flex-1 overflow-y-auto transition-all ${selectedIds.length > 0 ? "mt-14" : "mt-0"}`}
-      >
+      <div className="flex-1 overflow-y-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
           {/* Empty state */}
           {filtered.length === 0 && (
