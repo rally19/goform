@@ -40,8 +40,10 @@ export async function proxy(request: NextRequest) {
     pathname === '/' ||
     pathname.startsWith('/login') ||
     pathname.startsWith('/register') ||
+    pathname.startsWith('/forgot-password') ||
     pathname.startsWith('/verify') ||
     pathname.startsWith('/reset-password') ||
+    pathname.startsWith('/auth-code-error') ||
     pathname.startsWith('/oauth') ||
     pathname.startsWith('/f/') ||
     pathname.startsWith('/api/') ||
@@ -74,7 +76,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // Redirect away from auth routes if already authenticated and verified
-  if ((pathname.startsWith('/login') || pathname.startsWith('/register')) && user?.email_confirmed_at) {
+  if ((pathname.startsWith('/login') || pathname.startsWith('/register') || pathname.startsWith('/forgot-password')) && user?.email_confirmed_at) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
