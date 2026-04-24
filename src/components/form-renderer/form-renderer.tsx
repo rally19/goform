@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { usePathname } from "next/navigation";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { db } from "@/lib/db";
 import { FormMenu } from "./form-menu";
 import { sanitize } from "@/lib/sanitize";
@@ -646,6 +647,8 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance>(null);
   const startTime = useRef(0);
   const isLoaded = useRef(false);
 
@@ -915,8 +918,19 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isSubmitPage) return; // safety: only submit from a submit-type page
-    if (!validatePage()) return;
+    if (submitted || submitting) return;
+
+    // Turnstile check
+    if (isSubmitPage && !turnstileToken) {
+      toast.error("Please complete the security check");
+      return;
+    }
+
+    setSubmitting(true);
+    if (!validatePage()) {
+      setSubmitting(false);
+      return;
+    }
 
     // Pre-submit status check
     const statusResult = await getPublicFormStatus(form.id);
@@ -928,6 +942,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
         } else {
           setErrors({ _global: "This form is not yet published" });
         }
+        setSubmitting(false);
         return;
       }
       if (!acceptResponses || status === "closed") {
@@ -936,11 +951,11 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
         } else {
           setErrors({ _global: "This form is not currently accepting responses" });
         }
+        setSubmitting(false);
         return;
       }
     }
 
-    setSubmitting(true);
     const timeTaken = Math.round((Date.now() - startTime.current) / 1000);
     const supabase = createClient();
     const tempId = crypto.randomUUID();
@@ -1017,7 +1032,11 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
       }
     }
 
-    const result = await submitFormResponse(form.id, cleanedAnswers, { timeTaken, uploads: uploadStats });
+    const result = await submitFormResponse(form.id, cleanedAnswers, { 
+      timeTaken, 
+      uploads: uploadStats,
+      turnstileToken: turnstileToken ?? undefined 
+    });
     if (result.success) {
       setSubmitted(true);
       await db.progress.delete(form.id);
@@ -1027,6 +1046,10 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
       } else {
         setErrors({ _global: result.error ?? "Submission failed" });
       }
+      
+      // Reset turnstile on error to get a fresh token
+      turnstileRef.current?.reset();
+      setTurnstileToken(null);
     }
     setSubmitting(false);
   };
@@ -1279,6 +1302,19 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
           );
         })}
       </div>
+
+      {/* Turnstile check */}
+      {isSubmitPage && !submitted && (
+        <div className="flex justify-center my-6">
+          <Turnstile
+            ref={turnstileRef}
+            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA"}
+            onSuccess={(token) => setTurnstileToken(token)}
+            onExpire={() => setTurnstileToken(null)}
+            onError={() => setTurnstileToken(null)}
+          />
+        </div>
+      )}
 
       {/* Navigation */}
       <div className="flex items-center justify-between mt-8 pt-6 border-t border-border">

@@ -19,9 +19,26 @@ export async function submitFormResponse(
   metadata?: { 
     timeTaken?: number;
     uploads?: { name: string; originalName: string; size: number; mimeType: string; path: string }[];
+    turnstileToken?: string;
   }
 ): Promise<ActionResult<{ responseId: string }>> {
   try {
+    // Verify Turnstile token if provided
+    if (metadata?.turnstileToken) {
+      const secret = process.env.TURNSTILE_SECRET_KEY || "1x0000000000000000000000000000000AA";
+      const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+        method: "POST",
+        body: `secret=${encodeURIComponent(secret)}&response=${encodeURIComponent(metadata.turnstileToken)}`,
+        headers: {
+          "content-type": "application/x-www-form-urlencoded",
+        },
+      });
+      const turnstileData = await res.json();
+      if (!turnstileData.success) {
+        return { success: false, error: "Security check failed. Please refresh and try again." };
+      }
+    }
+
     // Load form to check if accepting responses
     const form = await db.query.forms.findFirst({
       where: eq(forms.id, formId),

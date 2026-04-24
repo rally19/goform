@@ -19,6 +19,7 @@
     "@liveblocks/react": "^3.18.3",
     "@liveblocks/react-tiptap": "^3.18.3",
     "@liveblocks/react-ui": "^3.18.3",
+    "@marsidev/react-turnstile": "^1.5.0",
     "@supabase/ssr": "^0.10.0",
     "@supabase/supabase-js": "^2.102.0",
     "@tailwindcss/cli": "^4.2.2",

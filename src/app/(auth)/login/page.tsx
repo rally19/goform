@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { Suspense } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,6 +10,7 @@ import { motion } from "motion/react";
 import { useTransition, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { signInAction } from "../actions";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +38,8 @@ function LoginForm() {
   const next = searchParams.get("next");
   const [isPending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = React.useRef<TurnstileInstance>(null);
 
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -50,11 +54,17 @@ function LoginForm() {
     const formData = new FormData();
     formData.append("email", values.email);
     formData.append("password", values.password);
+    if (turnstileToken) formData.append("cf-turnstile-response", turnstileToken);
     if (next) formData.append("next", next);
 
     startTransition(() => {
       signInAction(formData).then((res) => {
-        if (res?.error) setErrorMsg(res.error);
+        if (res?.error) {
+          setErrorMsg(res.error);
+          // Reset turnstile on error
+          turnstileRef.current?.reset();
+          setTurnstileToken(null);
+        }
       });
     });
   }
@@ -120,10 +130,20 @@ function LoginForm() {
                 </p>
               )}
             </div>
+            <div className="flex justify-center py-2">
+              <Turnstile
+                ref={turnstileRef}
+                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA"}
+                onSuccess={(token) => setTurnstileToken(token)}
+                onExpire={() => setTurnstileToken(null)}
+                onError={() => setTurnstileToken(null)}
+              />
+            </div>
+
             <Button
               type="submit"
               className="w-full transition-all active:scale-[0.98]"
-              disabled={isPending || form.formState.isSubmitting}
+              disabled={isPending || form.formState.isSubmitting || !turnstileToken}
             >
               {isPending ? "Signing in..." : "Sign In"}
             </Button>

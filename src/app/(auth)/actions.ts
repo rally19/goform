@@ -53,6 +53,24 @@ export async function signInAction(formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
   const next = formData.get('next') as string | null
+  const turnstileToken = formData.get('cf-turnstile-response') as string | null
+
+  // Verify Turnstile
+  if (turnstileToken) {
+    const secret = process.env.TURNSTILE_SECRET_KEY || "1x0000000000000000000000000000000AA";
+    const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      body: `secret=${encodeURIComponent(secret)}&response=${encodeURIComponent(turnstileToken)}`,
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    });
+    const turnstileData = await res.json();
+    if (!turnstileData.success) {
+      return { error: "Security check failed. Please refresh and try again." };
+    }
+  }
+
   const supabase = await createClient()
 
   const { error } = await supabase.auth.signInWithPassword({
@@ -107,6 +125,23 @@ export async function signUpAction(formData: FormData) {
   const password = formData.get('password') as string
   const name = formData.get('name') as string
   const next = formData.get('next') as string | null
+  const turnstileToken = formData.get('cf-turnstile-response') as string | null
+
+  // Verify Turnstile
+  if (turnstileToken) {
+    const secret = process.env.TURNSTILE_SECRET_KEY || "1x0000000000000000000000000000000AA";
+    const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      body: `secret=${encodeURIComponent(secret)}&response=${encodeURIComponent(turnstileToken)}`,
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    });
+    const turnstileData = await res.json();
+    if (!turnstileData.success) {
+      return { error: "Security check failed. Please refresh and try again." };
+    }
+  }
   
   const supabase = await createClient()
 
