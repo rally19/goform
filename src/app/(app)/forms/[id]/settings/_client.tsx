@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import type { Form } from "@/db/schema";
 import { updateForm, deleteForm, setFormStatus } from "@/lib/actions/forms";
@@ -42,6 +42,33 @@ function toLocalDatetime(date: Date): string {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
+function createFormState(f: Form) {
+  return {
+    title: f.title,
+    description: f.description ?? "",
+    slug: f.slug,
+    accentColor: f.accentColor,
+    acceptResponses: f.acceptResponses,
+    requireAuth: f.requireAuth,
+    showProgress: f.showProgress,
+    oneResponsePerUser: f.oneResponsePerUser,
+    successMessage: f.successMessage,
+    autoSave: f.autoSave,
+    status: f.status,
+    submissionLimit: (f as any).submissionLimit ?? null as number | null,
+    submissionLimitEnabled: (f as any).submissionLimitEnabled ?? false,
+    submissionLimitDecremental: (f as any).submissionLimitDecremental ?? false,
+    submissionLimitRemaining: (f as any).submissionLimitRemaining ?? null as number | null,
+    startsAt: (f as any).startsAt ? toLocalDatetime(new Date((f as any).startsAt)) : "",
+    startsAtEnabled: (f as any).startsAtEnabled ?? false,
+    endsAt: (f as any).endsAt ? toLocalDatetime(new Date((f as any).endsAt)) : "",
+    endsAtEnabled: (f as any).endsAtEnabled ?? false,
+    showStartsAt: (f as any).showStartsAt ?? false,
+    showEndsAt: (f as any).showEndsAt ?? false,
+  };
+}
+
+
 interface SettingsClientProps {
   formId: string;
   initialForm: Form;
@@ -52,29 +79,14 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  const [form, setForm] = useState({
-    title: initialForm.title,
-    description: initialForm.description ?? "",
-    slug: initialForm.slug,
-    accentColor: initialForm.accentColor,
-    acceptResponses: initialForm.acceptResponses,
-    requireAuth: initialForm.requireAuth,
-    showProgress: initialForm.showProgress,
-    oneResponsePerUser: initialForm.oneResponsePerUser,
-    successMessage: initialForm.successMessage,
-    autoSave: initialForm.autoSave,
-    status: initialForm.status,
-    submissionLimit: (initialForm as any).submissionLimit ?? null as number | null,
-    submissionLimitEnabled: (initialForm as any).submissionLimitEnabled ?? false,
-    submissionLimitDecremental: (initialForm as any).submissionLimitDecremental ?? false,
-    submissionLimitRemaining: (initialForm as any).submissionLimitRemaining ?? null as number | null,
-    startsAt: (initialForm as any).startsAt ? toLocalDatetime(new Date((initialForm as any).startsAt)) : "",
-    startsAtEnabled: (initialForm as any).startsAtEnabled ?? false,
-    endsAt: (initialForm as any).endsAt ? toLocalDatetime(new Date((initialForm as any).endsAt)) : "",
-    endsAtEnabled: (initialForm as any).endsAtEnabled ?? false,
-    showStartsAt: (initialForm as any).showStartsAt ?? false,
-    showEndsAt: (initialForm as any).showEndsAt ?? false,
-  });
+  const [form, setForm] = useState(() => createFormState(initialForm));
+  const [savedForm, setSavedForm] = useState(() => createFormState(initialForm));
+
+  const isDirty = useMemo(
+    () => JSON.stringify(form) !== JSON.stringify(savedForm),
+    [form, savedForm]
+  );
+
 
   const [submissionCount, setSubmissionCount] = useState<number | null>(null);
   const [countLoading, setCountLoading] = useState(false);
@@ -127,11 +139,18 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
     setSaving(false);
     if (result.success) {
       toast.success("Settings saved");
+      setSavedForm(form);
       // Reset the apply limit checkbox after save
       setApplyLimitChecked(false);
     } else {
       toast.error(result.error ?? "Failed to save");
     }
+  };
+
+  const handleDiscard = () => {
+    setForm(savedForm);
+    setApplyLimitChecked(false);
+    toast.info("Changes discarded");
   };
 
   const handleDelete = async () => {
@@ -557,7 +576,12 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
 
         {/* Save buttons */}
         <div className="flex justify-end gap-2">
-          <Button onClick={handleSave} disabled={saving}>
+          {isDirty && (
+            <Button variant="outline" onClick={handleDiscard} disabled={saving}>
+              Discard
+            </Button>
+          )}
+          <Button onClick={handleSave} disabled={saving || !isDirty}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
             Save Settings
           </Button>
