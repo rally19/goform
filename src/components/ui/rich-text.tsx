@@ -69,30 +69,30 @@ const ResizableImageComponent = ({ node, updateAttributes, selected, editor }: a
     };
   }, [editor]);
 
-  const onMouseDown = (e: React.MouseEvent) => {
+  const onPointerDown = (e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
-
+    
     setResizing(true);
-
+    
     const startX = e.pageX;
     const startWidth = imgRef.current?.width || 0;
-
-    const onMouseMove = (moveEvent: MouseEvent) => {
+    
+    const onPointerMove = (moveEvent: PointerEvent) => {
       const currentX = moveEvent.pageX;
       const diffX = currentX - startX;
       const newWidth = Math.max(50, startWidth + diffX);
       updateAttributes({ width: newWidth });
     };
-
-    const onMouseUp = () => {
+    
+    const onPointerUp = () => {
       setResizing(false);
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
+      document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('pointerup', onPointerUp);
     };
-
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
+    
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp);
   };
 
   return (
@@ -121,8 +121,8 @@ const ResizableImageComponent = ({ node, updateAttributes, selected, editor }: a
       />
       {selected && isEditorFocused && (
         <div
-          onMouseDown={onMouseDown}
-          className="absolute bottom-1 right-1 w-6 h-6 bg-primary text-primary-foreground rounded-full cursor-nwse-resize shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-10 border-2 border-background"
+          onPointerDown={onPointerDown}
+          className="absolute bottom-1 right-1 w-6 h-6 bg-primary text-primary-foreground rounded-full cursor-nwse-resize shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-10 border-2 border-background touch-none"
           title="Resize image"
         >
           <MoveDiagonal2 className="w-3.5 h-3.5" />
@@ -155,30 +155,30 @@ const ResizableIconComponent = ({ node, updateAttributes, selected, editor }: an
     };
   }, [editor]);
 
-  const onMouseDown = (e: React.MouseEvent) => {
+  const onPointerDown = (e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
-
+    
     setResizing(true);
-
+    
     const startX = e.pageX;
     const startSize = node.attrs.size || 24;
-
-    const onMouseMove = (moveEvent: MouseEvent) => {
+    
+    const onPointerMove = (moveEvent: PointerEvent) => {
       const currentX = moveEvent.pageX;
       const diffX = currentX - startX;
       const newSize = Math.max(12, Math.min(200, startSize + diffX));
       updateAttributes({ size: newSize });
     };
-
-    const onMouseUp = () => {
+    
+    const onPointerUp = () => {
       setResizing(false);
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
+      document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('pointerup', onPointerUp);
     };
-
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
+    
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp);
   };
 
   let IconComponent = (LucideIcons as any)[node.attrs.name] || LucideIcons.HelpCircle;
@@ -208,8 +208,8 @@ const ResizableIconComponent = ({ node, updateAttributes, selected, editor }: an
       </div>
       {selected && isEditorFocused && (
         <div
-          onMouseDown={onMouseDown}
-          className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-primary text-primary-foreground rounded-full cursor-nwse-resize shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-10 border border-background"
+          onPointerDown={onPointerDown}
+          className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-primary text-primary-foreground rounded-full cursor-nwse-resize shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-10 border border-background touch-none"
           title="Resize icon"
         >
           <MoveDiagonal2 className="w-2.5 h-2.5" />
