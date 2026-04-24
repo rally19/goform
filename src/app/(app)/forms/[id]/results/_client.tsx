@@ -860,12 +860,12 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
                           </div>
                         ) : field.type === "long_text" ? (
                           <div 
-                            className="bg-muted/20 border border-border/40 rounded-2xl p-4 text-sm leading-relaxed shadow-inner prose prose-sm dark:prose-invert max-w-none [&_img]:rounded-xl [&_img]:border [&_img]:border-border/40"
+                            className="bg-muted/20 border border-border/40 rounded-2xl p-4 text-sm leading-relaxed shadow-inner prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap [&_img]:rounded-xl [&_img]:border [&_img]:border-border/40"
                             dangerouslySetInnerHTML={{ __html: sanitize(String(answer)) }}
                           />
                         ) : (
                           <div 
-                            className="bg-muted/10 border border-border/40 rounded-xl p-3 px-4 text-sm font-medium prose prose-sm dark:prose-invert max-w-full break-words [&_p]:m-0 [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-lg [&_img]:my-2"
+                            className="bg-muted/10 border border-border/40 rounded-xl p-3 px-4 text-sm font-medium prose prose-sm dark:prose-invert max-w-full break-words whitespace-pre-wrap [&_p]:m-0 [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-lg [&_img]:my-2"
                             dangerouslySetInnerHTML={{ __html: sanitize(formatAnswer(answer, field)) }}
                           />
                         )}
