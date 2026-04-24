@@ -316,6 +316,7 @@ function FieldRenderer({
   accentColor,
   disabled,
   masked,
+  onBlur,
 }: {
   field: FormField;
   value: FormAnswer;
@@ -324,6 +325,7 @@ function FieldRenderer({
   accentColor: string;
   disabled?: boolean;
   masked?: boolean;
+  onBlur?: () => void;
 }) {
   const options = field.options ?? [];
   const props = field.properties ?? {};
@@ -430,6 +432,8 @@ function FieldRenderer({
           minLength={val.minLength}
           maxLength={val.maxLength}
           disabled={disabled}
+          onBlur={onBlur}
+          aria-invalid={!!error}
         />
       );
 
@@ -442,6 +446,8 @@ function FieldRenderer({
           rows={props.rows ?? 4}
           className={cn(inputClass, masked && "[-webkit-text-security:disc]")}
           disabled={disabled}
+          onBlur={onBlur}
+          aria-invalid={!!error}
         />
       );
 
@@ -455,6 +461,8 @@ function FieldRenderer({
           onChange={(e) => onChange(e.target.value)}
           className={cn("h-11 w-auto", inputClass)}
           disabled={disabled}
+          onBlur={onBlur}
+          aria-invalid={!!error}
         />
       );
 
@@ -554,6 +562,7 @@ function FieldRenderer({
           onChange={onChange}
           placeholder={field.placeholder ?? "Select options..."}
           accentColor={accentColor}
+          className={inputClass}
         />
       );
     }
@@ -690,7 +699,12 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
   );
   
   useEffect(() => {
+    // Prevent browser from restoring scroll position on refresh
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
     startTime.current = Date.now();
+    window.scrollTo(0, 0);
   }, []);
 
   const totalPages = pages.length;
@@ -709,26 +723,53 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
     });
   }, [currentFields, getDynamicState]);
 
-  const validatePage = useCallback(() => {
+  const validateField = useCallback((fieldId: string, val: FormAnswer) => {
+    const field = fields.find(f => f.id === fieldId);
+    if (!field) return null;
+    
+    const state = getDynamicState(fieldId);
+    if (!state.visible) return null;
+    
+    if (state.required) {
+      const isEmpty =
+        val === null ||
+        val === undefined ||
+        val === "" ||
+        (Array.isArray(val) && val.length === 0) ||
+        (typeof val === "number" && val === 0 && field.type === "rating");
+      if (isEmpty) return "This field is required";
+    }
+    return null;
+  }, [fields, getDynamicState]);
+
+  const validatePage = useCallback((shouldFocus = true) => {
     const newErrors: Record<string, string> = {};
+    let firstErrorFieldId = null;
+
     for (const field of currentFields as FormField[]) {
       if (["section", "page_break", "paragraph", "divider"].includes(field.type)) continue;
-      const state = getDynamicState(field.id);
-      if (!state.visible) continue; // hidden fields are never required
-      if (state.required) {
-        const val = answers[field.id];
-        const isEmpty =
-          val === null ||
-          val === undefined ||
-          val === "" ||
-          (Array.isArray(val) && val.length === 0) ||
-          (typeof val === "number" && val === 0 && field.type === "rating");
-        if (isEmpty) newErrors[field.id] = "This field is required";
+      
+      const error = validateField(field.id, answers[field.id]);
+      if (error) {
+        newErrors[field.id] = error;
+        if (!firstErrorFieldId) firstErrorFieldId = field.id;
       }
     }
+
     setErrors(newErrors);
+
+    if (firstErrorFieldId && shouldFocus) {
+      const el = document.getElementById(`field-${firstErrorFieldId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        const input = el.querySelector("input, textarea, select, button[role='combobox']") as HTMLElement;
+        if (input) input.focus({ preventScroll: true });
+      }
+    }
+
     return Object.keys(newErrors).length === 0;
-  }, [currentFields, answers, getDynamicState]);
+  }, [currentFields, answers, validateField]);
+
 
   const handleNext = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -1121,13 +1162,28 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
               <FieldRenderer
                 field={field}
                 value={answers[field.id] ?? null}
-                onChange={(v) =>
-                  setAnswers((prev) => ({ ...prev, [field.id]: v }))
-                }
-                error={errors[field.id]}
+                onChange={(v) => {
+                  setAnswers((prev) => ({ ...prev, [field.id]: v }));
+                  
+                  // Real-time validation
+                  const error = validateField(field.id, v);
+                  setErrors((prev) => {
+                    const next = { ...prev };
+                    if (error) next[field.id] = error;
+                    else delete next[field.id];
+                    return next;
+                  });
+                }}
+                onBlur={() => {
+                  const error = validateField(field.id, answers[field.id]);
+                  if (error) {
+                    setErrors((prev) => ({ ...prev, [field.id]: error }));
+                  }
+                }}
                 accentColor={accentColor}
                 disabled={!state.enabled}
                 masked={state.masked}
+                error={errors[field.id]}
               />
               {errors[field.id] && (
                 <p className="text-xs text-destructive">{errors[field.id]}</p>
