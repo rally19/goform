@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { 
   useStorage, 
   useMutation, 
@@ -23,6 +23,7 @@ interface UseFormCollaborationOptions {
   initialForm: BuilderForm;
   initialFields: BuilderField[];
   initialSections?: BuilderSection[];
+  autoSave?: boolean;
 }
 
 export function useFormCollaboration({
@@ -30,7 +31,10 @@ export function useFormCollaboration({
   initialForm,
   initialFields,
   initialSections,
+  autoSave = true,
 }: UseFormCollaborationOptions) {
+  // Read autoSave from Liveblocks form metadata for real-time sync
+  const liveAutoSave = useStorage((root) => (root.formMetadata as any)?.autoSave) ?? autoSave;
   const { 
     selectedFieldId, 
     selectField,
@@ -255,6 +259,7 @@ export function useFormCollaboration({
   const isSavingRef = useRef(false);
   const isDirtyRef = useRef(false);
   const mountedRef = useRef(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -274,7 +279,7 @@ export function useFormCollaboration({
     };
   }, []);
 
-  const persistToSupabase = useCallback(async (currentFields: BuilderField[], currentForm: BuilderForm, currentSections: BuilderSection[]) => {
+  const persistToSupabase = useCallback(async (currentFields: BuilderField[], currentForm: BuilderForm, currentSections: BuilderSection[], showSavingState = false) => {
     const payload = JSON.stringify({ currentFields, currentForm, currentSections });
     
     // Strict Path Sequestration: Ensure we are actually on the edit page for this form.
@@ -292,6 +297,7 @@ export function useFormCollaboration({
 
     try {
       isSavingRef.current = true;
+      if (showSavingState) setIsSaving(true);
       isDirtyRef.current = false;
 
       const result = await syncFormState(formId, currentFields, currentForm, false, currentSections);
@@ -301,8 +307,10 @@ export function useFormCollaboration({
       lastSavedRef.current = payload;
     } catch (err) {
       console.error("Auto-save to Supabase failed:", err);
+      throw err;
     } finally {
       isSavingRef.current = false;
+      if (showSavingState) setIsSaving(false);
       
       // If changes happened while we were saving, trigger another save immediately
       // BUT ONLY if we are still mounted!
@@ -335,6 +343,8 @@ export function useFormCollaboration({
     // Wait for reconciliation to complete before saving, to avoid persisting
     // stale sectionId values (e.g. undefined or "default") from old Liveblocks rooms
     if (!reconcileDoneRef.current) return;
+    // Only auto-save if autoSave is enabled (read from Liveblocks for real-time sync)
+    if (!liveAutoSave) return;
 
     clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
@@ -342,7 +352,7 @@ export function useFormCollaboration({
     }, 3000);
 
     return () => clearTimeout(saveTimeoutRef.current);
-  }, [fields, form, sections, persistToSupabase]);
+  }, [fields, form, sections, persistToSupabase, liveAutoSave]);
 
   // ─── Initial Metadata Sync ────────────────────────────────────────────────
   // On mount, if the storage metadata differs from the DB truth (initialForm),
@@ -373,6 +383,17 @@ export function useFormCollaboration({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!form]);
 
+  // ─── Manual Save (for when autoSave is disabled) ────────────────────────────
+  const manualSave = useCallback(async () => {
+    if (!fields || !form) return { success: false, error: "No data to save" };
+    try {
+      await persistToSupabase(fields, form, sections ?? [], true);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  }, [fields, form, sections, persistToSupabase]);
+
   return {
     fields: fields || [],
     form: form || initialForm,
@@ -402,5 +423,8 @@ export function useFormCollaboration({
     redo,
     canUndo,
     canRedo,
+    isSaving,
+    manualSave,
+    autoSave: liveAutoSave,
   };
 }

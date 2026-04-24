@@ -38,7 +38,7 @@ import {
   PlusCircle, Settings2, Palette,
   Plus, Loader2, Send, ChevronRight, CheckCircle2,
   GripVertical, Copy, Trash2, ChevronDown, MoveRight, Layers,
-  X, CheckSquare2, Undo2, Redo2
+  X, CheckSquare2, Undo2, Redo2, AlertTriangle, Check
 } from "lucide-react";
 import { FieldMoveDialog } from "./field-move-dialog";
 import { SectionReorderDialog } from "./section-reorder-dialog";
@@ -218,6 +218,99 @@ function ActiveMembers({ self, others }: { self: any, others: readonly any[] }) 
   );
 }
 
+// ─── Manual Save Button Component ──────────────────────────────────────────
+interface ManualSaveButtonProps {
+  isSaving: boolean;
+  manualSave: () => Promise<{ success: boolean; error?: string }>;
+  fields: BuilderField[];
+  form: BuilderForm;
+  sections: BuilderSection[];
+}
+
+function ManualSaveButton({ isSaving, manualSave, fields, form, sections }: ManualSaveButtonProps) {
+  const [lastSavedSnapshot, setLastSavedSnapshot] = useState<string | null>(null);
+  const [justSaved, setJustSaved] = useState(false);
+
+  // Compute current state snapshot
+  const currentSnapshot = JSON.stringify({ fields, form, sections });
+
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = lastSavedSnapshot !== null && lastSavedSnapshot !== currentSnapshot;
+
+  // Update last saved snapshot when save completes
+  const handleSave = async () => {
+    const result = await manualSave();
+    if (result.success) {
+      setLastSavedSnapshot(currentSnapshot);
+      setJustSaved(true);
+      toast.success("Form saved");
+      setTimeout(() => setJustSaved(false), 2000);
+    } else {
+      toast.error(result.error || "Failed to save");
+    }
+  };
+
+  // Initialize lastSavedSnapshot on mount
+  useEffect(() => {
+    if (lastSavedSnapshot === null && !isSaving) {
+      setLastSavedSnapshot(currentSnapshot);
+    }
+  }, [lastSavedSnapshot, isSaving, currentSnapshot]);
+
+  // Update snapshot when data changes (but not during save)
+  useEffect(() => {
+    if (!isSaving && lastSavedSnapshot === null) {
+      setLastSavedSnapshot(currentSnapshot);
+    }
+  }, [isSaving, lastSavedSnapshot, currentSnapshot]);
+
+  // Determine icon and tooltip based on state
+  let icon: React.ReactNode;
+  let tooltipText: string;
+  let variant: "ghost" | "outline" | "default" | "destructive" = "ghost";
+
+  if (isSaving) {
+    icon = <Loader2 className="h-4 w-4 animate-spin" />;
+    tooltipText = "Saving...";
+  } else if (justSaved) {
+    icon = <Check className="h-4 w-4 text-emerald-500" />;
+    tooltipText = "Form is saved";
+    variant = "ghost";
+  } else if (hasUnsavedChanges) {
+    icon = <AlertTriangle className="h-4 w-4 text-amber-500" />;
+    tooltipText = "Form is not saved, click here to save";
+    variant = "outline";
+  } else {
+    icon = <Check className="h-4 w-4 text-muted-foreground" />;
+    tooltipText = "Form is saved";
+    variant = "ghost";
+  }
+
+  return (
+    <TooltipProvider>
+      <Tooltip delayDuration={200}>
+        <TooltipTrigger asChild>
+          <Button
+            variant={variant}
+            size="icon"
+            className={cn(
+              "h-8 w-8 ml-2 transition-all",
+              hasUnsavedChanges && "border-amber-500/50 hover:border-amber-500 hover:bg-amber-50"
+            )}
+            onClick={handleSave}
+            disabled={isSaving}
+          >
+            {icon}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-[10px]">
+          {tooltipText}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 export function BuilderCanvas({
   formId,
   initialForm,
@@ -263,11 +356,15 @@ export function BuilderCanvas({
     redo,
     canUndo,
     canRedo,
+    isSaving,
+    manualSave,
+    autoSave,
   } = useFormCollaboration({
     formId,
     initialForm,
     initialFields,
     initialSections,
+    autoSave: initialForm.autoSave,
   });
 
   // ─── Section state bootstrap ───────────────────────────────────────────────
@@ -587,12 +684,22 @@ export function BuilderCanvas({
               <div className="w-px h-4 bg-border mx-1 hidden sm:block" />
 
               <div className="flex items-center gap-1.5 min-w-0">
-                <Badge variant="secondary" className={cn(
-                  "px-2 py-0.5 text-[10px] font-bold uppercase",
-                  form.status === "active" ? "bg-emerald-500/10 text-emerald-600" : "bg-orange-500/10 text-orange-600"
-                )}>
-                  {form.status}
-                </Badge>
+                {/* Status Dot with Tooltip */}
+                <TooltipProvider>
+                  <Tooltip delayDuration={200}>
+                    <TooltipTrigger asChild>
+                      <span
+                        className={cn(
+                          "h-2.5 w-2.5 rounded-full shrink-0",
+                          form.status === "active" ? "bg-emerald-500" : "bg-orange-500"
+                        )}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-[10px]">
+                      {form.status === "active" ? "Active" : "Draft"}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 <div className="flex flex-col">
                   <div
                     className="text-xs font-semibold prose-xs max-w-full truncate leading-none"
@@ -703,6 +810,9 @@ export function BuilderCanvas({
                   </div>
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              {/* Manual Save Button (when autoSave is disabled) */}
+              {!autoSave && <ManualSaveButton isSaving={isSaving} manualSave={manualSave} fields={fields} form={form} sections={sections} />}
             </div>
           </header>
 
