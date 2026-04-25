@@ -186,6 +186,8 @@ function ConditionRow({
   const meta = LOGIC_OPERATOR_META.find((m) => m.operator === condition.operator);
   const allowed = LOGIC_OPERATOR_META.filter((m) => {
     if (!selectedField) return true;
+    // File uploads only support empty/filled
+    if (selectedField.type === "file" && m.operator !== "empty" && m.operator !== "filled") return false;
     if (!m.appliesTo) return true;
     return m.appliesTo.includes(selectedField.type);
   });

@@ -28,6 +28,31 @@ interface ValueInputProps {
 export function ValueInput({ field, operator, value, onChange, placeholder }: ValueInputProps) {
   const isListOperator = operator === "is_one_of" || operator === "is_none_of";
 
+  // Grid fields — show column picker
+  if (field && ["radio_grid", "checkbox_grid"].includes(field.type)) {
+    const columns = (field.properties?.columns ?? []) as { label: string; value: string }[];
+    return (
+      <Select
+        value={value != null ? String(value) : ""}
+        onValueChange={(v) => onChange(v)}
+      >
+        <SelectTrigger className="h-8 text-sm">
+          <SelectValue placeholder="Select column" />
+        </SelectTrigger>
+        <SelectContent>
+          {columns.map((col) => (
+            <SelectItem key={col.value} value={col.value}>
+              <div 
+                className="prose-sm max-w-full [&_img]:hidden truncate"
+                dangerouslySetInnerHTML={{ __html: sanitize(col.label) }}
+              />
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  }
+
   // Choice-style fields with a known option set
   if (field && ["radio", "select"].includes(field.type) && !isListOperator) {
     return (

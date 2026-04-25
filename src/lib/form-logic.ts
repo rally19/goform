@@ -65,6 +65,20 @@ function asArray(v: FormAnswer): (string | number)[] {
   return [v as string | number];
 }
 
+/** Flatten a grid answer (Record<string, string | string[]>) into all selected column values. */
+function gridValues(v: FormAnswer): string[] | null {
+  if (v === null || v === undefined || typeof v !== "object" || Array.isArray(v)) return null;
+  const vals: string[] = [];
+  for (const rowVal of Object.values(v)) {
+    if (Array.isArray(rowVal)) {
+      vals.push(...rowVal.map((s) => String(s).toLowerCase()));
+    } else if (rowVal) {
+      vals.push(String(rowVal).toLowerCase());
+    }
+  }
+  return vals;
+}
+
 function parseList(v: FormAnswer): (string | number)[] {
   // accepts either array or comma-separated string list
   if (Array.isArray(v)) return v as (string | number)[];
@@ -114,13 +128,27 @@ export function evaluateCondition(
     case "filled":
       return !isAnswerEmpty(actual);
 
-    case "equal":
+    case "equal": {
+      const gv = gridValues(actual);
+      if (gv !== null) {
+        const needle = String(value ?? "").toLowerCase();
+        return gv.includes(needle);
+      }
       return normalize(actual) === normalize(value ?? null);
-    case "not_equal":
+    }
+    case "not_equal": {
+      const gv = gridValues(actual);
+      if (gv !== null) {
+        const needle = String(value ?? "").toLowerCase();
+        return !gv.includes(needle);
+      }
       return normalize(actual) !== normalize(value ?? null);
+    }
 
     case "contains": {
       const needle = String(value ?? "").toLowerCase();
+      const gv = gridValues(actual);
+      if (gv !== null) return gv.includes(needle);
       if (Array.isArray(actual)) {
         return actual.some((item) => String(item).toLowerCase().includes(needle));
       }
@@ -128,6 +156,8 @@ export function evaluateCondition(
     }
     case "not_contains": {
       const needle = String(value ?? "").toLowerCase();
+      const gv = gridValues(actual);
+      if (gv !== null) return !gv.includes(needle);
       if (Array.isArray(actual)) {
         return !actual.some((item) => String(item).toLowerCase().includes(needle));
       }
