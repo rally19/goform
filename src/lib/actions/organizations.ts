@@ -1,14 +1,15 @@
 "use server";
 
 import { db } from "@/db";
-import { organizations, organizationMembers, organizationInvites, users } from "@/db/schema";
+import { organizations, organizationMembers, organizationInvites, users, forms, assets } from "@/db/schema";
 import { createClient } from "@/lib/server";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, inArray } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { cache } from "react";
 import crypto from "crypto";
 import { resend } from "@/lib/resend";
+import { cleanupFormResources } from "./forms";
 
 import { WORKSPACE_COOKIE, PERSONAL_WORKSPACE_ID } from "../constants";
 import { getSiteUrl } from "../utils";
@@ -257,11 +258,69 @@ export async function removeOrganizationAvatarAction(orgId: string) {
 }
 
 
+/**
+ * Internal helper to clean up all external resources associated with an organization.
+ */
+export async function cleanupOrganizationResources(id: string) {
+  try {
+    // 1. Clean up all Forms (Files + Liveblocks)
+    const formsInOrg = await db.query.forms.findMany({
+      where: eq(forms.organizationId, id),
+      columns: { id: true },
+    });
+
+    for (const form of formsInOrg) {
+      await cleanupFormResources(form.id);
+    }
+
+    // 2. Clean up Organization Assets (in goform-assets bucket)
+    const orgAssets = await db.query.assets.findMany({
+      where: eq(assets.organizationId, id),
+      columns: { id: true, storagePath: true },
+    });
+
+    if (orgAssets.length > 0) {
+      const supabase = await createClient();
+      await supabase.storage
+        .from("goform-assets")
+        .remove(orgAssets.map((a) => a.storagePath));
+      
+      await db.delete(assets).where(inArray(assets.id, orgAssets.map(a => a.id)));
+    }
+
+    // 3. Clean up Organization Avatar (in embersatu bucket)
+    const org = await db.query.organizations.findFirst({
+      where: eq(organizations.id, id),
+      columns: { avatarUrl: true },
+    });
+
+    if (org?.avatarUrl) {
+      try {
+        const supabase = await createClient();
+        const fileName = org.avatarUrl.split("/").pop();
+        if (fileName) {
+          await supabase.storage
+            .from("embersatu")
+            .remove([`org_avatars/${fileName}`]);
+        }
+      } catch (e) {
+        console.error("Failed to delete org avatar:", e);
+      }
+    }
+  } catch (err) {
+    console.error(`Cleanup failed for organization ${id}:`, err);
+  }
+}
+
 export async function deleteOrganization(id: string) {
   try {
     const access = await verifyWorkspaceAccess(id, "owner");
     if (!access.success) throw new Error("Only the owner can delete the organization");
 
+    // Perform thorough cleanup
+    await cleanupOrganizationResources(id);
+
+    // 4. Delete Organization (cascades to members, forms, etc. in DB)
     await db.delete(organizations).where(eq(organizations.id, id));
     
     // reset workspace if it was the active one

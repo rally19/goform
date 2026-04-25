@@ -6,8 +6,9 @@ import { db } from '@/db'
 import { users, organizationMembers, organizations } from '@/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
-import type { UserIdentity } from '@supabase/supabase-js'
+import { UserIdentity } from '@supabase/supabase-js'
 import { getSiteUrl } from '@/lib/utils'
+import { cleanupUserResources } from '@/lib/actions/users'
 
 export async function updateProfileAction(formData: FormData) {
   const name = formData.get('name') as string
@@ -302,7 +303,11 @@ export async function verifyDeleteAccountAction(formData: FormData) {
     serviceRoleKey
   )
   
-  // ─── OWNERSHIP SUCCESSION LOGIC ───
+  // 2. Proceed with actual deletion (Ownership succession + DB removal)
+  
+  // Perform thorough cleanup
+  await cleanupUserResources(user.id);
+
   // Find all organizations where this user is the owner
   const ownedOrgs = await db.query.organizationMembers.findMany({
     where: and(

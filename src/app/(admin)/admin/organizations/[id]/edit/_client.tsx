@@ -9,7 +9,9 @@ import {
   adminUpdateOrganization, 
   adminDeleteOrganization,
   adminUpdateOrganizationMember,
-  adminRemoveOrganizationMember
+  adminRemoveOrganizationMember,
+  adminDeleteForm,
+  adminDeleteAsset
 } from "@/lib/actions/admin";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -100,6 +102,52 @@ export function OrganizationEditClient({
   const [isPending, startTransition] = useTransition();
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isFormDeleteDialogOpen, setIsFormDeleteDialogOpen] = useState(false);
+  const [formToDelete, setFormToDelete] = useState<string | null>(null);
+  const [isDeletingForm, setIsDeletingForm] = useState(false);
+  const [isAssetDeleteDialogOpen, setIsAssetDeleteDialogOpen] = useState(false);
+  const [assetToDelete, setAssetToDelete] = useState<string | null>(null);
+  const [isDeletingAsset, setIsDeletingAsset] = useState(false);
+
+  const handleAssetDelete = async () => {
+    if (!assetToDelete) return;
+    setIsDeletingAsset(true);
+    try {
+      const result = await adminDeleteAsset(assetToDelete);
+      if (result.success) {
+        toast.success("Asset deleted successfully");
+        router.refresh();
+      } else {
+        toast.error(result.error || "Failed to delete asset");
+      }
+    } catch (err) {
+      toast.error("An error occurred");
+    } finally {
+      setIsDeletingAsset(false);
+      setIsAssetDeleteDialogOpen(false);
+      setAssetToDelete(null);
+    }
+  };
+
+  const handleFormDelete = async () => {
+    if (!formToDelete) return;
+    setIsDeletingForm(true);
+    try {
+      const result = await adminDeleteForm(formToDelete);
+      if (result.success) {
+        toast.success("Form deleted successfully");
+        router.refresh();
+      } else {
+        toast.error(result.error || "Failed to delete form");
+      }
+    } catch (err) {
+      toast.error("An error occurred");
+    } finally {
+      setIsDeletingForm(false);
+      setIsFormDeleteDialogOpen(false);
+      setFormToDelete(null);
+    }
+  };
 
   const form = useForm<z.infer<typeof orgSchema>>({
     resolver: zodResolver(orgSchema),
@@ -472,11 +520,24 @@ export function OrganizationEditClient({
                         })}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button asChild variant="ghost" size="icon" className="h-8 w-8">
-                          <Link href={`/f/${form.slug}`} target="_blank">
-                            <ExternalLink className="h-4 w-4 text-muted-foreground hover:text-primary" />
-                          </Link>
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button asChild variant="ghost" size="icon" className="h-8 w-8">
+                            <Link href={`/f/${form.slug}`} target="_blank">
+                              <ExternalLink className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                            </Link>
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            onClick={() => {
+                              setFormToDelete(form.id);
+                              setIsFormDeleteDialogOpen(true);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -491,6 +552,10 @@ export function OrganizationEditClient({
           <AssetsTabContent
             assets={organization.assets ?? []}
             storage={organization.storage ?? { totalBytes: 0, totalFiles: 0, assetBytes: 0, assetFiles: 0, formBytes: 0, formFiles: 0, limitBytes: 100 * 1024 * 1024 }}
+            onDelete={(id) => {
+              setAssetToDelete(id);
+              setIsAssetDeleteDialogOpen(true);
+            }}
           />
         </TabsContent>
       </Tabs>
@@ -519,6 +584,66 @@ export function OrganizationEditClient({
             >
               {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Delete Permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isFormDeleteDialogOpen} onOpenChange={setIsFormDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Delete Form?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this form and all its responses. 
+              Associated files and collaborative sessions will also be purged.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingForm}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault();
+                handleFormDelete();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeletingForm}
+            >
+              {isDeletingForm ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Delete Form
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isAssetDeleteDialogOpen} onOpenChange={setIsAssetDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Delete Asset?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this asset from storage. 
+              Any forms using this asset will show a broken link.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingAsset}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault();
+                handleAssetDelete();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeletingAsset}
+            >
+              {isDeletingAsset ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Delete Asset
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -605,7 +730,15 @@ function StorageBar({ assetBytes, formBytes, total }: { assetBytes: number; form
   );
 }
 
-export function AssetsTabContent({ assets, storage }: { assets: AssetEntry[]; storage: StorageStats }) {
+export function AssetsTabContent({ 
+  assets, 
+  storage,
+  onDelete
+}: { 
+  assets: AssetEntry[]; 
+  storage: StorageStats;
+  onDelete?: (id: string) => void;
+}) {
   return (
     <div className="space-y-4">
       {/* Storage Usage Card */}
@@ -697,12 +830,26 @@ export function AssetsTabContent({ assets, storage }: { assets: AssetEntry[]; st
                   <TableCell className="text-xs text-muted-foreground">
                     {new Date(a.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                   </TableCell>
-                  <TableCell className="text-right">
-                    <Button asChild variant="ghost" size="icon" className="h-8 w-8">
-                      <Link href={a.url} target="_blank">
-                        <ExternalLink className="h-4 w-4 text-muted-foreground hover:text-primary" />
-                      </Link>
-                    </Button>
+                   <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      {!a.storagePath.startsWith("forms/") && (
+                        <Button asChild variant="ghost" size="icon" className="h-8 w-8">
+                          <Link href={a.url} target="_blank">
+                            <ExternalLink className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                          </Link>
+                        </Button>
+                      )}
+                      {onDelete && !a.storagePath.startsWith("forms/") && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => onDelete(a.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

@@ -5,8 +5,10 @@ import { users, forms, assets, organizations, organizationMembers } from "@/db/s
 import { eq, count, sql, and, desc, isNull, sum } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/server";
+import { cleanupUserResources } from "../users";
 import type { UserRole } from "@/db/schema";
 import { assertAdmin } from "./utils";
+import { cleanupFormResources } from "../forms";
 
 // ─── User Management Types ───────────────────────────────────────────────────
 
@@ -330,33 +332,7 @@ export async function adminDeleteUser(
     if (!target) throw new Error("User not found");
 
     // 1. Storage Cleanup (Pre-emptive)
-    const supabase = await createClient();
-    const assetsBucket = "goform-assets";
-    const profileBucket = "embersatu";
-
-    try {
-      if (target.avatarUrl) {
-        const isAssetsBucket = target.avatarUrl.includes(assetsBucket);
-        const isProfileBucket = target.avatarUrl.includes(profileBucket);
-        const bucket = isAssetsBucket ? assetsBucket : isProfileBucket ? profileBucket : null;
-        
-        if (bucket) {
-          const path = target.avatarUrl.split(`${bucket}/`)[1];
-          if (path) await supabase.storage.from(bucket).remove([path]);
-        }
-      }
-
-      const userAssets = await db.query.assets.findMany({
-        where: eq(assets.userId, targetUserId),
-        columns: { storagePath: true },
-      });
-      if (userAssets.length > 0) {
-        const paths = userAssets.map((a) => a.storagePath);
-        await supabase.storage.from(assetsBucket).remove(paths);
-      }
-    } catch (storageErr) {
-      console.warn("Non-critical: Storage cleanup failed during user deletion", storageErr);
-    }
+    await cleanupUserResources(targetUserId);
 
     // 2. Auth Revocation (External call first)
     const { createAdminClient } = await import("@/lib/supabase-admin");

@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { forms, formFields, formResponses, type NewForm, type NewFormField } from "@/db/schema";
+import { forms, formFields, formResponses, assets, type NewForm, type NewFormField } from "@/db/schema";
 import { createClient } from "@/lib/server";
 import { liveblocks } from "@/lib/liveblocks";
 import { eq, desc, ilike, and, count, sql, isNull, inArray } from "drizzle-orm";
@@ -561,9 +561,53 @@ export async function setFormStatus(
 
 // ─── Delete Form ──────────────────────────────────────────────────────────────
 
+/**
+ * Internal helper to clean up external resources (Storage + Liveblocks) 
+ * associated with a form before deleting its record.
+ */
+export async function cleanupFormResources(formId: string) {
+  try {
+    // 1. Clean up Storage files (Form Uploads)
+    const uploads = await db.query.assets.findMany({
+      where: sql`${assets.storagePath} LIKE ${`forms/${formId}/%`}`,
+      columns: { id: true, storagePath: true },
+    });
+
+    if (uploads.length > 0) {
+      const supabase = await createClient();
+      const paths = uploads.map((u) => u.storagePath);
+      
+      // Delete from storage bucket
+      const { error: storageError } = await supabase.storage
+        .from("form-uploads")
+        .remove(paths);
+
+      if (storageError) {
+        console.error(`Storage cleanup failed for form ${formId}:`, storageError.message);
+      }
+
+      // Delete from assets table
+      await db.delete(assets).where(inArray(assets.id, uploads.map(u => u.id)));
+    }
+
+    // 2. Clean up Liveblocks Room
+    try {
+      await liveblocks.deleteRoom(formId);
+    } catch (e) {
+      // Room might not exist, ignore
+    }
+  } catch (err) {
+    console.error(`Cleanup failed for form ${formId}:`, err);
+  }
+}
+
 export async function deleteForm(id: string): Promise<ActionResult> {
   try {
     await enforceFormAccess(id, "editor");
+    
+    // Perform thorough cleanup first
+    await cleanupFormResources(id);
+
     await db
       .delete(forms)
       .where(eq(forms.id, id));
@@ -580,6 +624,11 @@ export async function deleteForms(ids: string[]): Promise<ActionResult> {
     // Verify access for all forms first
     for (const id of ids) {
       await enforceFormAccess(id, "editor");
+    }
+
+    // Perform cleanup for each form
+    for (const id of ids) {
+      await cleanupFormResources(id);
     }
 
     await db

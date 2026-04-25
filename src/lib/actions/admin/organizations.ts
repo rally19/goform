@@ -5,6 +5,7 @@ import { organizations, organizationMembers, users, forms, assets } from "@/db/s
 import { eq, count, sql, and, desc, isNotNull, sum } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { assertAdmin } from "./utils";
+import { cleanupOrganizationResources } from "../organizations";
 
 // ─── Organization Management Types ──────────────────────────────────────────
 
@@ -214,6 +215,9 @@ export async function adminDeleteOrganization(id: string): Promise<
 > {
   try {
     await assertAdmin();
+
+    // Perform thorough cleanup
+    await cleanupOrganizationResources(id);
 
     // Cascading delete is handled by DB schema
     await db.delete(organizations).where(eq(organizations.id, id));
