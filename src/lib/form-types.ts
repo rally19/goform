@@ -368,8 +368,6 @@ export interface BuilderField {
   };
   // Section this field belongs to
   sectionId?: string;
-  // Realtime Database Locked By userId
-  lockedBy?: string | null;
   // dirty flag — needs to be saved
   isDirty?: boolean;
   // new flag — needs to be inserted

@@ -42,7 +42,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Copy, MoreHorizontal, Plus, Search, Settings, SquarePen,
   Trash, TrendingUp, Globe, ClipboardList, Loader2, FileText,
-  CheckCircle2, XCircle, ExternalLink, MoveRight, Building2, Lock
+  CheckCircle2, XCircle, ExternalLink, MoveRight, Building2
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -52,7 +52,6 @@ import {
   moveForms,
   deleteForms,
 } from "@/lib/actions/forms";
-import { getActiveSessions } from "@/lib/actions/collaboration";
 import { createClient } from "@/lib/client";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -72,13 +71,6 @@ type FormRow = {
   collaborationEnabled: boolean;
 };
 
-type ActiveUser = {
-  userId: string;
-  name: string;
-  color: string;
-  presenceKey: string;
-};
-
 type WorkspaceRow = {
   id: string;
   name: string;
@@ -94,7 +86,6 @@ const STATUS_CONFIG = {
 function FormCard({ 
   form, 
   isSelected, 
-  activeUsers = [],
   onToggleSelect, 
   onDelete, 
   onDuplicate,
@@ -105,7 +96,6 @@ function FormCard({
 }: {
   form: FormRow;
   isSelected: boolean;
-  activeUsers?: ActiveUser[];
   onToggleSelect: (id: string, selected: boolean) => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
@@ -116,7 +106,6 @@ function FormCard({
 }) {
   const status = STATUS_CONFIG[form.status];
   const StatusIcon = status.icon;
-  const isLocked = !form.collaborationEnabled && activeUsers.length > 0;
 
   const isThisFormPending = isPending && pendingFormId === form.id;
   const isEntering = isThisFormPending && pendingAction === "enter";
@@ -140,7 +129,6 @@ function FormCard({
         <Checkbox 
           checked={isSelected} 
           onCheckedChange={(checked) => onToggleSelect(form.id, checked as boolean)}
-          disabled={isLocked}
         />
       </div>
 
@@ -158,31 +146,14 @@ function FormCard({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <Link
-            href={isLocked ? `/forms/${form.id}/results` : `/forms/${form.id}/edit`}
+            href={`/forms/${form.id}/edit`}
             className="font-medium text-sm text-foreground hover:underline truncate flex items-center gap-2"
-            onClick={(e) => {
-              if (isLocked) return;
-              e.preventDefault();
-              onNavigate(form.id, "enter", `/forms/${form.id}/edit`);
-            }}
           >
             <div 
               className="prose-sm max-w-full truncate"
               dangerouslySetInnerHTML={{ __html: sanitize(form.title) }}
             />
           </Link>
-          {isLocked && (
-            <Badge variant="outline" className="h-5 px-1.5 gap-1 text-[10px] bg-amber-500/10 text-amber-600 border-amber-200">
-              <Lock className="h-2.5 w-2.5" />
-              Locked
-            </Badge>
-          )}
-          {!isLocked && activeUsers.length > 0 && form.collaborationEnabled && (
-            <Badge variant="outline" className="h-5 px-1.5 gap-1 text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-200">
-              <span className="h-1 w-1 rounded-full bg-emerald-500 animate-pulse" />
-              Live
-            </Badge>
-          )}
         </div>
         <div className="flex items-center gap-3 mt-0.5">
           <div className={cn("flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded-full border", status.className)}>
@@ -198,25 +169,6 @@ function FormCard({
         </div>
       </div>
 
-      {activeUsers.length > 0 && (
-        <div className="flex items-center -space-x-1.5 mr-2">
-          {activeUsers.slice(0, 3).map((user) => (
-            <div
-              key={user.presenceKey}
-              className="h-6 w-6 rounded-full border-2 border-background flex items-center justify-center text-[9px] font-bold text-white shrink-0"
-              style={{ backgroundColor: user.color }}
-              title={user.name}
-            >
-              {user.name.charAt(0).toUpperCase()}
-            </div>
-          ))}
-          {activeUsers.length > 3 && (
-            <div className="h-6 w-6 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[9px] font-semibold text-muted-foreground">
-              +{activeUsers.length - 3}
-            </div>
-          )}
-        </div>
-      )}
 
 
       <DropdownMenu>
@@ -229,7 +181,7 @@ function FormCard({
           <DropdownMenuLabel>Actions</DropdownMenuLabel>
           <DropdownMenuItem 
             asChild 
-            disabled={isLocked || anyCriticalAction}
+            disabled={anyCriticalAction}
             onSelect={(e) => {
               e.preventDefault();
               onNavigate(form.id, "edit", `/forms/${form.id}/edit`);
@@ -321,69 +273,6 @@ function FormCard({
   );
 }
 
-function useDashboardRealtime(onFormUpdate: (id: string, changes: Partial<FormRow>) => void) {
-  const [sessions, setSessions] = useState<Record<string, ActiveUser[]>>({});
-
-  const refreshSessions = useCallback(async () => {
-    const res = await getActiveSessions();
-    if (res.success && res.data) {
-      const map: Record<string, ActiveUser[]> = {};
-      res.data.forEach(s => {
-        if (!map[s.formId]) map[s.formId] = [];
-        map[s.formId].push({
-          userId: s.userId,
-          name: s.name,
-          color: s.color,
-          presenceKey: s.presenceKey
-        });
-      });
-      setSessions(map);
-    }
-  }, []);
-
-  useEffect(() => {
-    refreshSessions();
-
-    const supabase = createClient();
-    
-    // 1. Listen for session changes (locked/active state)
-    const sessionChannel = supabase
-      .channel("dashboard_sessions")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "active_form_sessions" },
-        () => refreshSessions()
-      )
-      .subscribe();
-
-    // 2. Listen for form metadata changes (title, status, etc.)
-    const formChannel = supabase
-      .channel("dashboard_forms")
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "forms" },
-        (payload: any) => {
-          const newDoc = payload.new as Record<string, any>;
-          const changes: Partial<FormRow> = {};
-          if ("title" in newDoc) changes.title = newDoc.title;
-          if ("status" in newDoc) changes.status = newDoc.status;
-          if ("slug" in newDoc) changes.slug = newDoc.slug;
-          if ("accent_color" in newDoc) changes.accentColor = newDoc.accent_color;
-          if ("collaboration_enabled" in newDoc) changes.collaborationEnabled = newDoc.collaboration_enabled;
-          
-          onFormUpdate(newDoc.id, changes);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(sessionChannel);
-      supabase.removeChannel(formChannel);
-    };
-  }, [refreshSessions, onFormUpdate]);
-
-  return sessions;
-}
 
 export function FormsListClient({ 
   initialForms, 
@@ -394,12 +283,6 @@ export function FormsListClient({
 }) {
   const router = useRouter();
   const [forms, setForms] = useState<FormRow[]>(initialForms);
-
-  const handleRemoteFormUpdate = useCallback((id: string, changes: Partial<FormRow>) => {
-    setForms(prev => prev.map(f => f.id === id ? { ...f, ...changes } : f));
-  }, []);
-
-  const activeSessionsMap = useDashboardRealtime(handleRemoteFormUpdate);
 
   useEffect(() => {
     setForms(initialForms);
@@ -433,7 +316,6 @@ export function FormsListClient({
   });
 
   const selectedForms = forms.filter(f => selectedIds.includes(f.id));
-  const hasLockedForms = selectedForms.some(f => !f.collaborationEnabled && (activeSessionsMap[f.id]?.length ?? 0) > 0);
 
   const handleToggleSelect = (id: string, selected: boolean) => {
     if (selected) {
@@ -579,26 +461,9 @@ export function FormsListClient({
                   <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
                     Cancel
                   </Button>
-                  {hasLockedForms ? (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="cursor-not-allowed">
-                            <Button size="sm" disabled className="opacity-50 pointer-events-none h-8">
-                              <MoveRight className="h-4 w-4 mr-2" /> Move To...
-                            </Button>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Cannot move forms that are currently being edited</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  ) : (
                     <Button size="sm" className="h-8" onClick={() => setMoveOpen(true)}>
                       <MoveRight className="h-4 w-4 mr-2" /> Move To...
                     </Button>
-                  )}
 
                   <Button 
                     variant="destructive" 
@@ -682,7 +547,6 @@ export function FormsListClient({
                   key={form.id}
                   form={form}
                   isSelected={selectedIds.includes(form.id)}
-                  activeUsers={activeSessionsMap[form.id]}
                   onToggleSelect={handleToggleSelect}
                   onDelete={setDeleteId}
                   onDuplicate={setDuplicateId}

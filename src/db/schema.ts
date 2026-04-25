@@ -205,32 +205,6 @@ export const forms = pgTable(
   ]
 );
 
-// ─── Active Form Sessions (Database Realtime Presence) ───────────────────────
-
-export const activeFormSessions = pgTable(
-  "active_form_sessions",
-  {
-    id: text("id").primaryKey(), // We use `${formId}_${presenceKey}`
-    formId: uuid("form_id")
-      .notNull()
-      .references(() => forms.id, { onDelete: "cascade" }),
-    userId: text("user_id").notNull(),
-    presenceKey: text("presence_key").notNull(),
-    name: text("name").notNull(),
-    email: text("email").notNull(),
-    color: text("color").notNull(),
-    selectedFieldId: uuid("selected_field_id"),
-    selectedFieldIdText: text("selected_field_id_text"), 
-    lastPing: timestamp("last_ping").defaultNow().notNull(),
-    joinedAt: timestamp("joined_at").defaultNow().notNull(),
-    serialId: serial("serial_id").notNull(),
-  },
-  (table) => [
-    index("active_form_sessions_form_id_idx").on(table.formId),
-    index("active_form_sessions_last_ping_idx").on(table.lastPing),
-    index("active_form_sessions_joined_at_idx").on(table.joinedAt),
-  ]
-);
 
 // ─── Form Fields ──────────────────────────────────────────────────────────────
 
@@ -286,8 +260,6 @@ export const formFields = pgTable(
     }>(),
     // Section this field belongs to
     sectionId: uuid("section_id"),
-    // Realtime locking - user ID of who is editing this field
-    lockedBy: text("locked_by"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [

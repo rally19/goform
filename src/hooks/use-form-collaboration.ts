@@ -216,7 +216,7 @@ export function useFormCollaboration({
     };
     sectionsList.push(new LiveObject<BuilderSection>(newSection));
 
-    const srcFieldKeys: string[] = ["type","label","description","placeholder","required","orderIndex","options","validation","properties","lockedBy","isDirty","isNew"];
+    const srcFieldKeys: string[] = ["type","label","description","placeholder","required","orderIndex","options","validation","properties","isDirty","isNew"];
     const srcFields: Record<string, unknown>[] = [];
     for (let i = 0; i < fieldsList.length; i++) {
       const f = fieldsList.get(i) as LiveObject<BuilderField>;
