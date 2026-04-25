@@ -325,7 +325,7 @@ function VideoRenderer({ properties }: { properties: any }) {
         const id = u.hostname.includes("youtu.be") 
           ? u.pathname.slice(1) 
           : u.searchParams.get("v");
-        if (id) return `https://www.youtube.com/embed/${id}?autoplay=${autoplay ? 1 : 0}&loop=${loop ? 1 : 0}&controls=${controls ? 1 : 0}`;
+        if (id) return `https://www.youtube.com/embed/${id}?autoplay=${autoplay ? 1 : 0}&loop=${loop ? 1 : 0}&controls=${controls ? 1 : 0}&rel=0&modestbranding=1${loop ? `&playlist=${id}` : ""}`;
       }
       // Vimeo
       if (u.hostname.includes("vimeo.com")) {
