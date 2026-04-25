@@ -672,6 +672,16 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
           }
           if (typeof saved.currentPage === "number" && saved.currentPage < pages.length) {
             setCurrentPage(saved.currentPage);
+            // Rebuild visited pages & history — we don't know the exact path,
+            // so conservatively mark all pages up to the restored page as visited.
+            const restored = new Set<number>();
+            const history: number[] = [];
+            for (let i = 0; i <= saved.currentPage; i++) {
+              restored.add(i);
+              history.push(i);
+            }
+            setVisitedPages(restored);
+            setPageHistory(history);
           }
         }
       } catch (e) {
@@ -725,6 +735,9 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
       await db.progress.delete(form.id);
       setAnswers({});
       setCurrentPage(0);
+      setVisitedPages(new Set([0]));
+      setPageHistory([0]);
+      setErrors({});
       toast.success("Progress reset", {
         description: "Your answers have been cleared.",
       });
