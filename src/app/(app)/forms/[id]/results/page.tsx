@@ -44,7 +44,13 @@ async function ResultsData({ params }: { params: Promise<{ id: string }> }) {
 
   if (!formResult.success || !formResult.data?.form) redirect("/forms");
 
-  const fields = formResult.data.fields ?? [];
+  const sections = formResult.data.sections ?? [];
+  const successSectionIds = new Set(
+    sections.filter((s) => s.type === "success").map((s) => s.id)
+  );
+  const fields = (formResult.data.fields ?? []).filter(
+    (f) => !f.sectionId || !successSectionIds.has(f.sectionId)
+  );
   const initialResponses = responsesResult.success && responsesResult.data 
     ? responsesResult.data 
     : { responses: [], total: 0 };

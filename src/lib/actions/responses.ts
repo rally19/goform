@@ -424,7 +424,13 @@ export async function getFormAnalytics(formId: string, timezone = "UTC"): Promis
 
 
     // Per-field stats
+    const successSectionIds = new Set(
+      (Array.isArray(form.sections) ? form.sections as { id: string; type?: string }[] : [])
+        .filter((s) => s.type === "success")
+        .map((s) => s.id)
+    );
     const fieldStats = form.fields
+      .filter((f) => !f.sectionId || !successSectionIds.has(f.sectionId))
       .filter((f) => !["section", "page_break", "paragraph", "divider", "video"].includes(f.type))
       .map((field) => {
         const fieldAnswers = allResponses
@@ -596,8 +602,14 @@ export async function getFormResponsesForExport(formId: string, timezone = "UTC"
       .where(eq(formResponses.formId, formId))
       .orderBy(desc(formResponses.submittedAt));
 
+    const successSectionIds = new Set(
+      (Array.isArray(form.sections) ? form.sections as { id: string; type?: string }[] : [])
+        .filter((s) => s.type === "success")
+        .map((s) => s.id)
+    );
     const dataFields = form.fields.filter(
-      (f) => !["section", "page_break", "paragraph", "divider"].includes(f.type)
+      (f) => (!f.sectionId || !successSectionIds.has(f.sectionId)) &&
+        !["section", "page_break", "paragraph", "divider"].includes(f.type)
     );
 
     const headers = [
