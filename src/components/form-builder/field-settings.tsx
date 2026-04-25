@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { RichText } from "@/components/ui/rich-text";
 import { useFormBuilder } from "@/hooks/use-form-builder";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
-import { X, Settings2, Plus, GripVertical, Trash2 } from "lucide-react";
+import { X, Settings2, Plus, GripVertical, Trash2, Video, Globe, FolderOpen } from "lucide-react";
 import { BuilderField, BuilderSection, SECTION_TYPE_META, type SectionType } from "@/lib/form-types";
 import { stripHtml } from "@/lib/sanitize";
 import {
@@ -33,6 +34,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { AssetPicker } from "@/components/assets/asset-picker";
 
 interface FieldSettingsProps {
   field?: BuilderField;
@@ -64,6 +66,7 @@ export function FieldSettings({
   workspaceId,
 }: FieldSettingsProps) {
   const { selectField, selectSection } = useFormBuilder();
+  const [assetPickerOpen, setAssetPickerOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -256,8 +259,9 @@ export function FieldSettings({
   const hasScale = field.type === "scale";
   const hasValidation = ["short_text", "long_text", "number", "email", "phone", "url"].includes(field.type);
   const hasRows = field.type === "long_text";
-  const isLayout = ["section", "page_break", "paragraph", "divider"].includes(field.type);
+  const isLayout = ["section", "page_break", "paragraph", "divider", "video"].includes(field.type);
   const isFile = field.type === "file";
+  const isVideo = field.type === "video";
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -337,7 +341,7 @@ export function FieldSettings({
             </div>
           )}
 
-          {["paragraph", "divider"].includes(field.type) && (
+          {["paragraph", "divider", "video"].includes(field.type) && (
             <>
               <Separator />
               <div className="flex items-center justify-between rounded-lg border border-border p-3 bg-background/50">
@@ -622,6 +626,118 @@ export function FieldSettings({
                   placeholder="e.g. image/*, .pdf"
                   className="h-8 text-sm"
                 />
+              </div>
+            </div>
+          )}
+
+          {isVideo && (
+            <div className="space-y-4 pt-2" data-cursor-id="video-settings">
+              <Separator />
+              <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Video Content</Label>
+              
+              <div className="grid grid-cols-2 gap-1 p-1 bg-muted rounded-md">
+                <Button
+                  variant={field.properties?.videoSource !== "asset" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="h-7 text-[10px] gap-1.5"
+                  onClick={() => onUpdate?.({ properties: { ...(field.properties ?? {}), videoSource: "url" } })}
+                >
+                  <Globe className="h-3 w-3" />
+                  URL Link
+                </Button>
+                <Button
+                  variant={field.properties?.videoSource === "asset" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="h-7 text-[10px] gap-1.5"
+                  onClick={() => onUpdate?.({ properties: { ...(field.properties ?? {}), videoSource: "asset" } })}
+                >
+                  <FolderOpen className="h-3 w-3" />
+                  Assets
+                </Button>
+              </div>
+
+              {field.properties?.videoSource === "asset" ? (
+                <div className="space-y-2">
+                  <div 
+                    className="aspect-video rounded-md border-2 border-dashed flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-muted/50 transition-colors overflow-hidden relative group"
+                    onClick={() => setAssetPickerOpen(true)}
+                  >
+                    {field.properties?.assetUrl ? (
+                      <>
+                        <video src={field.properties.assetUrl as string} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Button variant="secondary" size="sm" className="pointer-events-none">Change Video</Button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <Video className="h-6 w-6 text-muted-foreground/40" />
+                        <p className="text-[10px] text-muted-foreground">Click to select video</p>
+                      </>
+                    )}
+                  </div>
+                  {field.properties?.assetUrl && (
+                    <p className="text-[10px] text-muted-foreground truncate px-1">
+                      Source: {new URL(field.properties.assetUrl as string).pathname.split("/").pop()}
+                    </p>
+                  )}
+                  <AssetPicker
+                    open={assetPickerOpen}
+                    onOpenChange={setAssetPickerOpen}
+                    type="video"
+                    workspaceId={workspaceId ?? ""}
+                    onSelect={(url) => onUpdate?.({ properties: { ...(field.properties ?? {}), assetUrl: url } })}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] text-muted-foreground uppercase">Video URL</Label>
+                  <Input
+                    value={field.properties?.videoUrl as string ?? ""}
+                    onChange={(e) => onUpdate?.({ properties: { ...(field.properties ?? {}), videoUrl: e.target.value } })}
+                    placeholder="YouTube, Vimeo, or direct link..."
+                    className="h-8 text-sm"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Supports YouTube, Vimeo, and direct MP4/WebM links.</p>
+                </div>
+              )}
+
+              <Separator />
+              <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Display Settings</Label>
+              
+              <div className="space-y-1.5">
+                <Label className="text-[10px] text-muted-foreground uppercase">Aspect Ratio</Label>
+                <div className="grid grid-cols-3 gap-1">
+                  {["16/9", "4/3", "1/1"].map((ratio) => (
+                    <Button
+                      key={ratio}
+                      variant={field.properties?.aspectRatio === ratio ? "secondary" : "outline"}
+                      size="sm"
+                      className="h-7 text-[10px]"
+                      onClick={() => onUpdate?.({ properties: { ...(field.properties ?? {}), aspectRatio: ratio } })}
+                    >
+                      {ratio}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-1">
+                {[
+                  { id: "autoplay", label: "Autoplay" },
+                  { id: "loop", label: "Loop" },
+                  { id: "controls", label: "Show Controls" },
+                ].map((opt) => (
+                  <div key={opt.id} className="flex items-center justify-between">
+                    <Label className="text-xs">{opt.label}</Label>
+                    <Switch
+                      checked={!!(field.properties as any)?.[opt.id]}
+                      onCheckedChange={(v) => onUpdate?.({ 
+                        properties: { ...(field.properties ?? {}), [opt.id]: v } 
+                      })}
+                    />
+                  </div>
+                ))}
               </div>
             </div>
           )}

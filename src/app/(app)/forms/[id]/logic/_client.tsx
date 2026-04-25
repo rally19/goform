@@ -219,7 +219,7 @@ export function LogicClient({
     toast.info("Changes discarded");
   };
 
-  const hasFields = fields.filter((f) => !["page_break", "section", "paragraph", "divider"].includes(f.type)).length > 0;
+  const hasFields = fields.filter((f) => !["page_break", "section", "paragraph", "divider", "video"].includes(f.type)).length > 0;
 
   return (
     <div className="h-full overflow-y-auto">

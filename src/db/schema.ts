@@ -50,6 +50,7 @@ export const fieldTypeEnum = pgEnum("field_type", [
   "page_break",
   "paragraph",
   "divider",
+  "video",
 ]);
 
 export const organizationRoleEnum = pgEnum("organization_role", [
@@ -271,6 +272,13 @@ export const formFields = pgTable(
       maxFiles?: number;
       acceptedTypes?: string[];
       maxFileSize?: number;
+      videoSource?: string;
+      videoUrl?: string;
+      assetUrl?: string;
+      aspectRatio?: string;
+      autoplay?: boolean;
+      controls?: boolean;
+      loop?: boolean;
     }>(),
     // Section this field belongs to
     sectionId: uuid("section_id"),

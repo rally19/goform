@@ -298,7 +298,7 @@ export function RuleCard({
                 </div>
                 <ConditionBuilder
                   group={rule.conditions}
-                  fields={fields}
+                  fields={fields.filter((f) => !["page_break", "section", "paragraph", "divider", "video"].includes(f.type))}
                   sections={sections}
                   onChange={(next) => onChange({ conditions: next })}
                 />
@@ -547,7 +547,7 @@ function ActionTargetEditor({
   const visualOnlyActions: string[] = ["show_field", "hide_field"];
   const targetFields = visualOnlyActions.includes(ruleAction.action)
     ? realFields
-    : realFields.filter((f) => !["paragraph", "divider"].includes(f.type));
+    : realFields.filter((f) => !["paragraph", "divider", "video"].includes(f.type));
 
   if (actionNeedsTargets(ruleAction.action)) {
     return (
@@ -691,7 +691,7 @@ function ActionSetValueEditor({
 
       {source.mode === "copy_field" && (
         <FieldPicker
-          fields={fields.filter((f) => !["page_break", "section", "paragraph", "divider"].includes(f.type))}
+          fields={fields.filter((f) => !["page_break", "section", "paragraph", "divider", "video"].includes(f.type))}
           sections={sections}
           value={source.sourceFieldId ?? ""}
           onChange={(v) => onChange({ valueSource: { mode: "copy_field", sourceFieldId: v } })}

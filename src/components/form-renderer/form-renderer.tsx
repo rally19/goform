@@ -311,6 +311,58 @@ function FileUploadField({
   );
 }
 
+function VideoRenderer({ properties }: { properties: any }) {
+  const { videoSource, videoUrl, assetUrl, aspectRatio = "16/9", autoplay, controls = true, loop } = properties;
+  const source = videoSource === "asset" ? assetUrl : videoUrl;
+  
+  if (!source) return null;
+
+  const getEmbedUrl = (url: string) => {
+    try {
+      const u = new URL(url);
+      // YouTube
+      if (u.hostname.includes("youtube.com") || u.hostname.includes("youtu.be")) {
+        const id = u.hostname.includes("youtu.be") 
+          ? u.pathname.slice(1) 
+          : u.searchParams.get("v");
+        if (id) return `https://www.youtube.com/embed/${id}?autoplay=${autoplay ? 1 : 0}&loop=${loop ? 1 : 0}&controls=${controls ? 1 : 0}`;
+      }
+      // Vimeo
+      if (u.hostname.includes("vimeo.com")) {
+        const id = u.pathname.split("/").pop();
+        if (id) return `https://player.vimeo.com/video/${id}?autoplay=${autoplay ? 1 : 0}&loop=${loop ? 1 : 0}&controls=${controls ? 1 : 0}`;
+      }
+    } catch (e) {}
+    return null;
+  };
+
+  const embedUrl = getEmbedUrl(source);
+  const ratioClass = aspectRatio === "1/1" ? "aspect-square" : aspectRatio === "4/3" ? "aspect-[4/3]" : "aspect-video";
+
+  return (
+    <div className={cn("w-full overflow-hidden rounded-xl border bg-muted/30", ratioClass)}>
+      {embedUrl ? (
+        <iframe
+          src={embedUrl}
+          className="h-full w-full"
+          allow="autoplay; fullscreen; picture-in-picture"
+          allowFullScreen
+        />
+      ) : (
+        <video
+          src={source}
+          className="h-full w-full object-contain"
+          autoPlay={autoplay}
+          controls={controls}
+          loop={loop}
+          muted={autoplay} // Browser policy: autoplay requires mute
+          playsInline
+        />
+      )}
+    </div>
+  );
+}
+
 function FieldRenderer({
   field,
   value,
@@ -372,6 +424,10 @@ function FieldRenderer({
 
   if (field.type === "divider") {
     return <div className="h-px w-full bg-border" />;
+  }
+
+  if (field.type === "video") {
+    return <VideoRenderer properties={field.properties ?? {}} />;
   }
 
   const inputClass = cn(
@@ -817,7 +873,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
 
   const hasRequiredFields = useMemo(() => {
     return currentFields.some((field) => {
-      if (["section", "page_break", "paragraph", "divider"].includes(field.type)) return false;
+      if (["section", "page_break", "paragraph", "divider", "video"].includes(field.type)) return false;
       const state = getDynamicState(field.id);
       return state.visible && state.required;
     });
@@ -1275,7 +1331,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
             );
           }
 
-          if (["paragraph", "divider"].includes(field.type)) {
+          if (["paragraph", "divider", "video"].includes(field.type)) {
             const state = getDynamicState(field.id);
             if (!state.visible) return null;
             return (

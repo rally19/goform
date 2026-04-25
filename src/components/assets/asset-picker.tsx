@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getWorkspaceAssets, uploadAsset } from "@/lib/actions/assets";
 import type { Asset } from "@/db/schema";
-import { Image as ImageIcon, Upload, Loader2, Search, Check } from "lucide-react";
+import { Image as ImageIcon, Video as VideoIcon, Upload, Loader2, Search, Check } from "lucide-react";
 import { toast } from "sonner";
 
 interface AssetPickerProps {
@@ -20,9 +20,10 @@ interface AssetPickerProps {
   onOpenChange: (open: boolean) => void;
   onSelect: (url: string) => void;
   workspaceId: string;
+  type?: "image" | "video";
 }
 
-export function AssetPicker({ open, onOpenChange, onSelect, workspaceId }: AssetPickerProps) {
+export function AssetPicker({ open, onOpenChange, onSelect, workspaceId, type = "image" }: AssetPickerProps) {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -31,7 +32,7 @@ export function AssetPicker({ open, onOpenChange, onSelect, workspaceId }: Asset
   const fetchAssets = async () => {
     setLoading(true);
     try {
-      const result = await getWorkspaceAssets(workspaceId, { type: "image" });
+      const result = await getWorkspaceAssets(workspaceId, { type });
       if (result.success && result.data) {
         setAssets(result.data);
       }
@@ -85,9 +86,9 @@ export function AssetPicker({ open, onOpenChange, onSelect, workspaceId }: Asset
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-0 overflow-hidden">
         <DialogHeader className="p-6 pb-2">
-          <DialogTitle>Select Image</DialogTitle>
+          <DialogTitle>Select {type === "image" ? "Image" : "Video"}</DialogTitle>
           <DialogDescription>
-            Choose an image from your library or upload a new one.
+            Choose {type === "image" ? "an image" : "a video"} from your library or upload a new one.
           </DialogDescription>
         </DialogHeader>
 
@@ -104,7 +105,7 @@ export function AssetPicker({ open, onOpenChange, onSelect, workspaceId }: Asset
           <label className="cursor-pointer">
             <input
               type="file"
-              accept="image/*"
+              accept={type === "image" ? "image/*" : "video/*"}
               className="hidden"
               onChange={handleUpload}
               disabled={uploading}
@@ -123,8 +124,12 @@ export function AssetPicker({ open, onOpenChange, onSelect, workspaceId }: Asset
             </div>
           ) : filteredAssets.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
-              <ImageIcon className="h-12 w-12 opacity-20" />
-              <p className="text-sm">No images found</p>
+              {type === "image" ? (
+                <ImageIcon className="h-12 w-12 opacity-20" />
+              ) : (
+                <VideoIcon className="h-12 w-12 opacity-20" />
+              )}
+              <p className="text-sm">No {type === "image" ? "images" : "videos"} found</p>
             </div>
           ) : (
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
@@ -137,11 +142,18 @@ export function AssetPicker({ open, onOpenChange, onSelect, workspaceId }: Asset
                   }}
                   className="group relative aspect-square rounded-lg overflow-hidden border bg-muted hover:border-primary transition-all shadow-sm"
                 >
-                  <img
-                    src={asset.url}
-                    alt={asset.name}
-                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                  />
+                  {type === "image" ? (
+                    <img
+                      src={asset.url}
+                      alt={asset.name}
+                      className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-muted">
+                      <VideoIcon className="h-10 w-10 text-muted-foreground/40" />
+                      <video src={asset.url} className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100" />
+                    </div>
+                  )}
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <Check className="text-white h-6 w-6" />
                   </div>

@@ -22,7 +22,8 @@ export type FieldType =
   | "section"
   | "page_break"
   | "paragraph"
-  | "divider";
+  | "divider"
+  | "video";
 
 export type FieldCategory =
   | "text"
@@ -216,6 +217,23 @@ export const FIELD_TYPE_META: FieldTypeMeta[] = [
     defaultLabel: "Divider",
   },
   {
+    type: "video",
+    label: "Embed Video",
+    icon: "Video",
+    category: "visual",
+    description: "Embed video from URL or assets",
+    defaultLabel: "Video",
+    defaultProperties: {
+      videoSource: "url",
+      videoUrl: "",
+      assetUrl: "",
+      aspectRatio: "16/9",
+      autoplay: false,
+      controls: true,
+      loop: false,
+    },
+  },
+  {
     type: "section",
     label: "Section Header",
     icon: "Heading",
@@ -290,6 +308,13 @@ export interface BuilderField {
     maxFiles?: number;
     acceptedTypes?: string[];
     maxFileSize?: number;
+    videoSource?: string;
+    videoUrl?: string;
+    assetUrl?: string;
+    aspectRatio?: string;
+    autoplay?: boolean;
+    controls?: boolean;
+    loop?: boolean;
     // Default interactive state — used as a baseline for runtime state,
     // can be overridden by logic rules (enable/disable, mask/unmask).
     defaultDisabled?: boolean;

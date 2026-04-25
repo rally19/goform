@@ -396,6 +396,15 @@ export function detectLogicIssues(
           ruleId: rule.id,
           message: `Rule "${ruleName}" references a deleted field in its conditions`,
         });
+      } else {
+        const f = fieldById.get(id);
+        if (f && ["paragraph", "divider", "video"].includes(f.type)) {
+          issues.push({
+            severity: "error",
+            ruleId: rule.id,
+            message: `Rule "${ruleName}" uses "${f.label}" (${f.type}) as a condition source, but it has no value`,
+          });
+        }
       }
     }
 
@@ -428,6 +437,16 @@ export function detectLogicIssues(
               message: `Rule "${ruleName}" (${actionLabel(ruleAction.action)}) targets a deleted field`,
             });
           } else {
+            const targetField = fieldById.get(t);
+            const visualOnlyActions: LogicAction[] = ["show_field", "hide_field"];
+            if (targetField && !visualOnlyActions.includes(ruleAction.action) && ["paragraph", "divider", "video"].includes(targetField.type)) {
+              issues.push({
+                severity: "error",
+                ruleId: rule.id,
+                fieldId: t,
+                message: `Field "${targetField.label}" (${targetField.type}) cannot be targeted by ${actionLabel(ruleAction.action)}`,
+              });
+            }
             if (!actionsByTarget.has(t)) actionsByTarget.set(t, new Set());
             actionsByTarget.get(t)!.add(ruleAction.action);
           }

@@ -17,14 +17,14 @@ import {
   CalendarClock, CircleDot, CheckSquare, ChevronDown, ListChecks,
   Star, SlidersHorizontal, Heading, Columns2, Upload, User, List,
   BarChart2, Eye, Paperclip, Search, LayoutGrid, Trash2, X,
-  TextQuote, Minus,
+  TextQuote, Minus, Video,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   Type, AlignLeft, Hash, Mail, Phone, Link, Calendar, Clock,
   CalendarClock, CircleDot, CheckSquare, ChevronDown, ListChecks,
   Star, SlidersHorizontal, Heading, Columns2, Upload, User, List,
-  BarChart2, Eye, Paperclip, Search, TextQuote, Minus,
+  BarChart2, Eye, Paperclip, Search, TextQuote, Minus, Video,
 };
 
 const CATEGORY_COLORS: Record<FieldCategory, string> = {
