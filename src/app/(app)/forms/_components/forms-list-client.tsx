@@ -174,17 +174,19 @@ function FormCard({
             />
           </Link>
         </div>
-        <div className="flex items-center gap-3 mt-0.5">
-          <div className={cn("flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded-full border", status.className)}>
+        <div className="flex items-start sm:items-center gap-3 mt-1">
+          <div className={cn("flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded-full border shrink-0", status.className)}>
             <StatusIcon className="h-2.5 w-2.5" />
             {status.label}
           </div>
-          <span className="text-xs text-muted-foreground">
-             {form.responseCount} {form.responseCount === 1 ? "response" : "responses"}
-          </span>
-          <span className="text-xs text-muted-foreground hidden sm:block" suppressHydrationWarning>
-            Opened {formatDistanceToNow(new Date(form.updatedAt))}
-          </span>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+            <span className="text-xs text-muted-foreground">
+               {form.responseCount} {form.responseCount === 1 ? "response" : "responses"}
+            </span>
+            <span className="text-xs text-muted-foreground" suppressHydrationWarning>
+              Opened {formatDistanceToNow(new Date(form.updatedAt))}
+            </span>
+          </div>
         </div>
       </div>
 
