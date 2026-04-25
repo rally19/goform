@@ -609,7 +609,7 @@ export async function getFormResponsesForExport(formId: string, timezone = "UTC"
     );
     const dataFields = form.fields.filter(
       (f) => (!f.sectionId || !successSectionIds.has(f.sectionId)) &&
-        !["section", "page_break", "paragraph", "divider"].includes(f.type)
+        !["section", "page_break", "paragraph", "divider", "video"].includes(f.type)
     );
 
     const headers = [
