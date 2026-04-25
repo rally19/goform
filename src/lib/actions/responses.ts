@@ -406,13 +406,45 @@ export async function getFormAnalytics(formId: string, timezone = "UTC"): Promis
 
     // Per-field stats
     const fieldStats = form.fields
-      .filter((f) => f.type !== "section" && f.type !== "page_break")
+      .filter((f) => !["section", "page_break", "paragraph", "divider", "video"].includes(f.type))
       .map((field) => {
         const fieldAnswers = allResponses
           .map((r) => (r.answers as Record<string, FormAnswer>)[field.id])
           .filter((a) => a !== null && a !== undefined && a !== "");
 
         const responseCount = fieldAnswers.length;
+
+        // Grid fields
+        if (["radio_grid", "checkbox_grid"].includes(field.type)) {
+          const rows = (field.options ?? []) as { label: string; value: string }[];
+          const cols = ((field.properties as any)?.columns ?? []) as { label: string; value: string }[];
+          const rowStats = rows.map((row) => {
+            const colCounts: Record<string, number> = {};
+            for (const answer of fieldAnswers) {
+              if (typeof answer === "object" && answer !== null && !Array.isArray(answer)) {
+                const gridVal = answer as Record<string, string | string[]>;
+                const rowAnswer = gridVal[row.value];
+                if (rowAnswer) {
+                  const vals = Array.isArray(rowAnswer) ? rowAnswer : [rowAnswer];
+                  for (const v of vals) {
+                    if (typeof v === "string") colCounts[v] = (colCounts[v] ?? 0) + 1;
+                  }
+                }
+              }
+            }
+            return {
+              rowLabel: row.label,
+              columns: cols.map((c) => ({ label: c.label, count: colCounts[c.value] ?? 0 })),
+            };
+          });
+          return {
+            fieldId: field.id,
+            label: field.label,
+            type: field.type as FieldType,
+            responseCount,
+            gridStats: rowStats,
+          };
+        }
 
         // Choice fields
         if (["radio", "checkbox", "select", "multi_select"].includes(field.type)) {
@@ -586,6 +618,22 @@ export async function getFormResponsesForExport(formId: string, timezone = "UTC"
               return data?.signedUrl ?? String(rawVal);
            }
            return "";
+        }
+
+        if (["radio_grid", "checkbox_grid"].includes(f.type) && typeof rawVal === "object" && rawVal !== null && !Array.isArray(rawVal)) {
+           const gridVal = rawVal as Record<string, string | string[]>;
+           const rows = (f.options as { label: string; value: string }[] | undefined) ?? [];
+           const cols = (f.properties as any)?.columns as { label: string; value: string }[] | undefined ?? [];
+           return rows.map((row) => {
+             const rowAnswer = gridVal[row.value];
+             if (!rowAnswer) return `${stripHtml(row.label)}: —`;
+             if (Array.isArray(rowAnswer)) {
+               const labels = rowAnswer.map((v) => cols?.find((c) => c.value === v)?.label ?? v).join(", ");
+               return `${stripHtml(row.label)}: ${labels}`;
+             }
+             const colLabel = cols?.find((c) => c.value === rowAnswer)?.label ?? String(rowAnswer);
+             return `${stripHtml(row.label)}: ${colLabel}`;
+           }).join("; ");
         }
 
         if (["radio", "select", "checkbox", "multi_select"].includes(f.type)) {

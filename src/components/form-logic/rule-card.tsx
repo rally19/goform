@@ -543,11 +543,17 @@ function ActionTargetEditor({
   onChange: (patch: Partial<LogicRuleAction>) => void;
 }) {
   const realFields = fields.filter((f) => !["page_break", "section"].includes(f.type));
-  // Paragraph/divider only support show/hide — exclude from other field-targeting actions
+  // Paragraph/divider/video only support show/hide — exclude from other field-targeting actions
+  // Grid fields support show/hide/require/enable/disable but not set_value
   const visualOnlyActions: string[] = ["show_field", "hide_field"];
-  const targetFields = visualOnlyActions.includes(ruleAction.action)
-    ? realFields
-    : realFields.filter((f) => !["paragraph", "divider", "video"].includes(f.type));
+  let targetFields: BuilderField[];
+  if (visualOnlyActions.includes(ruleAction.action)) {
+    targetFields = realFields;
+  } else if (ruleAction.action === "set_value") {
+    targetFields = realFields.filter((f) => !["paragraph", "divider", "video", "radio_grid", "checkbox_grid"].includes(f.type));
+  } else {
+    targetFields = realFields.filter((f) => !["paragraph", "divider", "video"].includes(f.type));
+  }
 
   if (actionNeedsTargets(ruleAction.action)) {
     return (
@@ -691,7 +697,7 @@ function ActionSetValueEditor({
 
       {source.mode === "copy_field" && (
         <FieldPicker
-          fields={fields.filter((f) => !["page_break", "section", "paragraph", "divider", "video"].includes(f.type))}
+          fields={fields.filter((f) => !["page_break", "section", "paragraph", "divider", "video", "radio_grid", "checkbox_grid"].includes(f.type))}
           sections={sections}
           value={source.sourceFieldId ?? ""}
           onChange={(v) => onChange({ valueSource: { mode: "copy_field", sourceFieldId: v } })}

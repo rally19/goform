@@ -16,6 +16,8 @@ export type FieldType =
   | "multi_select"
   | "checkbox"
   | "radio"
+  | "radio_grid"
+  | "checkbox_grid"
   | "rating"
   | "scale"
   | "file"
@@ -175,6 +177,46 @@ export const FIELD_TYPE_META: FieldTypeMeta[] = [
       { label: "Option 3", value: "option_3" },
     ],
   },
+  {
+    type: "radio_grid",
+    label: "Multiple Choice Grid",
+    icon: "Grid2X2",
+    category: "choice",
+    description: "Grid of radio buttons (one answer per row)",
+    defaultLabel: "Multiple Choice Grid",
+    defaultOptions: [
+      { label: "Row 1", value: "row_1" },
+      { label: "Row 2", value: "row_2" },
+      { label: "Row 3", value: "row_3" },
+    ],
+    defaultProperties: {
+      columns: [
+        { label: "Column 1", value: "col_1" },
+        { label: "Column 2", value: "col_2" },
+        { label: "Column 3", value: "col_3" },
+      ],
+    },
+  },
+  {
+    type: "checkbox_grid",
+    label: "Checkboxes Grid",
+    icon: "Grid2X2Check",
+    category: "choice",
+    description: "Grid of checkboxes (multiple answers per row)",
+    defaultLabel: "Checkboxes Grid",
+    defaultOptions: [
+      { label: "Row 1", value: "row_1" },
+      { label: "Row 2", value: "row_2" },
+      { label: "Row 3", value: "row_3" },
+    ],
+    defaultProperties: {
+      columns: [
+        { label: "Column 1", value: "col_1" },
+        { label: "Column 2", value: "col_2" },
+        { label: "Column 3", value: "col_3" },
+      ],
+    },
+  },
   // Scale
   {
     type: "rating",
@@ -315,6 +357,7 @@ export interface BuilderField {
     autoplay?: boolean;
     controls?: boolean;
     loop?: boolean;
+    columns?: { label: string; value: string }[];
     // Default interactive state — used as a baseline for runtime state,
     // can be overridden by logic rules (enable/disable, mask/unmask).
     defaultDisabled?: boolean;
@@ -541,7 +584,7 @@ export interface BuilderSection {
   [key: string]: any;
 }
 
-export type FormAnswer = string | string[] | number | boolean | null;
+export type FormAnswer = string | string[] | number | boolean | Record<string, string> | Record<string, string[]> | null;
 
 // ─── Response & Analytics Types ───────────────────────────────────────────────
 
@@ -577,6 +620,8 @@ export interface FieldStat {
   distribution?: { value: number; count: number }[];
   // Text fields
   avgLength?: number;
+  // Grid fields
+  gridStats?: { rowLabel: string; columns: { label: string; count: number }[] }[];
 }
 
 // ─── API Response Shape ───────────────────────────────────────────────────────

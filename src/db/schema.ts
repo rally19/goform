@@ -50,6 +50,8 @@ export const fieldTypeEnum = pgEnum("field_type", [
   "page_break",
   "paragraph",
   "divider",
+  "radio_grid",
+  "checkbox_grid",
   "video",
 ]);
 
@@ -279,6 +281,7 @@ export const formFields = pgTable(
       autoplay?: boolean;
       controls?: boolean;
       loop?: boolean;
+      columns?: { label: string; value: string }[];
     }>(),
     // Section this field belongs to
     sectionId: uuid("section_id"),
@@ -308,7 +311,7 @@ export const formResponses = pgTable(
     // { [fieldId]: value }
     answers: jsonb("answers")
       .notNull()
-      .$type<Record<string, string | string[] | number | boolean | null>>(),
+      .$type<Record<string, string | string[] | number | boolean | Record<string, string> | Record<string, string[]> | null>>(),
     // Browser info, time taken (seconds), etc.
     metadata: jsonb("metadata").$type<{
       timeTaken?: number;

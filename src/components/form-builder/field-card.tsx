@@ -10,7 +10,7 @@ import {
   CircleDot, CheckSquare, ChevronDown, ListChecks,
   SlidersHorizontal, Heading, Columns2, Upload, CalendarClock,
   EyeClosed, PencilOff, RectangleEllipsis,
-  TextQuote, Minus,
+  TextQuote, Minus, Grid2X2, Grid2X2Check,
 } from "lucide-react";
 import { FieldMoveDialog } from "./field-move-dialog";
 import type { BuilderSection } from "@/lib/form-types";
@@ -48,6 +48,8 @@ const FIELD_ICONS: Record<string, React.ElementType> = {
   file: Upload,
   paragraph: TextQuote,
   divider: Minus,
+  radio_grid: Grid2X2,
+  checkbox_grid: Grid2X2Check,
 };
 
 interface FieldCardProps {
@@ -159,6 +161,39 @@ export const FieldCard = memo(function FieldCard({
       return (
         <div className="py-1">
           <div className="h-px w-full bg-border" />
+        </div>
+      );
+    }
+    if (["radio_grid", "checkbox_grid"].includes(field.type)) {
+      const columns = field.properties?.columns ?? [];
+      const rows = field.options ?? [];
+      return (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-muted-foreground border-collapse">
+            <thead>
+              <tr>
+                <th className="text-left py-1 pr-3 font-normal" />
+                {columns.map((col, ci) => (
+                  <th key={ci} className="text-center py-1 px-2 font-medium text-foreground/70">{col.label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, ri) => (
+                <tr key={ri} className="border-t border-border/50">
+                  <td className="py-1.5 pr-3 text-foreground/70">{row.label}</td>
+                  {columns.map((_, ci) => (
+                    <td key={ci} className="text-center py-1.5 px-2">
+                      <div className={cn(
+                        "h-3.5 w-3.5 border border-muted-foreground/40 mx-auto",
+                        field.type === "radio_grid" ? "rounded-full" : "rounded-[3px]"
+                      )} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       );
     }

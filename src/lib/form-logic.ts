@@ -78,6 +78,7 @@ export function isAnswerEmpty(v: FormAnswer): boolean {
   if (typeof v === "string") return v.trim().length === 0;
   if (Array.isArray(v)) return v.length === 0;
   if (typeof v === "number") return Number.isNaN(v);
+  if (typeof v === "object") return Object.keys(v).length === 0;
   return false;
 }
 

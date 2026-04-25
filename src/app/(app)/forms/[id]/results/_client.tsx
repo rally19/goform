@@ -100,6 +100,21 @@ function formatAnswer(val: FormAnswer, field: FormField): string {
     }
     return String(val);
   }
+  if (["radio_grid", "checkbox_grid"].includes(field.type) && typeof val === "object" && !Array.isArray(val)) {
+    const gridVal = val as Record<string, string | string[]>;
+    const rows = field.options ?? [];
+    const cols = field.properties?.columns ?? [];
+    return rows.map((row) => {
+      const rowAnswer = gridVal[row.value];
+      if (!rowAnswer) return `${row.label}: —`;
+      if (Array.isArray(rowAnswer)) {
+        const labels = rowAnswer.map((v) => cols.find((c) => c.value === v)?.label ?? v).join(", ");
+        return `${row.label}: ${labels}`;
+      }
+      const colLabel = cols.find((c) => c.value === rowAnswer)?.label ?? String(rowAnswer);
+      return `${row.label}: ${colLabel}`;
+    }).join("\n");
+  }
   if (Array.isArray(val)) {
     if (field.options) {
       return val
@@ -849,7 +864,7 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
                               ))}
                             </div>
                             <span className="ml-2 font-bold text-sm text-primary">
-                              {answer} / {field.properties?.stars ?? 5}
+                              {String(answer)} / {field.properties?.stars ?? 5}
                             </span>
                           </div>
                         ) : field.type === "file" ? (

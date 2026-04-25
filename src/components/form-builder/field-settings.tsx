@@ -254,7 +254,8 @@ export function FieldSettings({
     );
   }
 
-  const hasOptions = ["radio", "checkbox", "select", "multi_select"].includes(field.type);
+  const hasOptions = ["radio", "checkbox", "select", "multi_select", "radio_grid", "checkbox_grid"].includes(field.type);
+  const isGrid = ["radio_grid", "checkbox_grid"].includes(field.type);
   const hasRating = field.type === "rating";
   const hasScale = field.type === "scale";
   const hasValidation = ["short_text", "long_text", "number", "email", "phone", "url"].includes(field.type);
@@ -272,6 +273,23 @@ export function FieldSettings({
       
       if (oldIndex !== -1 && newIndex !== -1) {
         onReorderOptions?.(oldIndex, newIndex);
+      }
+    }
+  };
+
+  const handleColumnDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const cols = field.properties?.columns ?? [];
+      const oldIndex = cols.findIndex((_, idx) => `col-${idx}` === active.id);
+      const newIndex = cols.findIndex((_, idx) => `col-${idx}` === over.id);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const reordered = [...cols];
+        const [moved] = reordered.splice(oldIndex, 1);
+        reordered.splice(newIndex, 0, moved);
+        onUpdate?.({
+          properties: { ...(field.properties ?? {}), columns: reordered },
+        });
       }
     }
   };
@@ -329,7 +347,7 @@ export function FieldSettings({
             </div>
           </div>
 
-          {!isLayout && !["radio", "checkbox", "rating", "scale"].includes(field.type) && (
+          {!isLayout && !["radio", "checkbox", "radio_grid", "checkbox_grid", "rating", "scale"].includes(field.type) && (
             <div className="space-y-1.5 pt-1.5">
               <Label className="text-xs font-medium">Placeholder</Label>
               <Input
@@ -438,7 +456,7 @@ export function FieldSettings({
               <Separator />
               <div className="space-y-2" data-cursor-id="options-manager">
                 <div className="flex items-center justify-between">
-                  <Label className="text-xs font-medium">Options</Label>
+                  <Label className="text-xs font-medium">{isGrid ? "Rows" : "Options"}</Label>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -469,6 +487,72 @@ export function FieldSettings({
                           onUpdate={onUpdateOption}
                           onRemove={onRemoveOption}
                           disabled={(field.options?.length ?? 0) <= 1}
+                          workspaceId={workspaceId}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              </div>
+            </>
+          )}
+
+          {/* Columns (for grid fields) */}
+          {isGrid && (
+            <>
+              <Separator />
+              <div className="space-y-2" data-cursor-id="columns-manager">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium">Columns</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs gap-1"
+                    onClick={() => {
+                      const cols = field.properties?.columns ?? [];
+                      const newIdx = cols.length + 1;
+                      onUpdate?.({
+                        properties: {
+                          ...(field.properties ?? {}),
+                          columns: [...cols, { label: `Column ${newIdx}`, value: `col_${newIdx}` }],
+                        },
+                      });
+                    }}
+                  >
+                    <Plus className="h-3 w-3" />
+                    Add Column
+                  </Button>
+                </div>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleColumnDragEnd}
+                >
+                  <SortableContext
+                    items={(field.properties?.columns ?? []).map((_, i) => `col-${i}`)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-1.5">
+                      {(field.properties?.columns ?? []).map((col, i) => (
+                        <SortableColumn
+                          key={`col-${i}`}
+                          id={`col-${i}`}
+                          idx={i}
+                          label={col.label}
+                          onUpdateLabel={(idx, label) => {
+                            const cols = [...(field.properties?.columns ?? [])];
+                            cols[idx] = { ...cols[idx], label };
+                            onUpdate?.({
+                              properties: { ...(field.properties ?? {}), columns: cols },
+                            });
+                          }}
+                          onRemove={(idx) => {
+                            const cols = (field.properties?.columns ?? []).filter((_, ci) => ci !== idx);
+                            onUpdate?.({
+                              properties: { ...(field.properties ?? {}), columns: cols },
+                            });
+                          }}
+                          disabled={(field.properties?.columns?.length ?? 0) <= 1}
                           workspaceId={workspaceId}
                         />
                       ))}
@@ -808,6 +892,75 @@ function SortableOption({
         size="icon"
         className="h-7 w-7 text-muted-foreground opacity-100 md:opacity-0 md:group-hover/opt:opacity-100 hover:text-destructive shrink-0 transition-opacity"
         onClick={() => onRemove?.(idx)}
+        disabled={disabled}
+      >
+        <Trash2 className="h-3 w-3" />
+      </Button>
+    </div>
+  );
+}
+
+function SortableColumn({
+  id,
+  idx,
+  label,
+  onUpdateLabel,
+  onRemove,
+  disabled,
+  workspaceId,
+}: {
+  id: string;
+  idx: number;
+  label: string;
+  onUpdateLabel: (idx: number, label: string) => void;
+  onRemove: (idx: number) => void;
+  disabled: boolean;
+  workspaceId?: string;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "flex items-center gap-1.5 group/col transition-all",
+        isDragging && "z-50 ring-2 ring-primary relative bg-background rounded-md shadow-lg"
+      )}
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="h-7 w-7 flex items-center justify-center text-muted-foreground/40 hover:text-foreground cursor-grab active:cursor-grabbing p-1 -m-1"
+      >
+        <GripVertical className="h-3.5 w-3.5" />
+      </div>
+      <RichText
+        value={label}
+        onChange={(val) => onUpdateLabel(idx, val)}
+        placeholder={`Column ${idx + 1}`}
+        workspaceId={workspaceId}
+        className="flex-1"
+        minHeight="min-h-[28px]"
+        multiline={true}
+      />
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-6 w-6 text-muted-foreground opacity-100 md:opacity-0 md:group-hover/col:opacity-100 hover:text-destructive shrink-0 transition-opacity"
+        onClick={() => onRemove(idx)}
         disabled={disabled}
       >
         <Trash2 className="h-3 w-3" />

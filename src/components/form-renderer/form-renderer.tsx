@@ -593,6 +593,125 @@ function FieldRenderer({
       );
     }
 
+    case "radio_grid": {
+      const gridVal = (value as Record<string, string>) ?? {};
+      const cols = field.properties?.columns ?? [];
+      return (
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="text-left py-2 pr-4 font-medium text-muted-foreground" />
+                {cols.map((col) => (
+                  <th key={col.value} className="text-center py-2 px-3 font-medium text-muted-foreground text-xs">
+                    {col.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {options.map((row) => (
+                <tr key={row.value} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                  <td className="py-3 pr-4 font-normal">
+                    <div
+                      className="prose-sm max-w-full"
+                      dangerouslySetInnerHTML={{ __html: sanitize(row.label) }}
+                    />
+                  </td>
+                  {cols.map((col) => {
+                    const isChecked = gridVal[row.value] === col.value;
+                    return (
+                      <td key={col.value} className="text-center py-3 px-3">
+                        <button
+                          type="button"
+                          disabled={disabled}
+                          className={cn(
+                            "h-4 w-4 rounded-full border-2 mx-auto flex items-center justify-center transition-colors",
+                            isChecked
+                              ? "border-primary bg-primary"
+                              : "border-input hover:border-primary/50",
+                            disabled && "opacity-50 cursor-not-allowed"
+                          )}
+                          onClick={() => {
+                            const next = { ...gridVal };
+                            if (isChecked && !field.required) {
+                              delete next[row.value];
+                            } else {
+                              next[row.value] = col.value;
+                            }
+                            onChange(next);
+                          }}
+                        >
+                          {isChecked && (
+                            <span className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />
+                          )}
+                        </button>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
+    case "checkbox_grid": {
+      const gridChecked = (value as Record<string, string[]>) ?? {};
+      const gridCols = field.properties?.columns ?? [];
+      return (
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="text-left py-2 pr-4 font-medium text-muted-foreground" />
+                {gridCols.map((col) => (
+                  <th key={col.value} className="text-center py-2 px-3 font-medium text-muted-foreground text-xs">
+                    {col.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {options.map((row) => {
+                const rowChecked = gridChecked[row.value] ?? [];
+                return (
+                  <tr key={row.value} className="border-b border-border/50">
+                    <td className="py-3 pr-4 font-normal">
+                      <div
+                        className="prose-sm max-w-full"
+                        dangerouslySetInnerHTML={{ __html: sanitize(row.label) }}
+                      />
+                    </td>
+                    {gridCols.map((col) => (
+                      <td key={col.value} className="text-center py-3 px-3">
+                        <Checkbox
+                          checked={rowChecked.includes(col.value)}
+                          disabled={disabled}
+                          className="mx-auto"
+                          onCheckedChange={(ch) => {
+                            const next = { ...gridChecked };
+                            if (ch) {
+                              next[row.value] = [...rowChecked, col.value];
+                            } else {
+                              next[row.value] = rowChecked.filter((v) => v !== col.value);
+                              if (next[row.value].length === 0) delete next[row.value];
+                            }
+                            onChange(next);
+                          }}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
     case "select":
       return (
         <Select value={(value as string) ?? ""} onValueChange={onChange} disabled={disabled}>
@@ -885,13 +1004,29 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
     if (!state.visible) return null;
     
     if (state.required) {
-      const isEmpty =
-        val === null ||
-        val === undefined ||
-        val === "" ||
-        (Array.isArray(val) && val.length === 0) ||
-        (typeof val === "number" && val === 0 && field.type === "rating");
-      if (isEmpty) return "This field is required";
+      if (["radio_grid", "checkbox_grid"].includes(field.type)) {
+        const rows = (field.options as { label: string; value: string }[]) ?? [];
+        const gridVal = (val as unknown as Record<string, unknown>) ?? {};
+        for (const row of rows) {
+          const rowAnswer = gridVal[row.value];
+          if (
+            rowAnswer === undefined ||
+            rowAnswer === null ||
+            rowAnswer === "" ||
+            (Array.isArray(rowAnswer) && rowAnswer.length === 0)
+          ) {
+            return "Please answer all rows";
+          }
+        }
+      } else {
+        const isEmpty =
+          val === null ||
+          val === undefined ||
+          val === "" ||
+          (Array.isArray(val) && val.length === 0) ||
+          (typeof val === "number" && val === 0 && field.type === "rating");
+        if (isEmpty) return "This field is required";
+      }
     }
     return null;
   }, [fields, getDynamicState]);
