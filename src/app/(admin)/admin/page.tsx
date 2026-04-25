@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { Suspense } from "react";
 import { AdminCharts } from "./_components/admin-charts";
+import { LiveblocksMonitorWrapper } from "./_components/liveblocks-monitor-wrapper";
 
 const roleStyles: Record<string, string> = {
   superadmin: "bg-violet-500/10 text-violet-600 border-violet-500/20",
@@ -63,6 +64,9 @@ export default function AdminOverviewPage() {
       </Suspense>
 
       <div className="grid grid-cols-1 gap-8">
+        {/* Liveblocks Room Monitor */}
+        <LiveblocksMonitorWrapper />
+
         {/* Recent Users */}
         <Suspense fallback={<AdminRecentUsersSkeleton />}>
           <AdminRecentUsers />
@@ -281,6 +285,25 @@ function AdminRecentUsersSkeleton() {
           />
         ))}
       </div>
+    </div>
+  );
+}
+
+function AdminLiveblocksSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <Card key={i} className="animate-pulse border-border/40">
+            <CardHeader className="h-16" />
+            <CardContent className="h-12" />
+          </Card>
+        ))}
+      </div>
+      <Card className="animate-pulse border-border/40">
+        <CardHeader className="h-20" />
+        <CardContent className="h-64" />
+      </Card>
     </div>
   );
 }

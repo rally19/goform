@@ -39,10 +39,25 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Copy, MoreHorizontal, Plus, Search, Settings, SquarePen,
-  Trash, TrendingUp, Globe, ClipboardList, Loader2, FileText,
-  CheckCircle2, XCircle, ExternalLink, MoveRight, Building2
+import { 
+  CheckCircle2, 
+  FileText, 
+  XCircle, 
+  MoreHorizontal, 
+  SquarePen, 
+  ClipboardList, 
+  TrendingUp, 
+  Settings, 
+  Copy, 
+  Trash, 
+  Globe, 
+  Loader2, 
+  Users, 
+  Plus, 
+  Search, 
+  ExternalLink, 
+  MoveRight, 
+  Building2 
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -58,6 +73,8 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "./date-utils";
 import { motion, AnimatePresence } from "motion/react";
+import { useFormListPresence, type ActiveUser } from "@/hooks/use-forms-list-presence";
+import { ActiveUsersDialog } from "@/components/ui/active-users-dialog";
 
 type FormRow = {
   id: string;
@@ -86,6 +103,7 @@ const STATUS_CONFIG = {
 function FormCard({ 
   form, 
   isSelected, 
+  activeUsers = [],
   onToggleSelect, 
   onDelete, 
   onDuplicate,
@@ -96,6 +114,7 @@ function FormCard({
 }: {
   form: FormRow;
   isSelected: boolean;
+  activeUsers?: ActiveUser[];
   onToggleSelect: (id: string, selected: boolean) => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
@@ -169,8 +188,6 @@ function FormCard({
         </div>
       </div>
 
-
-
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
@@ -179,6 +196,25 @@ function FormCard({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
           <DropdownMenuLabel>Actions</DropdownMenuLabel>
+          
+          {/* Active Users */}
+          {activeUsers.length > 0 && (
+            <ActiveUsersDialog activeUsers={activeUsers}>
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                <Users className="h-4 w-4 mr-2" />
+                Active ({activeUsers.length})
+              </DropdownMenuItem>
+            </ActiveUsersDialog>
+          )}
+          
+          {activeUsers.length === 0 && (
+            <DropdownMenuItem disabled>
+              <Users className="h-4 w-4 mr-2" />
+              Active (0)
+            </DropdownMenuItem>
+          )}
+          
+          <DropdownMenuSeparator />
           <DropdownMenuItem 
             asChild 
             disabled={anyCriticalAction}
@@ -283,6 +319,10 @@ export function FormsListClient({
 }) {
   const router = useRouter();
   const [forms, setForms] = useState<FormRow[]>(initialForms);
+
+  // Get presence data for all forms
+  const formIds = forms.map(f => f.id);
+  const activeSessionsMap = useFormListPresence(formIds);
 
   useEffect(() => {
     setForms(initialForms);
@@ -547,6 +587,7 @@ export function FormsListClient({
                   key={form.id}
                   form={form}
                   isSelected={selectedIds.includes(form.id)}
+                  activeUsers={activeSessionsMap[form.id] || []}
                   onToggleSelect={handleToggleSelect}
                   onDelete={setDeleteId}
                   onDuplicate={setDuplicateId}
