@@ -668,11 +668,50 @@ export async function discardFormBuilderChanges(formId: string): Promise<ActionR
   try {
     await enforceFormAccess(formId, "editor");
     
-    // Attempt to delete the Liveblocks room to force a full re-sync from DB on next load
+    // Fetch the pristine database state
+    const result = await getForm(formId);
+    if (!result.success || !result.data) {
+      throw new Error("Form not found");
+    }
+
+    const { form, fields, sections } = result.data;
+    
     try {
-      await liveblocks.deleteRoom(formId);
+      const { LiveList, LiveObject } = await import("@liveblocks/client");
+      
+      // Mutate storage directly to instantly push true DB state to all clients
+      await liveblocks.mutateStorage(formId, ({ root }) => {
+        // Overwrite fields
+        root.set("fields", new LiveList(fields.map((f: any) => new LiveObject(f))));
+        
+        // Overwrite sections
+        const rawSections = sections && sections.length > 0
+          ? sections
+          : [{ id: crypto.randomUUID(), name: "Section 1", description: "", orderIndex: 0, type: "next" as const }];
+          
+        root.set("sections", new LiveList(rawSections.map((s: any) => new LiveObject(s))));
+        
+        // Overwrite metadata to ensure full sync
+        const meta = root.get("formMetadata");
+        if (meta) {
+          const fieldsToSync = [
+            "title", "description", "slug", "status", "accentColor",
+            "acceptResponses", "requireAuth", "showProgress", "oneResponsePerUser",
+            "successMessage", "autoSave", "collaborationEnabled",
+            "submissionLimit", "submissionLimitEnabled", "submissionLimitRemaining",
+            "submissionLimitDecremental", "startsAt", "startsAtEnabled",
+            "endsAt", "endsAtEnabled", "showStartsAt", "showEndsAt"
+          ];
+          for (const key of fieldsToSync) {
+            meta.set(key, (form as any)[key] ?? null);
+          }
+        }
+      });
     } catch (err) {
-      console.error("Failed to delete Liveblocks room:", err);
+      console.error("Failed to mutate Liveblocks room, falling back to deleteRoom:", err);
+      try {
+        await liveblocks.deleteRoom(formId);
+      } catch (e) {}
     }
 
     revalidatePath(`/forms/${formId}/edit`);
