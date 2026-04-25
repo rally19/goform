@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import type { Form } from "@/db/schema";
-import { updateForm, deleteForm, setFormStatus, generateNewSuffixAction } from "@/lib/actions/forms";
+import { updateForm, deleteForm, setFormStatus, generateNewSuffixAction, discardFormBuilderChanges } from "@/lib/actions/forms";
 import QRCodeStyling from "qr-code-styling";
 import { getFormSubmissionCount } from "@/lib/actions/responses";
 import {
@@ -94,6 +94,13 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
   const [submissionCount, setSubmissionCount] = useState<number | null>(null);
   const [countLoading, setCountLoading] = useState(false);
   const [applyLimitChecked, setApplyLimitChecked] = useState(false);
+  const [discardBuilderChecked, setDiscardBuilderChecked] = useState(false);
+
+  useEffect(() => {
+    if (form.autoSave) {
+      setDiscardBuilderChecked(false);
+    }
+  }, [form.autoSave]);
 
   const fetchSubmissionCount = useCallback(async () => {
     setCountLoading(true);
@@ -145,7 +152,9 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
       submissionLimit: form.submissionLimitEnabled ? (form.submissionLimit ?? null) : null,
       submissionLimitEnabled: form.submissionLimitEnabled,
       submissionLimitDecremental: form.submissionLimitDecremental,
-      submissionLimitRemaining: form.submissionLimitDecremental ? (form.submissionLimitRemaining ?? null) : null,
+      submissionLimitRemaining: form.submissionLimitDecremental 
+        ? (applyLimitChecked && form.submissionLimit ? form.submissionLimit : (form.submissionLimitRemaining ?? null)) 
+        : null,
       startsAt: form.startsAtEnabled && form.startsAt ? form.startsAt : null,
       startsAtEnabled: form.startsAtEnabled,
       endsAt: form.endsAtEnabled && form.endsAt ? form.endsAt : null,
@@ -155,9 +164,16 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
     });
     setSaving(false);
     if (result.success) {
+      if (discardBuilderChecked) {
+        await discardFormBuilderChanges(formId);
+      }
       toast.success("Settings saved");
       
       let updatedForm = { ...form, refreshSuffix: false };
+      if (applyLimitChecked && form.submissionLimit) {
+        updatedForm.submissionLimitRemaining = form.submissionLimit;
+      }
+      
       // If the server returned a new slug (e.g. after refresh or custom change), update state
       const serverData = result.data as { slug?: string } | undefined;
       if (serverData?.slug) {
@@ -168,8 +184,9 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
 
       setForm(updatedForm);
       setSavedForm(updatedForm);
-      // Reset the apply limit checkbox after save
+      // Reset checkboxes after save
       setApplyLimitChecked(false);
+      setDiscardBuilderChecked(false);
     } else {
       toast.error(result.error ?? "Failed to save");
     }
@@ -511,9 +528,11 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
                       <Loader2 className="h-3 w-3 animate-spin" />
                     ) : form.submissionLimitDecremental ? (
                       <span>
-                        {form.submissionLimitRemaining !== null
-                          ? `${form.submissionLimitRemaining} slot${form.submissionLimitRemaining !== 1 ? "s" : ""} remaining`
-                          : "Not applied yet — click Apply to set slots"}
+                        {applyLimitChecked && form.submissionLimit !== null
+                          ? `Will reset to ${form.submissionLimit} slot${form.submissionLimit !== 1 ? "s" : ""} upon saving`
+                          : form.submissionLimitRemaining !== null
+                            ? `${form.submissionLimitRemaining} slot${form.submissionLimitRemaining !== 1 ? "s" : ""} remaining`
+                            : "Not applied yet — save settings to initialize slots"}
                       </span>
                     ) : (
                       <span>
@@ -537,9 +556,6 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
                         disabled={!form.submissionLimit || !form.acceptResponses}
                         onCheckedChange={(checked) => {
                           setApplyLimitChecked(!!checked);
-                          if (checked && form.submissionLimit) {
-                            update({ submissionLimitRemaining: form.submissionLimit });
-                          }
                         }}
                       />
                       <Label htmlFor="applyLimit" className="text-xs cursor-pointer">Reset remaining slots back to limit</Label>
@@ -653,13 +669,35 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
               checked={form.showProgress}
               onCheckedChange={(v) => update({ showProgress: v })}
             />
-            <ToggleSetting
-              id="autoSave"
-              label="Auto Save"
-              description="Automatically save changes while building the form"
-              checked={form.autoSave}
-              onCheckedChange={(v) => update({ autoSave: v })}
-            />
+            <div className="space-y-3">
+              <ToggleSetting
+                id="autoSave"
+                label="Auto Save"
+                description="Automatically save changes while building the form"
+                checked={form.autoSave}
+                onCheckedChange={(v) => update({ autoSave: v })}
+              />
+              {!form.autoSave && !savedForm.autoSave && (
+                <div className="flex items-start space-x-2 pl-[42px] pt-1">
+                  <Checkbox
+                    id="discardBuilderChanges"
+                    checked={discardBuilderChecked}
+                    onCheckedChange={(v) => setDiscardBuilderChecked(!!v)}
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <Label
+                      htmlFor="discardBuilderChanges"
+                      className="text-sm font-medium leading-none cursor-pointer"
+                    >
+                      Discard unsaved changes
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Reset the form builder room to match the last saved state in the database
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -721,12 +759,12 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
 
         {/* Save buttons */}
         <div className="flex justify-end gap-2">
-          {isDirty && (
+          {(isDirty || discardBuilderChecked || applyLimitChecked) && (
             <Button variant="outline" onClick={handleDiscard} disabled={saving}>
               Discard
             </Button>
           )}
-          <Button onClick={handleSave} disabled={saving || !isDirty}>
+          <Button onClick={handleSave} disabled={saving || (!isDirty && !discardBuilderChecked && !applyLimitChecked)}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
             Save Settings
           </Button>

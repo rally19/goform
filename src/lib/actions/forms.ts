@@ -662,6 +662,26 @@ export async function duplicateForm(id: string): Promise<ActionResult<{ id: stri
   }
 }
 
+// ─── Discard Form Builder Changes ─────────────────────────────────────────────
+
+export async function discardFormBuilderChanges(formId: string): Promise<ActionResult> {
+  try {
+    await enforceFormAccess(formId, "editor");
+    
+    // Attempt to delete the Liveblocks room to force a full re-sync from DB on next load
+    try {
+      await liveblocks.deleteRoom(formId);
+    } catch (err) {
+      console.error("Failed to delete Liveblocks room:", err);
+    }
+
+    revalidatePath(`/forms/${formId}/edit`);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
 // ─── Dashboard Stats ──────────────────────────────────────────────────────────
 
 export async function getDashboardStats(): Promise<ActionResult<{
