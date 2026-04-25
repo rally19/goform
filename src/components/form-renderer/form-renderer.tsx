@@ -728,16 +728,12 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
           }
           if (typeof saved.currentPage === "number" && saved.currentPage < pages.length) {
             setCurrentPage(saved.currentPage);
-            // Rebuild visited pages & history — we don't know the exact path,
-            // so conservatively mark all pages up to the restored page as visited.
-            const restored = new Set<number>();
-            const history: number[] = [];
-            for (let i = 0; i <= saved.currentPage; i++) {
-              restored.add(i);
-              history.push(i);
+            if (saved.pageHistory && saved.pageHistory.length > 0) {
+              setPageHistory(saved.pageHistory);
             }
-            setVisitedPages(restored);
-            setPageHistory(history);
+            if (saved.visitedPages && saved.visitedPages.length > 0) {
+              setVisitedPages(new Set(saved.visitedPages));
+            }
           }
         }
       } catch (e) {
@@ -775,6 +771,8 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
             answers, // Dexie handles File objects natively
             currentPage,
             updatedAt: Date.now(),
+            visitedPages: [...visitedPages],
+            pageHistory,
           });
         }
       } catch (e) {
@@ -784,7 +782,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
     }, 1000); // Debounce save
 
     return () => clearTimeout(timer);
-  }, [answers, currentPage, form.id, submitted, submitting]);
+  }, [answers, currentPage, form.id, submitted, submitting, visitedPages, pageHistory]);
 
   const resetProgress = async () => {
     try {
@@ -1420,11 +1418,11 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
             type="button"
             variant="outline"
             onClick={() => {
-              setPageHistory((prev) => {
-                const next = prev.slice(0, -1);
-                setCurrentPage(next[next.length - 1] ?? 0);
-                return next;
-              });
+              const prevPage = pageHistory.length > 1
+                ? pageHistory[pageHistory.length - 2]
+                : 0;
+              setPageHistory((prev) => prev.slice(0, -1));
+              setCurrentPage(prevPage);
               setErrors({});
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}

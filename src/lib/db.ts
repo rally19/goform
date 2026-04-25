@@ -5,6 +5,8 @@ export interface FormProgress {
   answers: Record<string, any>;
   currentPage: number;
   updatedAt: number;
+  visitedPages?: number[];
+  pageHistory?: number[];
 }
 
 export class FormToDatabase extends Dexie {
