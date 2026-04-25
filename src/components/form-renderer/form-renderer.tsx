@@ -651,6 +651,8 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
   const turnstileRef = useRef<TurnstileInstance>(null);
   const startTime = useRef(0);
   const isLoaded = useRef(false);
+  const [visitedPages, setVisitedPages] = useState<Set<number>>(new Set([0]));
+  const [pageHistory, setPageHistory] = useState<number[]>([0]);
 
   // ── Autosave logic ────────────────────────────────────────────────────────
   // Load progress on mount
@@ -868,6 +870,8 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
       if (nav.kind === "page" && typeof nav.targetPageIndex === "number") {
         const idx = Math.max(0, Math.min(nav.targetPageIndex, totalPages - 1));
         setCurrentPage(idx);
+        setVisitedPages((prev) => new Set(prev).add(idx));
+        setPageHistory((prev) => [...prev, idx]);
         setErrors({});
         window.scrollTo({ top: 0, behavior: "smooth" });
         return;
@@ -876,6 +880,8 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
         const idx = pages.findIndex((p) => p.sectionId === nav.targetSectionId);
         if (idx >= 0) {
           setCurrentPage(idx);
+          setVisitedPages((prev) => new Set(prev).add(idx));
+          setPageHistory((prev) => [...prev, idx]);
           setErrors({});
           window.scrollTo({ top: 0, behavior: "smooth" });
           return;
@@ -885,7 +891,11 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
         const idx = pages.findIndex((p) =>
           p.fields.some((f) => f.id === nav.targetFieldId)
         );
-        if (idx >= 0) setCurrentPage(idx);
+        if (idx >= 0) {
+          setCurrentPage(idx);
+          setVisitedPages((prev) => new Set(prev).add(idx));
+          setPageHistory((prev) => [...prev, idx]);
+        }
         setErrors({});
         requestAnimationFrame(() => {
           const el = document.getElementById(`field-${nav.targetFieldId}`);
@@ -904,6 +914,8 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
       const idx = pages.findIndex((p) => p.sectionId === currentPageData.nextSectionId);
       if (idx >= 0) {
         setCurrentPage(idx);
+        setVisitedPages((prev) => new Set(prev).add(idx));
+        setPageHistory((prev) => [...prev, idx]);
         setErrors({});
         window.scrollTo({ top: 0, behavior: "smooth" });
         return;
@@ -911,7 +923,10 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
     }
 
     // Fallback: next sequential page
-    setCurrentPage((p) => Math.min(p + 1, totalPages - 1));
+    const nextPage = Math.min(currentPage + 1, totalPages - 1);
+    setCurrentPage(nextPage);
+    setVisitedPages((prev) => new Set(prev).add(nextPage));
+    setPageHistory((prev) => [...prev, nextPage]);
     setErrors({});
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -960,11 +975,22 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
     const supabase = createClient();
     const tempId = crypto.randomUUID();
 
+    // Build the set of field IDs on pages the user actually visited.
+    // Answers from skipped pages are treated as stale and excluded.
+    const visitedFieldIds = new Set<string>();
+    for (const pageIdx of visitedPages) {
+      const page = pages[pageIdx];
+      if (page) {
+        for (const f of page.fields) visitedFieldIds.add(f.id);
+      }
+    }
+
     // First, calculate total size of all pending uploads
     let totalUploadSize = 0;
     for (const [fid, value] of Object.entries(answers)) {
       const state = dynamicStates[fid];
       if (state && !state.visible) continue;
+      if (!visitedFieldIds.has(fid)) continue;
       const fieldDef = fields.find(f => f.id === fid);
       if (fieldDef?.type === "file" && Array.isArray(value) && value.length > 0 && (value[0] as any) instanceof File) {
         for (let i = 0; i < value.length; i++) {
@@ -987,14 +1013,16 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
       }
     }
 
-    // Strip answers for fields that are currently hidden by logic — they are
-    // treated as "not asked", so we don't send stale values to the server.
+    // Strip answers for fields that are currently hidden by logic or on
+    // pages the user never visited — they are treated as "not asked",
+    // so we don't send stale values to the server.
     const cleanedAnswers: Record<string, FormAnswer> = {};
     const uploadStats: { name: string; originalName: string; size: number; mimeType: string; path: string }[] = [];
 
     for (const [fid, value] of Object.entries(answers)) {
       const state = dynamicStates[fid];
       if (state && !state.visible) continue;
+      if (!visitedFieldIds.has(fid)) continue;
       
       const fieldDef = fields.find(f => f.id === fid);
       
@@ -1318,11 +1346,19 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
 
       {/* Navigation */}
       <div className="flex items-center justify-between mt-8 pt-6 border-t border-border">
-        {currentPage > 0 ? (
+        {pageHistory.length > 1 ? (
           <Button
             type="button"
             variant="outline"
-            onClick={() => { setCurrentPage((p) => p - 1); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+            onClick={() => {
+              setPageHistory((prev) => {
+                const next = prev.slice(0, -1);
+                setCurrentPage(next[next.length - 1] ?? 0);
+                return next;
+              });
+              setErrors({});
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
           >
             <ChevronLeft className="h-4 w-4 mr-1" />
             Back
