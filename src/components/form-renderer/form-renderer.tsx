@@ -31,6 +31,16 @@ import {
 } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface FormRendererProps {
   form: Form;
@@ -828,6 +838,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
   const isLoaded = useRef(false);
   const [visitedPages, setVisitedPages] = useState<Set<number>>(new Set([0]));
   const [pageHistory, setPageHistory] = useState<number[]>([0]);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   // ── Autosave logic ────────────────────────────────────────────────────────
   // Load progress on mount
@@ -1133,7 +1144,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handlePreSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitted || submitting) return;
 
@@ -1144,9 +1155,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
       return;
     }
 
-    setSubmitting(true);
     if (!validatePage()) {
-      setSubmitting(false);
       return;
     }
 
@@ -1162,7 +1171,6 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
         } else {
           setErrors({ _global: "This form is not yet published" });
         }
-        setSubmitting(false);
         return;
       }
       if ((!acceptResponses || status === "closed") && !isBypassed) {
@@ -1171,10 +1179,16 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
         } else {
           setErrors({ _global: "This form is not currently accepting responses" });
         }
-        setSubmitting(false);
         return;
       }
     }
+
+    setShowConfirmDialog(true);
+  };
+
+  const performSubmit = async () => {
+    setShowConfirmDialog(false);
+    setSubmitting(true);
 
     const timeTaken = Math.round((Date.now() - startTime.current) / 1000);
     const supabase = createClient();
@@ -1408,7 +1422,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
       <div className="fixed top-4 right-4 z-50">
         <FormMenu onReset={resetProgress} />
       </div>
-      <form onSubmit={handleSubmit} noValidate>
+      <form onSubmit={handlePreSubmit} noValidate>
       {/* Progress bar */}
       {form.showProgress && totalPages > 1 && (
         <div className="mb-6">
@@ -1595,6 +1609,35 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
         )}
       </div>
     </form>
+
+    <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Ready to submit?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Please review your answers before submitting. Once submitted, you may not be able to change them.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={submitting}>Review Answers</AlertDialogCancel>
+          <AlertDialogAction 
+            onClick={(e) => {
+              e.preventDefault();
+              performSubmit();
+            }}
+            disabled={submitting}
+            style={{ backgroundColor: accentColor, color: "white" }}
+          >
+            {submitting ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <Send className="h-4 w-4 mr-2" />
+            )}
+            Confirm Submission
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }
