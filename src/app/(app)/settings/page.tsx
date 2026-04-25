@@ -63,12 +63,13 @@ async function SettingsData() {
 
 function SettingsSkeleton() {
   return (
-    <div className="flex-1 space-y-4 p-4 pt-6 md:p-8 animate-pulse">
-      <div className="flex items-center justify-between space-y-2">
-        <div className="h-9 w-48 bg-primary/5 rounded-md" />
-      </div>
+    <div className="flex-1 overflow-y-auto h-full">
+      <div className="max-w-5xl mx-auto space-y-4 p-4 pt-6 md:p-8 animate-pulse">
+        <div className="flex items-center justify-between space-y-2">
+          <div className="h-9 w-48 bg-primary/5 rounded-md" />
+        </div>
 
-      <div className="w-full max-w-4xl space-y-6">
+        <div className="w-full space-y-6">
         {/* Tabs Skeleton */}
         <div className="flex gap-2 p-1 bg-muted/50 w-fit rounded-lg border border-border/50">
           {[1, 2, 3, 4].map((i) => (
@@ -107,5 +108,6 @@ function SettingsSkeleton() {
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 }
