@@ -15,7 +15,7 @@ export function sanitize(html: string | null | undefined): string {
       ALLOWED_ATTR: ["style", "href", "src", "alt", "target", "rel", "class", "width", "height", "data-lucide-icon", "name", "size"],
       ALLOWED_TAGS: [
         "p", "br", "b", "i", "u", "s", "ul", "ol", "li", "a", "img", "span", 
-        "h1", "h2", "h3", "em", "strong", "code", "pre", "blockquote", "del", "ins"
+        "h1", "h2", "h3", "em", "strong", "code", "pre", "blockquote", "del", "ins", "mark"
       ],
     });
   }

@@ -103,6 +103,21 @@ function domToReact(node: Node, index: number): React.ReactNode {
     }
   }
 
+  // Special handling for image alignment
+  // Images are inline by default, so text-align on the img tag itself is ignored.
+  // We convert it to block + auto margins for centering/right alignment.
+  if (tagName === "img" && props.style?.textAlign) {
+    const textAlign = props.style.textAlign;
+    if (textAlign === 'center' || textAlign === 'right') {
+      props.style = {
+        ...props.style,
+        display: 'block',
+        marginLeft: 'auto',
+        marginRight: textAlign === 'center' ? 'auto' : '0'
+      };
+    }
+  }
+
   // Void elements cannot have children in React
   const voidElements = ["img", "br", "hr", "input", "meta", "link", "area", "base", "col", "embed", "param", "source", "track", "wbr"];
   if (voidElements.includes(tagName)) {
