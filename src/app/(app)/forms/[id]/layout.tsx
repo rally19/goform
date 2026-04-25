@@ -5,9 +5,11 @@ import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, BarChart2, Settings, SquarePen, ClipboardList,
-  ExternalLink, ChevronLeft, ChevronRight, Loader2, GitBranch,
+  ChevronLeft, ChevronRight, Loader2, GitBranch,
+  Eye, Globe
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getForm } from "@/lib/actions/forms";
 
 export default function FormLayout({
   children,
@@ -40,10 +42,19 @@ function FormLayoutContent({
   const [showRightArrow, setShowRightArrow] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const [slug, setSlug] = useState<string | null>(null);
 
   useEffect(() => {
     setPendingHref(null);
-  }, [pathname]);
+    // Fetch form slug if not already set
+    if (!slug) {
+      getForm(formId).then(res => {
+        if (res.success && res.data) {
+          setSlug(res.data.form.slug);
+        }
+      });
+    }
+  }, [pathname, formId, slug]);
 
   const handleNavigation = (href: string) => {
     setPendingHref(href);
@@ -160,12 +171,22 @@ function FormLayoutContent({
                   );
                 })}
                 <div className="h-4 w-px bg-border/50 mx-1.5 shrink-0 md:hidden" />
-                <Button variant="outline" size="sm" asChild className="shrink-0 h-8 ml-1 md:hidden">
-                  <Link href={`/preview/${formId}`} target="_blank">
-                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-                    Preview
-                  </Link>
-                </Button>
+                <div className="flex items-center gap-1 md:hidden">
+                  <Button variant="outline" size="sm" asChild className="shrink-0 h-8">
+                    <Link href={`/preview/${formId}`} target="_blank">
+                      <Eye className="h-3.5 w-3.5 mr-1.5" />
+                      Preview
+                    </Link>
+                  </Button>
+                  {slug && (
+                    <Button variant="outline" size="sm" asChild className="shrink-0 h-8">
+                      <Link href={`/f/${slug}`} target="_blank">
+                        <Globe className="h-3.5 w-3.5 mr-1.5" />
+                        Form
+                      </Link>
+                    </Button>
+                  )}
+                </div>
               </nav>
 
               {showRightArrow && (
@@ -183,12 +204,22 @@ function FormLayoutContent({
             </div>
 
 
-            <Button variant="outline" size="sm" asChild className="shrink-0 h-8 hidden md:flex">
-              <Link href={`/preview/${formId}`} target="_blank">
-                <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-                Preview
-              </Link>
-            </Button>
+            <div className="hidden md:flex items-center gap-2">
+              <Button variant="outline" size="sm" asChild className="shrink-0 h-8">
+                <Link href={`/preview/${formId}`} target="_blank">
+                  <Eye className="h-3.5 w-3.5 mr-1.5" />
+                  Preview
+                </Link>
+              </Button>
+              {slug && (
+                <Button variant="outline" size="sm" asChild className="shrink-0 h-8">
+                  <Link href={`/f/${slug}`} target="_blank">
+                    <Globe className="h-3.5 w-3.5 mr-1.5" />
+                    Form
+                  </Link>
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>
