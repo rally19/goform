@@ -115,7 +115,7 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
     if (form.submissionLimitEnabled) {
       fetchSubmissionCount();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.submissionLimitEnabled]);
 
   const update = (changes: Partial<typeof form>) =>
@@ -152,8 +152,8 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
       submissionLimit: form.submissionLimitEnabled ? (form.submissionLimit ?? null) : null,
       submissionLimitEnabled: form.submissionLimitEnabled,
       submissionLimitDecremental: form.submissionLimitDecremental,
-      submissionLimitRemaining: form.submissionLimitDecremental 
-        ? (applyLimitChecked && form.submissionLimit ? form.submissionLimit : (form.submissionLimitRemaining ?? null)) 
+      submissionLimitRemaining: form.submissionLimitDecremental
+        ? (applyLimitChecked && form.submissionLimit ? form.submissionLimit : (form.submissionLimitRemaining ?? null))
         : null,
       startsAt: form.startsAtEnabled && form.startsAt ? form.startsAt : null,
       startsAtEnabled: form.startsAtEnabled,
@@ -168,12 +168,12 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
         await discardFormBuilderChanges(formId);
       }
       toast.success("Settings saved");
-      
+
       let updatedForm = { ...form, refreshSuffix: false };
       if (applyLimitChecked && form.submissionLimit) {
         updatedForm.submissionLimitRemaining = form.submissionLimit;
       }
-      
+
       // If the server returned a new slug (e.g. after refresh or custom change), update state
       const serverData = result.data as { slug?: string } | undefined;
       if (serverData?.slug) {
@@ -231,7 +231,7 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
         type: "svg",
         data: "",
         image: "/favicon.ico",
-        margin: 30,
+        margin: 21,
         dotsOptions: {
           color: "#000000",
           type: "rounded"
@@ -271,7 +271,7 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
 
         const header = document.createElementNS("http://www.w3.org/2000/svg", "text");
         header.setAttribute("x", "120");
-        header.setAttribute("y", "20");
+        header.setAttribute("y", "15");
         header.setAttribute("text-anchor", "middle");
         header.setAttribute("font-family", "system-ui, -apple-system, sans-serif");
         header.setAttribute("font-weight", "bold");
@@ -394,9 +394,9 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
                   <div className="px-3 py-2 bg-muted/50 text-muted-foreground/70 rounded-md text-sm border font-mono whitespace-nowrap min-w-[90px] text-center">
                     -{form.slugSuffix || "········"}
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="icon" 
+                  <Button
+                    variant="outline"
+                    size="icon"
                     type="button"
                     onClick={handleRefreshSuffix}
                     disabled={refreshingSuffix}
@@ -426,10 +426,10 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
               <div className="p-1 bg-white rounded-lg shadow-sm border border-border/40 overflow-hidden">
                 <div ref={qrRef} />
               </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="h-7 text-[10px] uppercase tracking-wider font-bold gap-1.5 text-muted-foreground hover:text-primary transition-colors bg-background" 
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-[10px] uppercase tracking-wider font-bold gap-1.5 text-muted-foreground hover:text-primary transition-colors bg-background"
                 onClick={downloadQR}
               >
                 <Download className="h-3 w-3" />
@@ -537,11 +537,10 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
                     ) : (
                       <span>
                         {submissionCount !== null
-                          ? `${submissionCount} submission${submissionCount !== 1 ? "s" : ""} used${
-                              form.submissionLimit != null
-                                ? ` — ${Math.max(0, form.submissionLimit - submissionCount)} remaining`
-                                : ""
-                            }`
+                          ? `${submissionCount} submission${submissionCount !== 1 ? "s" : ""} used${form.submissionLimit != null
+                            ? ` — ${Math.max(0, form.submissionLimit - submissionCount)} remaining`
+                            : ""
+                          }`
                           : "Loading count…"}
                       </span>
                     )}
@@ -750,7 +749,7 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
             <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 border border-border/50 text-xs text-muted-foreground mt-2">
               <ExternalLink className="h-3.5 w-3.5 mt-0.5 shrink-0" />
               <p>
-                For more complex success pages or to set up a conditional redirect URL after submission, 
+                For more complex success pages or to set up a conditional redirect URL after submission,
                 please use the <Link href={`/forms/${formId}/logic`} className="text-primary hover:underline font-medium">Logic builder</Link>.
               </p>
             </div>
