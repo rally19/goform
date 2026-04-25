@@ -8,7 +8,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
 // Link and Underline are now included in StarterKit v3
-import { useState, useEffect, useId, useRef, useMemo } from "react";
+import { useState, useEffect, useId, useRef, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
@@ -21,6 +21,8 @@ import {
   Link2Off,
   Image as ImageIcon,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Eraser,
   AlignLeft,
   AlignCenter,
@@ -38,6 +40,7 @@ import { Input } from "./input";
 import { Label } from "./label";
 import { ScrollArea } from "./scroll-area";
 import { Separator } from "./separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./tabs";
 import { getWorkspaceAssets, uploadAsset } from "@/lib/actions/assets";
 import type { Asset } from "@/db/schema";
 import {
@@ -46,7 +49,14 @@ import {
   Loader2,
   X,
   Plus,
-  Check
+  Check,
+  FileBox,
+  FileText,
+  Video,
+  Music,
+  FileDigit,
+  FolderOpen,
+  ExternalLink
 } from "lucide-react";
 import { toast } from "sonner";
 import { MoveDiagonal2 } from "lucide-react";
@@ -539,6 +549,36 @@ export function RichText({
   const [imageSearch, setImageSearch] = useState("");
   const [externalUrl, setExternalUrl] = useState("");
 
+  // Asset link state
+  const [assetLinkPopoverOpen, setAssetLinkPopoverOpen] = useState(false);
+  const [assetSearch, setAssetSearch] = useState("");
+  const [assetTab, setAssetTab] = useState("all");
+  const assetTabsRef = useRef<HTMLDivElement>(null);
+  const [showAssetLeftArrow, setShowAssetLeftArrow] = useState(false);
+  const [showAssetRightArrow, setShowAssetRightArrow] = useState(false);
+
+  const updateAssetScrollData = useCallback(() => {
+    if (!assetTabsRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = assetTabsRef.current;
+    setShowAssetLeftArrow(scrollLeft > 5);
+    setShowAssetRightArrow(scrollLeft + clientWidth < scrollWidth - 5);
+  }, []);
+
+  const scrollAssets = (direction: "left" | "right") => {
+    if (!assetTabsRef.current) return;
+    assetTabsRef.current.scrollBy({
+      left: direction === "left" ? -120 : 120,
+      behavior: "smooth",
+    });
+  };
+
+  useEffect(() => {
+    if (assetLinkPopoverOpen) {
+      const timer = setTimeout(updateAssetScrollData, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [assetLinkPopoverOpen, updateAssetScrollData]);
+
   const filteredIcons = useMemo(() => {
     return Object.keys(LucideIcons).filter(name => {
       const item = (LucideIcons as any)[name];
@@ -550,6 +590,25 @@ export function RichText({
       );
     }).slice(0, 102);
   }, [iconSearch]);
+
+  const groupedAssets = useMemo(() => {
+    const groups: Record<string, Asset[]> = {};
+    assets
+      .filter((a) => a.name.toLowerCase().includes(assetSearch.toLowerCase()))
+      .forEach((a) => {
+        if (!groups[a.type]) groups[a.type] = [];
+        groups[a.type].push(a);
+      });
+    return groups;
+  }, [assets, assetSearch]);
+
+  const assetTypeIcons: Record<string, any> = {
+    image: ImageIcon,
+    video: Video,
+    document: FileText,
+    audio: Music,
+    other: FileDigit,
+  };
 
 
   const editor = useEditor({
@@ -669,11 +728,11 @@ export function RichText({
     setLinkPopoverOpen(open);
   };
 
-  const fetchAssets = async () => {
+  const fetchAssets = async (type?: "image" | "video" | "document" | "audio" | "other") => {
     if (!workspaceId) return;
     setAssetsLoading(true);
     try {
-      const result = await getWorkspaceAssets(workspaceId, { type: "image" });
+      const result = await getWorkspaceAssets(workspaceId, type ? { type } : {});
       if (result.success && result.data) {
         setAssets(result.data);
       }
@@ -686,11 +745,20 @@ export function RichText({
 
   const handleImagePopoverOpen = (open: boolean) => {
     if (open) {
-      fetchAssets();
+      fetchAssets("image");
       setImageSearch("");
       setExternalUrl("");
     }
     setImagePopoverOpen(open);
+  };
+
+  const handleAssetLinkPopoverOpen = (open: boolean) => {
+    if (open) {
+      fetchAssets();
+      setAssetSearch("");
+      setAssetTab("all");
+    }
+    setAssetLinkPopoverOpen(open);
   };
 
   const handleFileUpload = async (file: File) => {
@@ -1104,6 +1172,182 @@ export function RichText({
                       </div>
                     </div>
                   </form>
+                </PopoverContent>
+              </Popover>
+
+              <Popover open={assetLinkPopoverOpen} onOpenChange={handleAssetLinkPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <ToolbarButton
+                    active={assetLinkPopoverOpen}
+                    icon={<FileBox className="h-4 w-4" />}
+                    onClick={() => { }}
+                    title="Link to asset"
+                  />
+                </PopoverTrigger>
+                <PopoverContent
+                  className={cn(
+                    "w-80 p-0 overflow-hidden",
+                    "data-[side=bottom]:mt-[min(0px,calc(var(--radix-popover-content-available-height)-400px))]",
+                    "data-[side=top]:mb-[min(0px,calc(var(--radix-popover-content-available-height)-400px))]"
+                  )}
+                  align="start"
+                  side="bottom"
+                  sideOffset={8}
+                  avoidCollisions
+                  collisionPadding={10}
+                  sticky="always"
+                  data-slot="popover-content"
+                >
+                  <div className="flex flex-col h-[400px] max-h-[85vh]">
+                    <div className="p-3 border-b bg-muted/30 shrink-0">
+                      <div className="relative">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search assets to link..."
+                          className="pl-9 h-9"
+                          value={assetSearch}
+                          onChange={(e) => setAssetSearch(e.target.value)}
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+                    <Tabs
+                      value={assetTab}
+                      onValueChange={setAssetTab}
+                      className="flex-1 flex flex-col min-h-0"
+                    >
+                      <div className="px-3 border-b bg-muted/10 shrink-0 relative flex items-center overflow-hidden">
+                        {showAssetLeftArrow && (
+                          <div className="absolute left-0 z-10 h-full flex items-center bg-gradient-to-r from-background to-transparent pr-4 pl-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 rounded-full bg-background/80 shadow-sm border border-border"
+                              onClick={() => scrollAssets("left")}
+                            >
+                              <ChevronLeft className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+
+                        <TabsList
+                          ref={assetTabsRef}
+                          onScroll={updateAssetScrollData}
+                          className="w-full justify-start h-10 bg-transparent p-0 gap-1 overflow-x-auto overflow-y-hidden no-scrollbar scroll-smooth items-center"
+                        >
+                          {[
+                            { id: "all", label: "All", icon: FolderOpen },
+                            { id: "image", label: "Images", icon: ImageIcon },
+                            { id: "video", label: "Videos", icon: Video },
+                            { id: "document", label: "Docs", icon: FileText },
+                            { id: "audio", label: "Audio", icon: Music },
+                            { id: "other", label: "Other", icon: FileDigit },
+                          ].map((tab) => (
+                            <TabsTrigger
+                              key={tab.id}
+                              value={tab.id}
+                              className="h-10 px-3 text-[11px] font-medium border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent rounded-none transition-all gap-1.5 shrink-0"
+                            >
+                              <tab.icon className="h-3 w-3" />
+                              {tab.label}
+                            </TabsTrigger>
+                          ))}
+                        </TabsList>
+
+                        {showAssetRightArrow && (
+                          <div className="absolute right-0 z-10 h-full flex items-center bg-gradient-to-l from-background to-transparent pl-4 pr-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 rounded-full bg-background/80 shadow-sm border border-border"
+                              onClick={() => scrollAssets("right")}
+                            >
+                              <ChevronRight className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div
+                        className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3"
+                        onWheelCapture={(e) => e.stopPropagation()}
+                        onTouchMoveCapture={(e) => e.stopPropagation()}
+                      >
+                        {assetsLoading ? (
+                          <div className="flex items-center justify-center py-12">
+                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/40" />
+                          </div>
+                        ) : (
+                          <div className="space-y-6">
+                            {Object.entries(groupedAssets)
+                              .filter(([type]) => assetTab === "all" || type === assetTab)
+                              .map(([type, items]) => {
+                                const Icon = assetTypeIcons[type] || FileDigit;
+                                return (
+                                  <div key={type} className="space-y-2">
+                                    <h4 className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider flex items-center gap-1.5 px-1">
+                                      <Icon className="h-3 w-3" />
+                                      {type}s
+                                    </h4>
+                                    <div className="grid grid-cols-1 gap-1">
+                                      {items.map((asset) => (
+                                        <Button
+                                          key={asset.id}
+                                          variant="ghost"
+                                          size="sm"
+                                          className="w-full justify-start text-left h-auto py-2 px-2 hover:bg-primary/5 group"
+                                          onClick={() => {
+                                            if (!editor) return;
+                                            const { from, to } = editor.state.selection;
+                                            if (from === to) {
+                                              editor.chain().focus().insertContent({
+                                                type: "text",
+                                                text: asset.name,
+                                                marks: [{ type: "link", attrs: { href: asset.url } }]
+                                              }).run();
+                                            } else {
+                                              editor.chain().focus().setLink({ href: asset.url }).run();
+                                            }
+                                            setAssetLinkPopoverOpen(false);
+                                          }}
+                                        >
+                                          <div className="flex items-center gap-2 w-full overflow-hidden">
+                                            {type === 'image' ? (
+                                              <div className="h-7 w-7 rounded bg-muted overflow-hidden shrink-0 border border-border/50">
+                                                <img src={asset.url} alt="" className="w-full h-full object-cover" />
+                                              </div>
+                                            ) : (
+                                              <div className="h-7 w-7 rounded bg-muted flex items-center justify-center shrink-0 border border-border/50">
+                                                <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                                              </div>
+                                            )}
+                                            <div className="flex-1 min-w-0">
+                                              <p className="text-xs font-medium truncate group-hover:text-primary transition-colors">
+                                                {asset.name}
+                                              </p>
+                                              <p className="text-[9px] text-muted-foreground truncate uppercase">
+                                                {asset.mimeType.split('/')[1] || asset.type}
+                                              </p>
+                                            </div>
+                                            <ExternalLink className="h-3 w-3 text-muted-foreground/30 opacity-0 group-hover:opacity-100 transition-all shrink-0" />
+                                          </div>
+                                        </Button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            {Object.keys(groupedAssets).filter(type => assetTab === "all" || type === assetTab).length === 0 && (
+                              <div className="text-center py-12 text-muted-foreground">
+                                <FolderOpen className="h-10 w-10 mx-auto mb-2 opacity-10" />
+                                <p className="text-xs">No assets found</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </Tabs>
+                  </div>
                 </PopoverContent>
               </Popover>
               <Separator orientation="vertical" className="h-6" />
