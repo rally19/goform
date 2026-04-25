@@ -31,7 +31,8 @@ import {
   SmilePlus,
   HelpCircle,
   Baseline,
-  Highlighter
+  Highlighter,
+  Palette
 } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { Button } from "./button";
@@ -512,6 +513,7 @@ interface RichTextProps {
   onBlur?: () => void;
   multiline?: boolean;
   allowImages?: boolean;
+  accentColor?: string;
 }
 
 
@@ -526,6 +528,7 @@ export function RichText({
   onBlur,
   multiline = true,
   allowImages = true,
+  accentColor,
 }: RichTextProps) {
   const uploadInputId = useId();
   const [isFocused, setIsFocused] = useState(false);
@@ -601,6 +604,16 @@ export function RichText({
       });
     return groups;
   }, [assets, assetSearch]);
+
+  const colorsWithAccent = useMemo(() => {
+    if (!accentColor) return COLORS;
+    // Insert after Default (index 0)
+    const result = [...COLORS];
+    if (!result.find(c => c.name === "Theme Color")) {
+      result.splice(1, 0, { name: "Theme Color", value: accentColor });
+    }
+    return result;
+  }, [accentColor]);
 
   const assetTypeIcons: Record<string, any> = {
     image: ImageIcon,
@@ -930,11 +943,11 @@ export function RichText({
                       Text Color
                     </div>
                     <div className="grid grid-cols-5 gap-1.5">
-                      {COLORS.map((color) => (
+                      {colorsWithAccent.map((color) => (
                         <button
                           key={color.name}
                           className={cn(
-                            "w-6 h-6 rounded-md border border-border flex items-center justify-center transition-all hover:scale-110 active:scale-95",
+                            "w-6 h-6 rounded-md border border-border flex items-center justify-center transition-all hover:scale-110 active:scale-95 group relative",
                             currentColor === color.value && "ring-2 ring-primary ring-offset-2 ring-offset-background"
                           )}
                           style={{
@@ -952,9 +965,17 @@ export function RichText({
                           }}
                           title={color.name}
                         >
+                          {color.name === "Theme Color" && (
+                            <Palette className={cn(
+                              "h-3 w-3 transition-opacity",
+                              currentColor === color.value ? "opacity-0" : "opacity-60 group-hover:opacity-100",
+                              // Dark/light detection simplified
+                              "text-white"
+                            )} />
+                          )}
                           {currentColor === color.value && (
                             <Check className={cn(
-                              "h-3 w-3",
+                              "h-3 w-3 absolute inset-0 m-auto",
                               (color.name === 'White' || color.name === 'Yellow' || !color.value) ? "text-black" : "text-white"
                             )} />
                           )}

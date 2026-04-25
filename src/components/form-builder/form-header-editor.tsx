@@ -37,6 +37,7 @@ export function FormHeaderEditor({
           multiline={false}
           allowImages={false}
           onFocus={() => selectField(null)}
+          accentColor={accentColor}
         />
         <RichText
           value={description}
@@ -46,6 +47,7 @@ export function FormHeaderEditor({
           className="w-full text-foreground/80"
           minHeight="min-h-[60px]"
           onFocus={() => selectField(null)}
+          accentColor={accentColor}
         />
       </div>
     </div>

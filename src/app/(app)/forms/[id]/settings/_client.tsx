@@ -336,6 +336,7 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
                 minHeight="min-h-[40px]"
                 multiline={false}
                 allowImages={false}
+                accentColor={form.accentColor}
               />
             </div>
             <div className="space-y-1.5">
@@ -346,6 +347,7 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
                 placeholder="Describe what this form is about (optional)"
                 workspaceId={initialForm.organizationId ?? undefined}
                 minHeight="min-h-[100px]"
+                accentColor={form.accentColor}
               />
             </div>
             <div className="space-y-1.5">

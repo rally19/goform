@@ -1307,6 +1307,7 @@ export function BuilderCanvas({
             }}
             onMobileClose={() => { }}
             workspaceId={workspaceId}
+            accentColor={form.accentColor}
           />
         </CursorArea>
       </div>

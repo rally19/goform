@@ -49,6 +49,7 @@ interface FieldSettingsProps {
   onUpdateSection?: (changes: Partial<BuilderSection>) => void;
   sections?: BuilderSection[];
   workspaceId?: string;
+  accentColor?: string;
 }
 
 export function FieldSettings({ 
@@ -64,6 +65,7 @@ export function FieldSettings({
   onUpdateSection,
   sections = [],
   workspaceId,
+  accentColor,
 }: FieldSettingsProps) {
   const { selectField, selectSection } = useFormBuilder();
   const [assetPickerOpen, setAssetPickerOpen] = useState(false);
@@ -109,6 +111,7 @@ export function FieldSettings({
                   minHeight="min-h-[32px]"
                   multiline={false}
                   allowImages={false}
+                  accentColor={accentColor}
                 />
               </div>
               <div className="space-y-1.5" data-cursor-id="section-description" data-cursor-type="field">
@@ -119,6 +122,7 @@ export function FieldSettings({
                   placeholder="Section description"
                   workspaceId={workspaceId}
                   minHeight="min-h-[60px]"
+                  accentColor={accentColor}
                 />
               </div>
               <Separator />
@@ -333,6 +337,7 @@ export function FieldSettings({
                 minHeight="min-h-[32px]"
                 multiline={false}
                 allowImages={false}
+                accentColor={accentColor}
               />
             </div>
             <div className="space-y-1.5">
@@ -343,6 +348,7 @@ export function FieldSettings({
                 placeholder="Helper text for respondents"
                 workspaceId={workspaceId}
                 minHeight="min-h-[60px]"
+                accentColor={accentColor}
               />
             </div>
           </div>
