@@ -1138,7 +1138,8 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
     if (submitted || submitting) return;
 
     // Turnstile check
-    if (isSubmitPage && !turnstileToken) {
+    const isBypassed = mode === "preview" && form.previewBypass;
+    if (isSubmitPage && !turnstileToken && !isBypassed) {
       toast.error("Please complete the security check");
       return;
     }
@@ -1153,7 +1154,9 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
     const statusResult = await getPublicFormStatus(form.id);
     if (statusResult.success && statusResult.data) {
       const { status, acceptResponses } = statusResult.data;
-      if (status === "draft") {
+      const isBypassed = mode === "preview" && form.previewBypass;
+
+      if (status === "draft" && !isBypassed) {
         if (mode === "preview") {
           toast.error("This form is not yet published");
         } else {
@@ -1162,7 +1165,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
         setSubmitting(false);
         return;
       }
-      if (!acceptResponses || status === "closed") {
+      if ((!acceptResponses || status === "closed") && !isBypassed) {
         if (mode === "preview") {
           toast.error("This form is not currently accepting responses");
         } else {
@@ -1265,7 +1268,8 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
     const result = await submitFormResponse(form.id, cleanedAnswers, { 
       timeTaken, 
       uploads: uploadStats,
-      turnstileToken: turnstileToken ?? undefined 
+      turnstileToken: turnstileToken ?? undefined,
+      previewBypass: mode === "preview" && form.previewBypass
     });
     if (result.success) {
       setSubmitted(true);
@@ -1534,7 +1538,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
       </div>
 
       {/* Turnstile check */}
-      {isSubmitPage && !submitted && (
+      {isSubmitPage && !submitted && !(mode === "preview" && form.previewBypass) && (
         <div className="flex justify-center my-6">
           <Turnstile
             ref={turnstileRef}

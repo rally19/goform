@@ -50,6 +50,7 @@ function buildInitialStorage(
       endsAtEnabled: false,
       showStartsAt: false,
       showEndsAt: false,
+      previewBypass: false,
     }),
     sections: new LiveList(seedSections.map((s) => new LiveObject(s))),
   };

@@ -75,6 +75,7 @@ async function BuilderData({ params }: { params: Promise<{ id: string }> }) {
     endsAtEnabled: (form as any).endsAtEnabled ?? false,
     showStartsAt: (form as any).showStartsAt ?? false,
     showEndsAt: (form as any).showEndsAt ?? false,
+    previewBypass: (form as any).previewBypass ?? false,
   };
 
   const builderFields: BuilderField[] = fields.map((f) => ({

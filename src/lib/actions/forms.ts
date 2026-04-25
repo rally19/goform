@@ -749,7 +749,7 @@ export async function discardFormBuilderChanges(formId: string): Promise<ActionR
             "successMessage", "autoSave", "collaborationEnabled",
             "submissionLimit", "submissionLimitEnabled", "submissionLimitRemaining",
             "submissionLimitDecremental", "startsAt", "startsAtEnabled",
-            "endsAt", "endsAtEnabled", "showStartsAt", "showEndsAt"
+            "endsAt", "endsAtEnabled", "showStartsAt", "showEndsAt", "previewBypass"
           ];
           for (const key of fieldsToSync) {
             meta.set(key, (form as any)[key] ?? null);

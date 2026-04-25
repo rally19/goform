@@ -20,6 +20,7 @@ export async function submitFormResponse(
     timeTaken?: number;
     uploads?: { name: string; originalName: string; size: number; mimeType: string; path: string }[];
     turnstileToken?: string;
+    previewBypass?: boolean;
   }
 ): Promise<ActionResult<{ responseId: string }>> {
   try {
@@ -45,46 +46,64 @@ export async function submitFormResponse(
     });
 
     if (!form) return { success: false, error: "Form not found" };
-    if (form.status === "draft") {
-      return { success: false, error: "This form is not yet published" };
-    }
-    if (form.status === "closed") {
-      return { success: false, error: "This form is closed" };
-    }
 
-    // Accept responses is the master gate — checked before date/limit controls
-    if (!form.acceptResponses) {
-      return { success: false, error: "This form is no longer accepting responses" };
-    }
-
-    const now = new Date();
-
-    // End date overrides start date and submission limit
-    if (form.endsAtEnabled && form.endsAt && now >= new Date(form.endsAt)) {
-      return { success: false, error: "This form is no longer accepting responses" };
-    }
-
-    // Start date check
-    if (form.startsAtEnabled && form.startsAt && now < new Date(form.startsAt)) {
-      return { success: false, error: "This form is not yet open for submissions" };
-    }
-
-    // Submission limit check
-    if (form.submissionLimitEnabled && form.submissionLimit != null) {
-      if (form.submissionLimitDecremental) {
-        // Decremental mode: use the remaining counter directly
-        const remaining = form.submissionLimitRemaining ?? form.submissionLimit;
-        if (remaining <= 0) {
-          return { success: false, error: "This form has reached its submission limit" };
+    let isBypassed = false;
+    if (metadata?.previewBypass && form.previewBypass) {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        try {
+          // If the user has viewer access (meaning they can preview), we allow the bypass
+          await enforceFormAccess(formId, "viewer");
+          isBypassed = true;
+        } catch (e) {
+          // Ignore, isBypassed remains false
         }
-      } else {
-        // Count-existing mode: compare total responses to limit
-        const [{ total }] = await db
-          .select({ total: count(formResponses.id) })
-          .from(formResponses)
-          .where(eq(formResponses.formId, formId));
-        if (total >= form.submissionLimit) {
-          return { success: false, error: "This form has reached its submission limit" };
+      }
+    }
+
+    if (!isBypassed) {
+      if (form.status === "draft") {
+        return { success: false, error: "This form is not yet published" };
+      }
+      if (form.status === "closed") {
+        return { success: false, error: "This form is closed" };
+      }
+
+      // Accept responses is the master gate — checked before date/limit controls
+      if (!form.acceptResponses) {
+        return { success: false, error: "This form is no longer accepting responses" };
+      }
+
+      const now = new Date();
+
+      // End date overrides start date and submission limit
+      if (form.endsAtEnabled && form.endsAt && now >= new Date(form.endsAt)) {
+        return { success: false, error: "This form is no longer accepting responses" };
+      }
+
+      // Start date check
+      if (form.startsAtEnabled && form.startsAt && now < new Date(form.startsAt)) {
+        return { success: false, error: "This form is not yet open for submissions" };
+      }
+
+      // Submission limit check
+      if (form.submissionLimitEnabled && form.submissionLimit != null) {
+        if (form.submissionLimitDecremental) {
+          // Decremental mode: use the remaining counter directly
+          const remaining = form.submissionLimitRemaining ?? form.submissionLimit;
+          if (remaining <= 0) {
+            return { success: false, error: "This form has reached its submission limit" };
+          }
+        } else {
+          // Count-existing mode: compare total responses to limit
+          const [{ total }] = await db
+            .select({ total: count(formResponses.id) })
+            .from(formResponses)
+            .where(eq(formResponses.formId, formId));
+          if (total >= form.submissionLimit) {
+            return { success: false, error: "This form has reached its submission limit" };
+          }
         }
       }
     }
@@ -103,7 +122,7 @@ export async function submitFormResponse(
     }
 
     // Check one response per user
-    if (form.oneResponsePerUser && user) {
+    if (!isBypassed && form.oneResponsePerUser && user) {
       const existing = await db.query.formResponses.findFirst({
         where: and(
           eq(formResponses.formId, formId),

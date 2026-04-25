@@ -68,6 +68,7 @@ function createFormState(f: Form) {
     endsAtEnabled: (f as any).endsAtEnabled ?? false,
     showStartsAt: (f as any).showStartsAt ?? false,
     showEndsAt: (f as any).showEndsAt ?? false,
+    previewBypass: (f as any).previewBypass ?? false,
   };
 }
 
@@ -161,6 +162,7 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
       endsAtEnabled: form.endsAtEnabled,
       showStartsAt: form.showStartsAt,
       showEndsAt: form.showEndsAt,
+      previewBypass: form.previewBypass,
     });
     setSaving(false);
     if (result.success) {
@@ -669,6 +671,13 @@ export function SettingsClient({ formId, initialForm }: SettingsClientProps) {
               description="Display page progress for multi-page forms"
               checked={form.showProgress}
               onCheckedChange={(v) => update({ showProgress: v })}
+            />
+            <ToggleSetting
+              id="previewBypass"
+              label="Preview Bypass"
+              description="Bypass form limitations (captcha, submission limits, closed dates) when previewing the form"
+              checked={form.previewBypass}
+              onCheckedChange={(v) => update({ previewBypass: v })}
             />
             <div className="space-y-3">
               <ToggleSetting

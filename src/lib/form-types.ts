@@ -403,6 +403,7 @@ export interface BuilderForm {
   endsAtEnabled: boolean;
   showStartsAt: boolean;
   showEndsAt: boolean;
+  previewBypass: boolean;
   logic?: LogicRule[];
   // Index signature for Liveblocks compatibility
   [key: string]: any;
