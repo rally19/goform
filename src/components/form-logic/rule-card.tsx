@@ -136,13 +136,20 @@ export function RuleCard({
   const handleActionTypeChange = (actionId: string, next: LogicAction) => {
     const patch: Partial<LogicRuleAction> = { action: next };
     if (!actionNeedsTargets(next)) patch.targetFieldIds = [];
+
+    // Reset target fields when switching from multi-select to single-select action
+    const singleSelectActions = ["set_value", "copy_field", "calculate"];
+    const existing = rule.actions.find((a) => a.id === actionId);
+    if (existing && singleSelectActions.includes(next) && !singleSelectActions.includes(existing.action)) {
+      patch.targetFieldIds = [];
+    }
+
     if (next !== "skip_to_page") patch.targetPageIndex = undefined;
     if (next !== "skip_to_section") patch.targetSectionId = undefined;
     if (next !== "jump_to_field") patch.targetFieldId = undefined;
     if (next !== "set_value") patch.valueSource = undefined;
     if (next !== "redirect_to_url") patch.targetUrl = undefined;
     if (next === "set_value") {
-      const existing = rule.actions.find((a) => a.id === actionId);
       if (!existing?.valueSource) patch.valueSource = { mode: "static", staticValue: "" };
     }
     updateAction(actionId, patch);
@@ -544,18 +551,36 @@ function ActionTargetEditor({
 }) {
   const realFields = fields.filter((f) => !["page_break", "section"].includes(f.type));
   // Paragraph/divider/video only support show/hide — exclude from other field-targeting actions
-  // Grid fields support show/hide/require/enable/disable but not set_value
+  // Grid fields and file uploads support show/hide/require/enable/disable but not set/copy/calculate
   const visualOnlyActions: string[] = ["show_field", "hide_field"];
+  const fieldTargetingActions = ["require_field", "unrequire_field", "enable_field", "disable_field"];
+  const valueActions = ["set_value", "copy_field", "calculate"];
   let targetFields: BuilderField[];
-  if (visualOnlyActions.includes(ruleAction.action)) {
+  if (visualOnlyActions.includes(ruleAction.action) || fieldTargetingActions.includes(ruleAction.action)) {
     targetFields = realFields;
   } else if (ruleAction.action === "set_value") {
-    targetFields = realFields.filter((f) => !["paragraph", "divider", "video", "radio_grid", "checkbox_grid"].includes(f.type));
+    targetFields = realFields.filter((f) => !["paragraph", "divider", "video", "radio_grid", "checkbox_grid", "file"].includes(f.type));
+  } else if (valueActions.includes(ruleAction.action)) {
+    targetFields = realFields.filter((f) => !["paragraph", "divider", "video", "radio_grid", "checkbox_grid", "file"].includes(f.type));
   } else {
     targetFields = realFields.filter((f) => !["paragraph", "divider", "video"].includes(f.type));
   }
 
   if (actionNeedsTargets(ruleAction.action)) {
+    // Single-select for set/copy/calculate; multi-select for show/hide/require/enable/disable
+    const singleSelectActions = ["set_value", "copy_field", "calculate"];
+    if (singleSelectActions.includes(ruleAction.action)) {
+      return (
+        <FieldPicker
+          fields={targetFields}
+          sections={sections}
+          value={ruleAction.targetFieldIds?.[0] ?? ""}
+          onChange={(fieldId) => onChange({ targetFieldIds: fieldId ? [fieldId] : [] })}
+          placeholder="Select target field"
+          hideNavTriggers
+        />
+      );
+    }
     return (
       <FieldMultiPicker
         fields={targetFields}

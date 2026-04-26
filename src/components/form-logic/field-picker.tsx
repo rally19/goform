@@ -81,6 +81,7 @@ interface FieldPickerProps {
   className?: string;
   showDeleted?: boolean;
   deletedFieldId?: string;
+  hideNavTriggers?: boolean;
 }
 
 export function FieldPicker({
@@ -92,6 +93,7 @@ export function FieldPicker({
   className,
   showDeleted,
   deletedFieldId,
+  hideNavTriggers,
 }: FieldPickerProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -209,7 +211,7 @@ export function FieldPicker({
                         </button>
                       ))}
                       {/* Nav trigger: Next / Submit button for this section */}
-                      {group.section && group.section.type !== "success" && (() => {
+                      {!hideNavTriggers && group.section && group.section.type !== "success" && (() => {
                         const navId = navTriggerId(group.section.id);
                         const btnLabel = group.section.type === "submit" ? "Submit" : "Next";
                         const isSelected = value === navId;
