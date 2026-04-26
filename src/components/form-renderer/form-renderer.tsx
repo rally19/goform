@@ -546,10 +546,17 @@ function FieldRenderer({
           type={value ? nativeType : "text"}
           value={(value as string) ?? ""}
           placeholder={placeholder}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => {
+            onChange(e.target.value);
+            if (!e.target.value) e.currentTarget.type = "text";
+          }}
           className={cn("h-11 w-auto", inputClass)}
           disabled={disabled}
-          onFocus={(e) => { e.currentTarget.type = nativeType; }}
+          onFocus={(e) => {
+            const el = e.currentTarget;
+            el.type = nativeType;
+            try { el.showPicker(); } catch {}
+          }}
           onBlur={(e) => {
             if (!e.currentTarget.value) e.currentTarget.type = "text";
             onBlur?.();
