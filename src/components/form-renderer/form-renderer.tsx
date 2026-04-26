@@ -538,18 +538,30 @@ function FieldRenderer({
 
     case "date":
     case "time":
-    case "datetime":
+    case "datetime": {
+      const dateVal = (value as string) ?? "";
+      const datePlaceholder =
+        field.placeholder ??
+        (field.type === "date" ? "Select a date" : field.type === "time" ? "Select a time" : "Select date & time");
       return (
-        <Input
-          type={field.type === "date" ? "date" : field.type === "time" ? "time" : "datetime-local"}
-          value={(value as string) ?? ""}
-          onChange={(e) => onChange(e.target.value)}
-          className={cn("h-11 w-auto", inputClass)}
-          disabled={disabled}
-          onBlur={onBlur}
-          aria-invalid={!!error}
-        />
+        <div className="relative group/date w-auto">
+          <Input
+            type={field.type === "date" ? "date" : field.type === "time" ? "time" : "datetime-local"}
+            value={dateVal}
+            onChange={(e) => onChange(e.target.value)}
+            className={cn("h-11 w-auto", inputClass, !dateVal && "text-transparent")}
+            disabled={disabled}
+            onBlur={onBlur}
+            aria-invalid={!!error}
+          />
+          {!dateVal && (
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none group-focus-within/date:hidden">
+              {datePlaceholder}
+            </span>
+          )}
+        </div>
       );
+    }
 
     case "radio":
       return (
