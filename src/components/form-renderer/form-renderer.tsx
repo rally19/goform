@@ -1243,9 +1243,11 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
     let totalUploadSize = 0;
     for (const [fid, value] of Object.entries(answers)) {
       const state = dynamicStates[fid];
-      if (state && !state.visible) continue;
-      if (!visitedFieldIds.has(fid)) continue;
       const fieldDef = fields.find(f => f.id === fid);
+      const props = fieldDef?.properties as Record<string, unknown> | undefined;
+      if (state && !state.visible && props?.omitWhenHidden !== false) continue;
+      if (state && !state.enabled && props?.omitWhenDisabled !== false) continue;
+      if (!visitedFieldIds.has(fid) && props?.omitWhenSkipped !== false) continue;
       if (fieldDef?.type === "file" && Array.isArray(value) && value.length > 0 && (value[0] as any) instanceof File) {
         for (let i = 0; i < value.length; i++) {
           totalUploadSize += (value[i] as unknown as File).size;
@@ -1267,18 +1269,19 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
       }
     }
 
-    // Strip answers for fields that are currently hidden by logic or on
-    // pages the user never visited — they are treated as "not asked",
-    // so we don't send stale values to the server.
+    // Strip answers for fields excluded by their submission behaviour settings.
+    // Each omit flag is opt-in: the field is only excluded when the flag is true
+    // AND the field is in the corresponding state (hidden / disabled / on skipped section).
     const cleanedAnswers: Record<string, FormAnswer> = {};
     const uploadStats: { name: string; originalName: string; size: number; mimeType: string; path: string }[] = [];
 
     for (const [fid, value] of Object.entries(answers)) {
       const state = dynamicStates[fid];
-      if (state && !state.visible) continue;
-      if (!visitedFieldIds.has(fid)) continue;
-      
       const fieldDef = fields.find(f => f.id === fid);
+      const props = fieldDef?.properties as Record<string, unknown> | undefined;
+      if (state && !state.visible && props?.omitWhenHidden !== false) continue;
+      if (state && !state.enabled && props?.omitWhenDisabled !== false) continue;
+      if (!visitedFieldIds.has(fid) && props?.omitWhenSkipped !== false) continue;
       
       if (fieldDef?.type === "file" && Array.isArray(value) && value.length > 0 && (value[0] as any) instanceof File) {
         // Upload files

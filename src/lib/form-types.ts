@@ -363,6 +363,11 @@ export interface BuilderField {
     defaultDisabled?: boolean;
     defaultMasked?: boolean;
     defaultHidden?: boolean;
+    // Submission exclusion — when true, the field's value is omitted from
+    // the submission payload while in that state.
+    omitWhenHidden?: boolean;
+    omitWhenDisabled?: boolean;
+    omitWhenSkipped?: boolean;
     // Add any other dynamic text like placeholder overwrites
     [key: string]: unknown;
   };

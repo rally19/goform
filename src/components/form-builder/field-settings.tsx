@@ -453,6 +453,60 @@ export function FieldSettings({
                   />
                 </div>
               )}
+
+              <Separator />
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Submission Behaviour</p>
+
+              <div className="flex items-center justify-between rounded-lg border border-border p-3 bg-background/50">
+                <div>
+                  <p className="text-sm font-medium">Omit when hidden</p>
+                  <p className="text-xs text-muted-foreground">
+                    Don&apos;t submit this field&apos;s value when it is hidden.
+                  </p>
+                </div>
+                <Switch
+                  checked={field.properties?.omitWhenHidden !== false}
+                  onCheckedChange={(v) =>
+                    onUpdate?.({
+                      properties: { ...(field.properties ?? {}), omitWhenHidden: v },
+                    })
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-border p-3 bg-background/50">
+                <div>
+                  <p className="text-sm font-medium">Omit when disabled</p>
+                  <p className="text-xs text-muted-foreground">
+                    Don&apos;t submit this field&apos;s value when it is disabled.
+                  </p>
+                </div>
+                <Switch
+                  checked={field.properties?.omitWhenDisabled !== false}
+                  onCheckedChange={(v) =>
+                    onUpdate?.({
+                      properties: { ...(field.properties ?? {}), omitWhenDisabled: v },
+                    })
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-border p-3 bg-background/50">
+                <div>
+                  <p className="text-sm font-medium">Omit when on a skipped section</p>
+                  <p className="text-xs text-muted-foreground">
+                    Don&apos;t submit this field&apos;s value when its section was skipped.
+                  </p>
+                </div>
+                <Switch
+                  checked={field.properties?.omitWhenSkipped !== false}
+                  onCheckedChange={(v) =>
+                    onUpdate?.({
+                      properties: { ...(field.properties ?? {}), omitWhenSkipped: v },
+                    })
+                  }
+                />
+              </div>
             </>
           )}
 
