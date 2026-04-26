@@ -544,18 +544,18 @@ function FieldRenderer({
         field.placeholder ??
         (field.type === "date" ? "Select a date" : field.type === "time" ? "Select a time" : "Select date & time");
       return (
-        <div className="relative group/date w-auto">
+        <div className="relative group/date w-full">
           <Input
             type={field.type === "date" ? "date" : field.type === "time" ? "time" : "datetime-local"}
             value={dateVal}
             onChange={(e) => onChange(e.target.value)}
-            className={cn("h-11 w-auto", inputClass, !dateVal && "text-transparent")}
+            className={cn("h-11 w-full", inputClass, !dateVal && "text-transparent")}
             disabled={disabled}
             onBlur={onBlur}
             aria-invalid={!!error}
           />
           {!dateVal && (
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none group-focus-within/date:hidden">
+            <span className="absolute left-3 right-10 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none truncate group-focus-within/date:hidden">
               {datePlaceholder}
             </span>
           )}
