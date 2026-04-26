@@ -538,26 +538,18 @@ function FieldRenderer({
 
     case "date":
     case "time":
-    case "datetime": {
-      const nativeType = field.type === "date" ? "date" : field.type === "time" ? "time" : "datetime-local";
-      const placeholder = field.placeholder ?? (field.type === "date" ? "Select a date" : field.type === "time" ? "Select a time" : "Select date & time");
+    case "datetime":
       return (
         <Input
-          type={value ? nativeType : "text"}
+          type={field.type === "date" ? "date" : field.type === "time" ? "time" : "datetime-local"}
           value={(value as string) ?? ""}
-          placeholder={placeholder}
           onChange={(e) => onChange(e.target.value)}
           className={cn("h-11 w-auto", inputClass)}
           disabled={disabled}
-          onFocus={(e) => { e.currentTarget.type = nativeType; }}
-          onBlur={(e) => {
-            if (!e.currentTarget.value) e.currentTarget.type = "text";
-            onBlur?.();
-          }}
+          onBlur={onBlur}
           aria-invalid={!!error}
         />
       );
-    }
 
     case "radio":
       return (
