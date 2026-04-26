@@ -19,37 +19,68 @@ interface ValueInputProps {
   value: FormAnswer | undefined;
   onChange: (v: FormAnswer) => void;
   placeholder?: string;
+  /** For grid fields - the row selection (stored in value2) */
+  rowValue?: FormAnswer | undefined;
+  onRowChange?: (v: FormAnswer) => void;
 }
 
 /**
  * Renders an input sized to the referenced field's type.
  * Falls back to a plain text input when the field is unknown.
  */
-export function ValueInput({ field, operator, value, onChange, placeholder }: ValueInputProps) {
+export function ValueInput({ field, operator, value, onChange, placeholder, rowValue, onRowChange }: ValueInputProps) {
   const isListOperator = operator === "is_one_of" || operator === "is_none_of";
 
-  // Grid fields — show column picker
+  // Grid fields — show row + column pickers
   if (field && ["radio_grid", "checkbox_grid"].includes(field.type)) {
     const columns = (field.properties?.columns ?? []) as { label: string; value: string }[];
+    const rows = (field.options ?? []) as { label: string; value: string }[];
+    const ANY_VALUE = "__any__";
+    
     return (
-      <Select
-        value={value != null ? String(value) : ""}
-        onValueChange={(v) => onChange(v)}
-      >
-        <SelectTrigger className="h-8 text-sm">
-          <SelectValue placeholder="Select column" />
-        </SelectTrigger>
-        <SelectContent>
-          {columns.map((col) => (
-            <SelectItem key={col.value} value={col.value}>
-              <div 
-                className="prose-sm max-w-full [&_img]:hidden truncate"
-                dangerouslySetInnerHTML={{ __html: sanitize(col.label) }}
-              />
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="flex gap-1.5 min-w-0">
+        {/* Row selector */}
+        <Select
+          value={rowValue != null && rowValue !== "" ? String(rowValue) : ANY_VALUE}
+          onValueChange={(v) => onRowChange?.(v === ANY_VALUE ? "" : v)}
+        >
+          <SelectTrigger className="h-8 text-sm min-w-[100px]">
+            <SelectValue placeholder="Any row" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ANY_VALUE}>Any row</SelectItem>
+            {rows.map((row) => (
+              <SelectItem key={row.value} value={row.value}>
+                <div 
+                  className="prose-sm max-w-full [&_img]:hidden truncate"
+                  dangerouslySetInnerHTML={{ __html: sanitize(row.label) }}
+                />
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        
+        {/* Column selector */}
+        <Select
+          value={value != null && value !== "" ? String(value) : ANY_VALUE}
+          onValueChange={(v) => onChange(v === ANY_VALUE ? "" : v)}
+        >
+          <SelectTrigger className="h-8 text-sm min-w-[100px]">
+            <SelectValue placeholder="Any column" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ANY_VALUE}>Any column</SelectItem>
+            {columns.map((col) => (
+              <SelectItem key={col.value} value={col.value}>
+                <div 
+                  className="prose-sm max-w-full [&_img]:hidden truncate"
+                  dangerouslySetInnerHTML={{ __html: sanitize(col.label) }}
+                />
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     );
   }
 

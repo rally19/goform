@@ -79,6 +79,64 @@ function gridValues(v: FormAnswer): string[] | null {
   return vals;
 }
 
+/** Check if a specific row (or any row if rowValue is empty/__any__) contains the column value (or any column if columnValue is empty). */
+function gridRowContains(
+  gridAnswer: FormAnswer,
+  columnValue: FormAnswer,
+  rowValue: FormAnswer
+): boolean | null {
+  if (gridAnswer === null || gridAnswer === undefined || typeof gridAnswer !== "object" || Array.isArray(gridAnswer)) {
+    return null;
+  }
+  const grid = gridAnswer as Record<string, string | string[]>;
+  const colNeedle = String(columnValue ?? "").toLowerCase();
+  const anyColumn = colNeedle === "" || colNeedle === "__any__";
+  const specificRow = String(rowValue ?? "").toLowerCase();
+  const anyRow = specificRow === "" || specificRow === "__any__";
+
+  // Case 1: Specific row + Specific column
+  if (!anyRow && !anyColumn) {
+    const rowAnswer = grid[specificRow];
+    if (rowAnswer === undefined || rowAnswer === null) return false;
+    if (Array.isArray(rowAnswer)) {
+      return rowAnswer.some((v) => String(v).toLowerCase() === colNeedle);
+    }
+    return String(rowAnswer).toLowerCase() === colNeedle;
+  }
+
+  // Case 2: Specific row + Any column (row is answered)
+  if (!anyRow && anyColumn) {
+    const rowAnswer = grid[specificRow];
+    if (rowAnswer === undefined || rowAnswer === null) return false;
+    if (Array.isArray(rowAnswer)) return rowAnswer.length > 0;
+    return rowAnswer !== "";
+  }
+
+  // Case 3: Any row + Specific column (column selected anywhere)
+  if (anyRow && !anyColumn) {
+    for (const rowVal of Object.values(grid)) {
+      if (rowVal === undefined || rowVal === null) continue;
+      if (Array.isArray(rowVal)) {
+        if (rowVal.some((v) => String(v).toLowerCase() === colNeedle)) return true;
+      } else if (String(rowVal).toLowerCase() === colNeedle) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Case 4: Any row + Any column (grid has any answer)
+  for (const rowVal of Object.values(grid)) {
+    if (rowVal === undefined || rowVal === null) continue;
+    if (Array.isArray(rowVal)) {
+      if (rowVal.length > 0) return true;
+    } else if (rowVal !== "") {
+      return true;
+    }
+  }
+  return false;
+}
+
 function parseList(v: FormAnswer): (string | number)[] {
   // accepts either array or comma-separated string list
   if (Array.isArray(v)) return v as (string | number)[];
@@ -129,35 +187,29 @@ export function evaluateCondition(
       return !isAnswerEmpty(actual);
 
     case "equal": {
-      const gv = gridValues(actual);
-      if (gv !== null) {
-        const needle = String(value ?? "").toLowerCase();
-        return gv.includes(needle);
-      }
+      const gridResult = gridRowContains(actual, value ?? null, value2 ?? null);
+      if (gridResult !== null) return gridResult;
       return normalize(actual) === normalize(value ?? null);
     }
     case "not_equal": {
-      const gv = gridValues(actual);
-      if (gv !== null) {
-        const needle = String(value ?? "").toLowerCase();
-        return !gv.includes(needle);
-      }
+      const gridResult = gridRowContains(actual, value ?? null, value2 ?? null);
+      if (gridResult !== null) return !gridResult;
       return normalize(actual) !== normalize(value ?? null);
     }
 
     case "contains": {
+      const gridResult = gridRowContains(actual, value ?? null, value2 ?? null);
+      if (gridResult !== null) return gridResult;
       const needle = String(value ?? "").toLowerCase();
-      const gv = gridValues(actual);
-      if (gv !== null) return gv.includes(needle);
       if (Array.isArray(actual)) {
         return actual.some((item) => String(item).toLowerCase().includes(needle));
       }
       return String(actual ?? "").toLowerCase().includes(needle);
     }
     case "not_contains": {
+      const gridResult = gridRowContains(actual, value ?? null, value2 ?? null);
+      if (gridResult !== null) return !gridResult;
       const needle = String(value ?? "").toLowerCase();
-      const gv = gridValues(actual);
-      if (gv !== null) return !gv.includes(needle);
       if (Array.isArray(actual)) {
         return !actual.some((item) => String(item).toLowerCase().includes(needle));
       }

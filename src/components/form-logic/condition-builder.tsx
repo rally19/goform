@@ -183,6 +183,7 @@ function ConditionRow({
 }) {
   const isNav = isNavTrigger(condition.fieldId);
   const selectedField = fields.find((f) => f.id === condition.fieldId);
+  const isGrid = selectedField && ["radio_grid", "checkbox_grid"].includes(selectedField.type);
   const meta = LOGIC_OPERATOR_META.find((m) => m.operator === condition.operator);
   const allowed = LOGIC_OPERATOR_META.filter((m) => {
     if (!selectedField) return true;
@@ -243,9 +244,11 @@ function ConditionRow({
                     operator={condition.operator}
                     value={condition.value}
                     onChange={(v: FormAnswer) => onChange({ value: v })}
+                    rowValue={condition.value2}
+                    onRowChange={(v: FormAnswer) => onChange({ value2: v })}
                   />
                 </div>
-                {needsSecondValue && (
+                {needsSecondValue && !isGrid && (
                   <>
                     <span className="text-xs text-muted-foreground self-center">and</span>
                     <div className="flex-1 min-w-0">
