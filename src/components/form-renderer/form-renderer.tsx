@@ -21,7 +21,25 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { Star, ChevronLeft, ChevronRight, Send, CheckCircle2, Loader2, Lock, UserX, Upload, X, Trash2 } from "lucide-react";
+import { Star, ChevronLeft, ChevronRight, Send, CheckCircle2, Loader2, Lock, UserX, Upload, X, Trash2, GripVertical } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   Select,
   SelectContent,
@@ -385,6 +403,142 @@ function VideoRenderer({ properties }: { properties: any }) {
           playsInline
         />
       )}
+    </div>
+  );
+}
+
+function SortableRankingItem({
+  id,
+  rank,
+  label,
+  accentColor,
+  disabled,
+}: {
+  id: string;
+  rank: number;
+  label: string;
+  accentColor: string;
+  disabled?: boolean;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id, disabled });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    zIndex: isDragging ? 10 : undefined,
+    borderColor: isDragging ? accentColor : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "flex items-center gap-3 rounded-md border bg-background p-3 shadow-sm",
+        disabled ? "opacity-60 cursor-not-allowed" : "cursor-grab active:cursor-grabbing",
+      )}
+      {...attributes}
+      {...(disabled ? {} : listeners)}
+    >
+      <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/60" />
+      <span
+        className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold shrink-0"
+        style={{ backgroundColor: `${accentColor}1f`, color: accentColor }}
+      >
+        {rank}
+      </span>
+      <SafeHtml
+        className="prose-sm max-w-full flex-1 [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-md preserve-spaces"
+        html={label}
+      />
+    </div>
+  );
+}
+
+function RankingField({
+  field,
+  value,
+  onChange,
+  accentColor,
+  disabled,
+}: {
+  field: FormField;
+  value: FormAnswer;
+  onChange: (v: FormAnswer) => void;
+  accentColor: string;
+  disabled?: boolean;
+}) {
+  const options = (field.options ?? []) as { label: string; value: string }[];
+
+  // Compute the ordered list of option values from the stored answer,
+  // appending any options that haven't been ranked yet (in their default order).
+  const order = useMemo(() => {
+    const stored = Array.isArray(value) ? (value as string[]) : [];
+    const known = new Set(options.map((o) => o.value));
+    const valid = stored.filter((v) => known.has(v));
+    const missing = options.map((o) => o.value).filter((v) => !valid.includes(v));
+    return [...valid, ...missing];
+  }, [value, options]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = order.indexOf(String(active.id));
+    const newIndex = order.indexOf(String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    const next = arrayMove(order, oldIndex, newIndex);
+    onChange(next);
+  };
+
+  if (options.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground italic">No options to rank.</p>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={order} strategy={verticalListSortingStrategy}>
+          <div className="space-y-2">
+            {order.map((optValue, idx) => {
+              const opt = options.find((o) => o.value === optValue);
+              if (!opt) return null;
+              return (
+                <SortableRankingItem
+                  key={optValue}
+                  id={optValue}
+                  rank={idx + 1}
+                  label={opt.label}
+                  accentColor={accentColor}
+                  disabled={disabled}
+                />
+              );
+            })}
+          </div>
+        </SortableContext>
+      </DndContext>
+      <p className="text-[11px] text-muted-foreground">
+        Drag items to rank them — top is 1st place.
+      </p>
     </div>
   );
 }
@@ -787,6 +941,17 @@ function FieldRenderer({
         />
       );
     }
+
+    case "ranking":
+      return (
+        <RankingField
+          field={field}
+          value={value}
+          onChange={onChange}
+          accentColor={accentColor}
+          disabled={disabled}
+        />
+      );
 
     case "rating":
       return (

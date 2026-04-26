@@ -258,7 +258,7 @@ export function FieldSettings({
     );
   }
 
-  const hasOptions = ["radio", "checkbox", "select", "multi_select", "radio_grid", "checkbox_grid"].includes(field.type);
+  const hasOptions = ["radio", "checkbox", "select", "multi_select", "radio_grid", "checkbox_grid", "ranking"].includes(field.type);
   const isGrid = ["radio_grid", "checkbox_grid"].includes(field.type);
   const hasRating = field.type === "rating";
   const hasScale = field.type === "scale";
@@ -353,7 +353,7 @@ export function FieldSettings({
             </div>
           </div>
 
-          {!isLayout && !["radio", "checkbox", "radio_grid", "checkbox_grid", "rating", "scale"].includes(field.type) && (
+          {!isLayout && !["radio", "checkbox", "radio_grid", "checkbox_grid", "rating", "scale", "ranking"].includes(field.type) && (
             <div className="space-y-1.5 pt-1.5">
               <Label className="text-xs font-medium">Placeholder</Label>
               <Input

@@ -18,6 +18,7 @@ export type FieldType =
   | "radio"
   | "radio_grid"
   | "checkbox_grid"
+  | "ranking"
   | "rating"
   | "scale"
   | "file"
@@ -216,6 +217,19 @@ export const FIELD_TYPE_META: FieldTypeMeta[] = [
         { label: "Column 3", value: "col_3" },
       ],
     },
+  },
+  {
+    type: "ranking",
+    label: "Ranking",
+    icon: "ListOrdered",
+    category: "choice",
+    description: "Drag to rank options in order of preference",
+    defaultLabel: "Rank these options",
+    defaultOptions: [
+      { label: "Option 1", value: "option_1" },
+      { label: "Option 2", value: "option_2" },
+      { label: "Option 3", value: "option_3" },
+    ],
   },
   // Scale
   {
@@ -543,8 +557,8 @@ export const LOGIC_OPERATOR_META: {
   { operator: "not_equal", label: "is not equal to", requiresValue: true },
   { operator: "empty", label: "is empty", requiresValue: false },
   { operator: "filled", label: "is filled", requiresValue: false },
-  { operator: "contains", label: "contains", requiresValue: true, appliesTo: ["short_text", "long_text", "email", "phone", "url", "checkbox", "multi_select", "radio_grid", "checkbox_grid"] },
-  { operator: "not_contains", label: "does not contain", requiresValue: true, appliesTo: ["short_text", "long_text", "email", "phone", "url", "checkbox", "multi_select", "radio_grid", "checkbox_grid"] },
+  { operator: "contains", label: "contains", requiresValue: true, appliesTo: ["short_text", "long_text", "email", "phone", "url", "checkbox", "multi_select", "radio_grid", "checkbox_grid", "ranking"] },
+  { operator: "not_contains", label: "does not contain", requiresValue: true, appliesTo: ["short_text", "long_text", "email", "phone", "url", "checkbox", "multi_select", "radio_grid", "checkbox_grid", "ranking"] },
   { operator: "starts_with", label: "starts with", requiresValue: true, appliesTo: ["short_text", "long_text", "email", "phone", "url"] },
   { operator: "ends_with", label: "ends with", requiresValue: true, appliesTo: ["short_text", "long_text", "email", "phone", "url"] },
   { operator: "greater_than", label: "is greater than", requiresValue: true, appliesTo: ["number", "rating", "scale", "date", "time", "datetime"] },

@@ -115,6 +115,14 @@ function formatAnswer(val: FormAnswer, field: FormField): string {
       return `${row.label}: ${colLabel}`;
     }).join("\n");
   }
+  if (field.type === "ranking" && Array.isArray(val)) {
+    return val
+      .map((v, i) => {
+        const label = field.options?.find((o) => o.value === v)?.label ?? String(v);
+        return `${i + 1}. ${label}`;
+      })
+      .join("\n");
+  }
   if (Array.isArray(val)) {
     if (field.options) {
       return val

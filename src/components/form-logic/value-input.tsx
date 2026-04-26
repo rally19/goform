@@ -108,7 +108,7 @@ export function ValueInput({ field, operator, value, onChange, placeholder, rowV
     );
   }
 
-  if (field && ["checkbox", "multi_select"].includes(field.type) && !isListOperator) {
+  if (field && ["checkbox", "multi_select", "ranking"].includes(field.type) && !isListOperator) {
     const current = Array.isArray(value) ? (value as string[]) : [];
     return (
       <MultiSelect

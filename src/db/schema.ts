@@ -53,6 +53,7 @@ export const fieldTypeEnum = pgEnum("field_type", [
   "radio_grid",
   "checkbox_grid",
   "video",
+  "ranking",
 ]);
 
 export const organizationRoleEnum = pgEnum("organization_role", [

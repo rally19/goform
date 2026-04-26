@@ -471,6 +471,41 @@ export async function getFormAnalytics(formId: string, timezone = "UTC"): Promis
           };
         }
 
+        // Ranking — average rank per option (1 = best)
+        if (field.type === "ranking") {
+          const opts = (field.options ?? []) as { label: string; value: string }[];
+          const sums: Record<string, number> = {};
+          const counts: Record<string, number> = {};
+          for (const answer of fieldAnswers) {
+            if (!Array.isArray(answer)) continue;
+            (answer as unknown[]).forEach((v, idx) => {
+              const key = String(v);
+              sums[key] = (sums[key] ?? 0) + idx + 1;
+              counts[key] = (counts[key] ?? 0) + 1;
+            });
+          }
+          // Sort options by average rank (lower is better). Show count of times ranked first as the bar count.
+          const optionCounts = opts
+            .map((o) => {
+              const c = counts[o.value] ?? 0;
+              const avg = c > 0 ? sums[o.value] / c : 0;
+              return {
+                label: o.label,
+                count: c > 0 ? parseFloat(((opts.length + 1 - avg)).toFixed(2)) : 0,
+                _avgRank: avg,
+              };
+            })
+            .sort((a, b) => (a._avgRank || 999) - (b._avgRank || 999))
+            .map(({ label, count }) => ({ label, count }));
+          return {
+            fieldId: field.id,
+            label: field.label,
+            type: field.type as FieldType,
+            responseCount,
+            optionCounts,
+          };
+        }
+
         // Choice fields
         if (["radio", "checkbox", "select", "multi_select"].includes(field.type)) {
           const optionCounts: Record<string, number> = {};
@@ -665,6 +700,12 @@ export async function getFormResponsesForExport(formId: string, timezone = "UTC"
              const colLabel = cols?.find((c) => c.value === rowAnswer)?.label ?? String(rowAnswer);
              return `${stripHtml(row.label)}: ${colLabel}`;
            }).join("; ");
+        }
+
+        if (f.type === "ranking" && Array.isArray(rawVal)) {
+           return (rawVal as unknown[])
+             .map((v, i) => `${i + 1}. ${getOptionLabel(v)}`)
+             .join("; ");
         }
 
         if (["radio", "select", "checkbox", "multi_select"].includes(f.type)) {

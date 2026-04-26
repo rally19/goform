@@ -10,7 +10,7 @@ import {
   CircleDot, CheckSquare, ChevronDown, ListChecks,
   SlidersHorizontal, Heading, Columns2, Upload, CalendarClock,
   EyeClosed, PencilOff, RectangleEllipsis,
-  TextQuote, Minus, Grid2X2, Grid2X2Check,
+  TextQuote, Minus, Grid2X2, Grid2X2Check, ListOrdered,
 } from "lucide-react";
 import { FieldMoveDialog } from "./field-move-dialog";
 import type { BuilderSection } from "@/lib/form-types";
@@ -43,7 +43,7 @@ const FIELD_ICONS: Record<string, React.ElementType> = {
   short_text: Type, long_text: AlignLeft, number: Hash, email: Mail,
   phone: Phone, url: Link2, date: Calendar, time: Clock,
   datetime: CalendarClock, select: ChevronDown, multi_select: ListChecks,
-  checkbox: CheckSquare, radio: CircleDot, rating: Star,
+  checkbox: CheckSquare, radio: CircleDot, rating: Star, ranking: ListOrdered,
   scale: SlidersHorizontal, section: Heading, page_break: Columns2,
   file: Upload,
   paragraph: TextQuote,
@@ -194,6 +194,27 @@ export const FieldCard = memo(function FieldCard({
               ))}
             </tbody>
           </table>
+        </div>
+      );
+    }
+    if (field.type === "ranking") {
+      return (
+        <div className="space-y-1.5">
+          {(field.options ?? []).map((opt, i) => (
+            <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground rounded-md border border-border/60 bg-muted/40 px-2.5 py-1.5">
+              <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+              <span
+                className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold shrink-0"
+                style={{ backgroundColor: `${accentColor}22`, color: accentColor }}
+              >
+                {i + 1}
+              </span>
+              <SafeHtml
+                className="prose-sm max-w-full flex-1 [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-md"
+                html={opt.label}
+              />
+            </div>
+          ))}
         </div>
       );
     }
