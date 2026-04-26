@@ -1245,9 +1245,9 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
       const state = dynamicStates[fid];
       const fieldDef = fields.find(f => f.id === fid);
       const props = fieldDef?.properties as Record<string, unknown> | undefined;
-      if (state && !state.visible && props?.omitWhenHidden !== false) continue;
-      if (state && !state.enabled && props?.omitWhenDisabled !== false) continue;
-      if (!visitedFieldIds.has(fid) && props?.omitWhenSkipped !== false) continue;
+      if (state && !state.visible && props?.omitWhenHidden) continue;
+      if (state && !state.enabled && props?.omitWhenDisabled) continue;
+      if (!visitedFieldIds.has(fid) && props?.omitWhenSkipped) continue;
       if (fieldDef?.type === "file" && Array.isArray(value) && value.length > 0 && (value[0] as any) instanceof File) {
         for (let i = 0; i < value.length; i++) {
           totalUploadSize += (value[i] as unknown as File).size;
@@ -1279,9 +1279,9 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
       const state = dynamicStates[fid];
       const fieldDef = fields.find(f => f.id === fid);
       const props = fieldDef?.properties as Record<string, unknown> | undefined;
-      if (state && !state.visible && props?.omitWhenHidden !== false) continue;
-      if (state && !state.enabled && props?.omitWhenDisabled !== false) continue;
-      if (!visitedFieldIds.has(fid) && props?.omitWhenSkipped !== false) continue;
+      if (state && !state.visible && props?.omitWhenHidden) continue;
+      if (state && !state.enabled && props?.omitWhenDisabled) continue;
+      if (!visitedFieldIds.has(fid) && props?.omitWhenSkipped) continue;
       
       if (fieldDef?.type === "file" && Array.isArray(value) && value.length > 0 && (value[0] as any) instanceof File) {
         // Upload files
