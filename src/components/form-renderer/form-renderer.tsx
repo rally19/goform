@@ -129,11 +129,13 @@ function StarRating({
   value,
   onChange,
   accentColor,
+  required,
 }: {
   stars?: number;
   value: number;
   onChange: (v: number) => void;
   accentColor: string;
+  required?: boolean;
 }) {
   const [hovered, setHovered] = useState(0);
   return (
@@ -145,7 +147,13 @@ function StarRating({
           <button
             key={num}
             type="button"
-            onClick={() => onChange(num)}
+            onClick={() => {
+              if (!required && value === num) {
+                onChange(0);
+              } else {
+                onChange(num);
+              }
+            }}
             onMouseEnter={() => setHovered(num)}
             onMouseLeave={() => setHovered(0)}
             className="transition-transform hover:scale-110 focus:outline-none"
@@ -170,14 +178,16 @@ function ScaleSelector({
   minLabel,
   maxLabel,
   accentColor,
+  required,
 }: {
   min: number;
   max: number;
   value: number | null;
-  onChange: (v: number) => void;
+  onChange: (v: number | null) => void;
   minLabel?: string;
   maxLabel?: string;
   accentColor: string;
+  required?: boolean;
 }) {
   const nums = Array.from({ length: max - min + 1 }, (_, i) => min + i);
   return (
@@ -187,7 +197,13 @@ function ScaleSelector({
           <button
             key={n}
             type="button"
-            onClick={() => onChange(n)}
+            onClick={() => {
+              if (!required && value === n) {
+                onChange(null);
+              } else {
+                onChange(n);
+              }
+            }}
             className={cn(
               "h-10 w-10 rounded-lg border-2 text-sm font-medium transition-all",
               value === n
@@ -724,11 +740,16 @@ function FieldRenderer({
 
     case "select":
       return (
-        <Select value={(value as string) ?? ""} onValueChange={onChange} disabled={disabled}>
+        <Select value={(value as string) ?? ""} onValueChange={(v) => onChange(v === "__clear__" ? "" : v)} disabled={disabled}>
           <SelectTrigger className={cn("h-11", inputClass)}>
             <SelectValue placeholder={field.placeholder ?? "Select an option"} />
           </SelectTrigger>
           <SelectContent>
+            {!field.required && value && (
+              <SelectItem value="__clear__" className="text-muted-foreground italic">
+                Clear selection
+              </SelectItem>
+            )}
             {options.map((opt) => (
               <SelectItem key={opt.value} value={opt.value}>
                 <div 
@@ -762,6 +783,7 @@ function FieldRenderer({
           value={(value as number) ?? 0}
           onChange={onChange}
           accentColor={accentColor}
+          required={field.required}
         />
       );
 
@@ -775,6 +797,7 @@ function FieldRenderer({
           minLabel={props.scaleMinLabel}
           maxLabel={props.scaleMaxLabel}
           accentColor={accentColor}
+          required={field.required}
         />
       );
 
