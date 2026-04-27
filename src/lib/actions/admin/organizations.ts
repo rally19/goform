@@ -246,6 +246,24 @@ export async function adminUpdateOrganizationMember(
 
     if (!member) throw new Error("Member not found");
 
+    // Prevent demoting the only owner of the org. If the target is currently
+    // the sole owner and the new role is anything other than "owner", the org
+    // would end up ownerless. Force the admin to first promote a replacement
+    // (or use the transfer-ownership flow).
+    if (member.role === "owner" && role !== "owner") {
+      const owners = await db.query.organizationMembers.findMany({
+        where: and(
+          eq(organizationMembers.organizationId, member.organizationId),
+          eq(organizationMembers.role, "owner")
+        ),
+      });
+      if (owners.length <= 1) {
+        throw new Error(
+          "Cannot demote the only owner of the organization — promote a replacement first"
+        );
+      }
+    }
+
     if (role === "owner") {
       // Downgrade other owners to manager
       await db.update(organizationMembers)

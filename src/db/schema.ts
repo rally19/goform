@@ -323,8 +323,9 @@ export const assets = pgTable(
     url: text("url").notNull(),
     // Optional alt text / description
     altText: text("alt_text"),
-    // Uploaded by
-    uploadedBy: varchar("uploaded_by").notNull().references(() => users.id),
+    // Uploaded by — nullable so anonymous response uploads on org-owned forms
+    // (where forms.userId is null after move-to-org) don't violate NOT NULL.
+    uploadedBy: varchar("uploaded_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [

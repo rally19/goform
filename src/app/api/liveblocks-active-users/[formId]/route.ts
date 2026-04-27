@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/server";
 import { db } from "@/db";
 import { forms, users, organizationMembers } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { liveblocks } from "@/lib/liveblocks";
 
 // Get active users for a specific Liveblocks room
@@ -56,7 +56,10 @@ export async function GET(
       let isOrgMember = false;
       if (form.organizationId) {
         const orgMembership = await db.query.organizationMembers.findFirst({
-          where: eq(organizationMembers.userId, user.id),
+          where: and(
+            eq(organizationMembers.userId, user.id),
+            eq(organizationMembers.organizationId, form.organizationId)
+          ),
         });
         isOrgMember = !!orgMembership;
       }

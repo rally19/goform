@@ -416,6 +416,8 @@ export async function saveFormFields(
   shouldRevalidate = true
 ): Promise<ActionResult> {
   try {
+    await enforceFormAccess(formId, "editor");
+
     await db.transaction(async (tx) => {
       // Delete all existing fields
       await tx.delete(formFields).where(eq(formFields.formId, formId));

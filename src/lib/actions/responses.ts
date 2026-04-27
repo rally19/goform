@@ -175,8 +175,11 @@ export async function submitFormResponse(
     if (metadata?.previewBypass && form.previewBypass) {
       if (user) {
         try {
-          // If the user has viewer access (meaning they can preview), we allow the bypass
-          await enforceFormAccess(formId, "viewer");
+          // Preview-bypass skips status/date/limit/auth gating, so it must be
+          // restricted to people who can actually edit the form — viewers
+          // (lowest tier) shouldn't be able to inject responses into a closed
+          // or unpublished form.
+          await enforceFormAccess(formId, "editor");
           isBypassed = true;
         } catch (e) {
           // Ignore, isBypassed remains false
@@ -362,7 +365,9 @@ export async function submitFormResponse(
           type: assetType,
           storagePath: upload.path,
           url: "", // private bucket
-          uploadedBy: form.userId!, // attributing the upload to the form owner
+          // Attribute to the respondent if signed in, then form owner (personal
+          // forms), then null (org-owned forms with anonymous respondent).
+          uploadedBy: respondentId ?? form.userId ?? null,
         };
       });
 

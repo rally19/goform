@@ -1,7 +1,8 @@
 import { db } from "@/db";
 import { organizations } from "@/db/schema";
-import { lte, isNotNull } from "drizzle-orm";
+import { inArray, lte } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { cleanupOrganizationResources } from "@/lib/actions/organizations";
 
 /**
  * ── VERCEL CRON JOB: CLEANUP ABANDONED ORGANIZATIONS ──
@@ -30,10 +31,14 @@ export async function GET(request: Request) {
 
     // Delete abandoned organizations
     const idsToDelete = abandonedOrgs.map((org) => org.id);
-    
+
+    // Clean up external resources (storage, liveblocks rooms, form uploads, avatars)
     for (const org of abandonedOrgs) {
-      await db.delete(organizations).where(lte(organizations.id, org.id));
+      await cleanupOrganizationResources(org.id);
     }
+
+    // Cascading delete is handled by DB schema for members/forms/etc.
+    await db.delete(organizations).where(inArray(organizations.id, idsToDelete));
 
     return NextResponse.json({ 
       success: true, 

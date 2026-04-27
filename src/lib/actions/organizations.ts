@@ -536,13 +536,20 @@ export async function removeMember(orgId: string, memberUserId: string) {
 export async function transferOwnershipAction(orgId: string, targetEmail: string) {
   try {
     const user = await getAuthUser();
-    
-    // 1. Verify current user is owner
+
+    // 1. Verify current user is owner — or a platform admin (consistent with
+    // deleteOrganization, which also honours the platform-admin override).
     const currentMember = await db.query.organizationMembers.findFirst({
       where: and(eq(organizationMembers.organizationId, orgId), eq(organizationMembers.userId, user.id))
     });
-    
-    if (!currentMember || currentMember.role !== "owner") {
+
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.id, user.id),
+      columns: { role: true },
+    });
+    const isPlatformAdmin = dbUser?.role === "admin" || dbUser?.role === "superadmin";
+
+    if (!isPlatformAdmin && (!currentMember || currentMember.role !== "owner")) {
       throw new Error("Only the owner can transfer ownership");
     }
 
@@ -562,10 +569,15 @@ export async function transferOwnershipAction(orgId: string, targetEmail: string
 
     // 4. Atomic swap
     await db.transaction(async (tx) => {
-      // Current owner becomes manager
+      // Demote the current owner(s) of the org to manager. Note: when a
+      // platform admin triggers this for another user's org, the "current
+      // user" is not the owner — so demote whoever currently holds the role.
       await tx.update(organizationMembers)
         .set({ role: "manager" })
-        .where(and(eq(organizationMembers.organizationId, orgId), eq(organizationMembers.userId, user.id)));
+        .where(and(
+          eq(organizationMembers.organizationId, orgId),
+          eq(organizationMembers.role, "owner")
+        ));
 
       // Target becomes owner
       await tx.update(organizationMembers)
