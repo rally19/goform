@@ -1,5 +1,5 @@
-import { db } from "./src/db";
-import { forms } from "./src/db/schema";
+import { db } from "../src/db";
+import { forms } from "../src/db/schema";
 import { count, sql, isNull } from "drizzle-orm";
 
 async function main() {
