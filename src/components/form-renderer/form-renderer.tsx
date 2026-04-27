@@ -31,6 +31,8 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
+  DragOverlay,
 } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -413,12 +415,14 @@ function SortableRankingItem({
   label,
   accentColor,
   disabled,
+  isOverlay,
 }: {
   id: string;
   rank: number;
   label: string;
   accentColor: string;
   disabled?: boolean;
+  isOverlay?: boolean;
 }) {
   const {
     attributes,
@@ -429,24 +433,34 @@ function SortableRankingItem({
     isDragging,
   } = useSortable({ id, disabled });
 
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.6 : 1,
-    zIndex: isDragging ? 10 : undefined,
-    borderColor: isDragging ? accentColor : undefined,
-  };
+  const style: React.CSSProperties = isOverlay
+    ? {
+        position: "fixed",
+        pointerEvents: "none",
+        zIndex: 100,
+        transform: CSS.Transform.toString(transform),
+        transition,
+        width: "var(--ranking-item-width, 100%)",
+      }
+    : {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.3 : 1,
+        zIndex: isDragging ? 10 : undefined,
+        borderColor: isDragging ? accentColor : undefined,
+      };
 
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-center gap-3 rounded-md border bg-background p-3 shadow-sm",
+        "flex items-center gap-3 rounded-md border bg-background p-3 shadow-sm touch-none select-none",
         disabled ? "opacity-60 cursor-not-allowed" : "cursor-grab active:cursor-grabbing",
+        isOverlay && "shadow-xl border-primary/50 cursor-grabbing",
       )}
-      {...attributes}
-      {...(disabled ? {} : listeners)}
+      {...(isOverlay ? {} : attributes)}
+      {...(isOverlay || disabled ? {} : listeners)}
     >
       <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/60" />
       <span
@@ -478,6 +492,9 @@ function RankingField({
 }) {
   const options = (field.options ?? []) as { label: string; value: string }[];
 
+  // Track which item is being dragged for DragOverlay
+  const [activeId, setActiveId] = useState<string | null>(null);
+
   // The user has "started ranking" only when the answer is a non-empty array.
   // Until then we show a Start button so required-validation can detect non-engagement
   // and so submissions that weren't started serialize as empty.
@@ -494,12 +511,19 @@ function RankingField({
   }, [value, options]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    // Aggressive delay + larger tolerance so scroll gestures don't become drags,
+    // and touch-action:none on items prevents scroll when held long enough.
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(String(event.active.id));
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
+    setActiveId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     const oldIndex = order.indexOf(String(active.id));
@@ -518,31 +542,51 @@ function RankingField({
   return (
     <div className="space-y-2">
       {hasStarted ? (
-        <DndContext
-          id={`ranking-${field.id}`}
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext items={order} strategy={verticalListSortingStrategy}>
-            <div className="space-y-2">
-              {order.map((optValue, idx) => {
-                const opt = options.find((o) => o.value === optValue);
-                if (!opt) return null;
+        <div style={{ "--ranking-item-width": "100%" } as React.CSSProperties}>
+          <DndContext
+            id={`ranking-${field.id}`}
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={order} strategy={verticalListSortingStrategy}>
+              <div className="space-y-2">
+                {order.map((optValue, idx) => {
+                  const opt = options.find((o) => o.value === optValue);
+                  if (!opt) return null;
+                  return (
+                    <SortableRankingItem
+                      key={optValue}
+                      id={optValue}
+                      rank={idx + 1}
+                      label={opt.label}
+                      accentColor={accentColor}
+                      disabled={disabled}
+                    />
+                  );
+                })}
+              </div>
+            </SortableContext>
+            <DragOverlay>
+              {activeId ? (() => {
+                const idx = order.indexOf(activeId);
+                const opt = options.find((o) => o.value === activeId);
+                if (idx === -1 || !opt) return null;
                 return (
                   <SortableRankingItem
-                    key={optValue}
-                    id={optValue}
+                    id={activeId}
                     rank={idx + 1}
                     label={opt.label}
                     accentColor={accentColor}
                     disabled={disabled}
+                    isOverlay
                   />
                 );
-              })}
-            </div>
-          </SortableContext>
-        </DndContext>
+              })() : null}
+            </DragOverlay>
+          </DndContext>
+        </div>
       ) : (
         <div className="space-y-2 opacity-60 pointer-events-none">
           {options.map((opt) => (
