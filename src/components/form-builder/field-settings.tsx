@@ -24,6 +24,8 @@ import {
   DndContext,
   closestCenter,
   PointerSensor,
+  TouchSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -32,6 +34,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
   useSortable,
+  sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { AssetPicker } from "@/components/assets/asset-picker";
@@ -73,7 +76,13 @@ export function FieldSettings({
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 5 },
-    })
+    }),
+    // On touch: hold briefly before drag activates so taps/scrolls aren't hijacked,
+    // and so once activated the browser yields the gesture (combined with touch-none on handle).
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 8 },
+    }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
   if (selectedSection && !field) {
@@ -934,7 +943,8 @@ function SortableOption({
       <div 
         {...attributes} 
         {...listeners} 
-        className="h-7 w-7 flex items-center justify-center text-muted-foreground/40 hover:text-foreground cursor-grab active:cursor-grabbing p-1 -m-1"
+        style={{ touchAction: "none" }}
+        className="h-7 w-7 flex items-center justify-center text-muted-foreground/40 hover:text-foreground cursor-grab active:cursor-grabbing p-1 -m-1 touch-none"
       >
         <GripVertical className="h-3.5 w-3.5" />
       </div>
@@ -1003,7 +1013,8 @@ function SortableColumn({
       <div
         {...attributes}
         {...listeners}
-        className="h-7 w-7 flex items-center justify-center text-muted-foreground/40 hover:text-foreground cursor-grab active:cursor-grabbing p-1 -m-1"
+        style={{ touchAction: "none" }}
+        className="h-7 w-7 flex items-center justify-center text-muted-foreground/40 hover:text-foreground cursor-grab active:cursor-grabbing p-1 -m-1 touch-none"
       >
         <GripVertical className="h-3.5 w-3.5" />
       </div>
