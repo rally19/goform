@@ -426,7 +426,15 @@ export function BuilderCanvas({
     const section = sortedSections.find(s => s.id === id);
     const idx = sortedSections.findIndex(s => s.id === id);
     const next = sortedSections[idx + 1] ?? sortedSections[idx - 1];
-    if (next) setCurrentSectionId(next.id);
+    // Refuse to delete the last remaining section — otherwise currentSectionId
+    // is left dangling and the canvas falls into a "no active section" state.
+    if (!next) {
+      toast.error("Can't delete the only section", {
+        description: "Add another section first, then delete this one.",
+      });
+      return;
+    }
+    setCurrentSectionId(next.id);
     fields.filter(f => f.sectionId === id).forEach(f => collabRemoveField(f.id));
     collabRemoveSection(id);
     toast.success("Section deleted", {

@@ -77,6 +77,12 @@ export function useFormCollaboration({
     const list = storage.get("fields");
     if (typeof index === "number") {
       list.insert(new LiveObject<BuilderField>(field), index);
+      // Reassign orderIndex so subsequent reads (renderer/preview) reflect the
+      // new ordering immediately, without waiting for a Supabase save.
+      for (let i = 0; i < list.length; i++) {
+        const f = list.get(i) as LiveObject<BuilderField>;
+        if (f.get("orderIndex") !== i) f.set("orderIndex", i);
+      }
     } else {
       list.push(new LiveObject<BuilderField>(field));
     }
@@ -87,6 +93,11 @@ export function useFormCollaboration({
     const index = list.findIndex((f) => (f as LiveObject<BuilderField>).get("id") === id);
     if (index !== -1) {
       list.delete(index);
+      // Re-pack orderIndex after removal so there are no holes.
+      for (let i = 0; i < list.length; i++) {
+        const f = list.get(i) as LiveObject<BuilderField>;
+        if (f.get("orderIndex") !== i) f.set("orderIndex", i);
+      }
     }
   }, []);
 
@@ -103,6 +114,12 @@ export function useFormCollaboration({
   const reorderFields = useMutation(({ storage }, from: number, to: number) => {
     const list = storage.get("fields");
     list.move(from, to);
+    // Reassign orderIndex so consumers that sort by it (e.g. the renderer) see
+    // the new order immediately, without waiting for a Supabase save.
+    for (let i = 0; i < list.length; i++) {
+      const f = list.get(i) as LiveObject<BuilderField>;
+      if (f.get("orderIndex") !== i) f.set("orderIndex", i);
+    }
   }, []);
 
   const addSection = useMutation(({ storage }, section: BuilderSection) => {

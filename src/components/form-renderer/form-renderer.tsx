@@ -82,6 +82,15 @@ type RendererPage = {
   fields: FormField[];
 };
 
+// Default dynamic state for fields the engine hasn't yet computed (or unknown ids).
+// Hoisted so referential equality is stable across renders.
+const DEFAULT_DYNAMIC_STATE: FieldDynamicState = Object.freeze({
+  visible: true,
+  enabled: true,
+  required: false,
+  masked: false,
+}) as FieldDynamicState;
+
 function groupIntoPages(fields: FormField[], sections?: BuilderSection[]): RendererPage[] {
   const sortedSections = sections && sections.length > 0
     ? [...sections].sort((a, b) => a.orderIndex - b.orderIndex)
@@ -117,14 +126,18 @@ function groupIntoPages(fields: FormField[], sections?: BuilderSection[]): Rende
           currentChunk.push(field);
         }
       }
-      pages.push({
-        sectionId: section.id,
-        sectionName: firstChunk ? section.name : undefined,
-        sectionDescription: firstChunk ? section.description : undefined,
-        sectionType: section.type ?? "next",
-        nextSectionId: section.nextSectionId,
-        fields: currentChunk,
-      });
+      // Only push the trailing chunk if it has fields, OR if this is the
+      // section's first/only chunk (so empty/header-only sections still appear).
+      if (currentChunk.length > 0 || firstChunk) {
+        pages.push({
+          sectionId: section.id,
+          sectionName: firstChunk ? section.name : undefined,
+          sectionDescription: firstChunk ? section.description : undefined,
+          sectionType: section.type ?? "next",
+          nextSectionId: section.nextSectionId,
+          fields: currentChunk,
+        });
+      }
     }
     return pages.length > 0 ? pages : [{ fields: [] }];
   }
@@ -169,7 +182,9 @@ function StarRating({
             type="button"
             onClick={() => {
               if (!required && value === num) {
-                onChange(0);
+                // Use null so logic operators (`is empty`) and validation agree;
+                // 0 is otherwise a valid star count for some configurations.
+                onChange(null as unknown as number);
               } else {
                 onChange(num);
               }
@@ -840,7 +855,10 @@ function FieldRenderer({
                 value={opt.value} 
                 id={`${field.id}-${opt.value}`}
                 disabled={disabled}
-                onClick={(e) => {
+                onClick={() => {
+                  // Allow clearing a non-required radio by clicking the selected option again.
+                  // Handled here only — the Label forwards click via htmlFor and would
+                  // otherwise fire onChange twice.
                   if (!field.required && value === opt.value) {
                     onChange("");
                   }
@@ -849,13 +867,6 @@ function FieldRenderer({
               <Label 
                 htmlFor={`${field.id}-${opt.value}`} 
                 className="cursor-pointer font-normal flex-1"
-                onClick={(e) => {
-                  // Standard behavior selects it; if already selected and not required, unselect it.
-                  if (!field.required && value === opt.value) {
-                    e.preventDefault();
-                    onChange("");
-                  }
-                }}
               >
                 <div 
                   className="prose-sm max-w-full [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-md"
@@ -1264,30 +1275,44 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
   );
   const dynamicStates = engineResult.states;
 
+  // Track which fields are currently driven by a `set_value` rule, so we can
+  // *clear* them when the rule stops matching (otherwise the previously-set
+  // value is sticky and would be submitted).
+  const overriddenFieldsRef = useRef<Set<string>>(new Set());
+
   // Apply set_value overrides to answers so they reflect in the UI
   useEffect(() => {
-    const patch: Record<string, FormAnswer> = {};
-    for (const [id, state] of Object.entries(dynamicStates)) {
-      if (state.overriddenValue !== undefined && answers[id] !== state.overriddenValue) {
-        patch[id] = state.overriddenValue as FormAnswer;
+    setAnswers((prev) => {
+      let changed = false;
+      const next: Record<string, FormAnswer> = { ...prev };
+      const stillOverridden = new Set<string>();
+
+      for (const [id, state] of Object.entries(dynamicStates)) {
+        if (state.overriddenValue !== undefined) {
+          stillOverridden.add(id);
+          if (next[id] !== state.overriddenValue) {
+            next[id] = state.overriddenValue as FormAnswer;
+            changed = true;
+          }
+        }
       }
-    }
-    if (Object.keys(patch).length > 0) {
-      setAnswers((prev) => ({ ...prev, ...patch }));
-    }
-    // answers intentionally excluded from deps: we want to sync only when
-    // dynamicStates change, not when the user edits a non-overridden field.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+      // Any field that *was* overridden last cycle but isn't anymore: clear it
+      // so submissions don't carry a stale machine-written value.
+      for (const id of overriddenFieldsRef.current) {
+        if (!stillOverridden.has(id) && id in next) {
+          delete next[id];
+          changed = true;
+        }
+      }
+      overriddenFieldsRef.current = stillOverridden;
+      return changed ? next : prev;
+    });
   }, [dynamicStates]);
 
   const getDynamicState = useCallback(
     (fieldId: string): FieldDynamicState =>
-      dynamicStates[fieldId] ?? {
-        visible: true,
-        enabled: true,
-        required: false,
-        masked: false,
-      },
+      dynamicStates[fieldId] ?? DEFAULT_DYNAMIC_STATE,
     [dynamicStates]
   );
   
@@ -1356,7 +1381,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
     let firstErrorFieldId = null;
 
     for (const field of currentFields as FormField[]) {
-      if (["section", "page_break", "paragraph", "divider"].includes(field.type)) continue;
+      if (["section", "page_break", "paragraph", "divider", "video"].includes(field.type)) continue;
       
       const error = validateField(field.id, answers[field.id]);
       if (error) {
@@ -1601,6 +1626,18 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
       setSubmitted(true);
       await db.progress.delete(form.id);
     } else {
+      // Clean up uploaded files so we don't leave orphaned storage objects
+      // (which would still count against the form owner's quota).
+      if (uploadStats.length > 0) {
+        try {
+          await supabase.storage
+            .from("form-uploads")
+            .remove(uploadStats.map((u) => u.path));
+        } catch (cleanupErr) {
+          console.warn("Failed to clean up uploaded files after submit error", cleanupErr);
+        }
+      }
+
       if (mode === "preview") {
         toast.error(result.error ?? "Submission failed");
       } else {
@@ -1833,8 +1870,10 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
                 field={field}
                 value={answers[field.id] ?? null}
                 onChange={(v) => {
-                  setAnswers((prev) => ({ ...prev, [field.id]: v }));
-                  
+                  // Skip if value is referentially equal (avoids re-running the
+                  // logic engine on no-op setStates, e.g. retyping the same digit).
+                  setAnswers((prev) => (prev[field.id] === v ? prev : { ...prev, [field.id]: v }));
+
                   // Real-time validation
                   const error = validateField(field.id, v);
                   setErrors((prev) => {
@@ -1851,7 +1890,9 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
                   }
                 }}
                 accentColor={accentColor}
-                disabled={!state.enabled}
+                // Disable input while a set_value rule is actively driving this
+                // field, so the user and the engine don't fight over the value.
+                disabled={!state.enabled || state.overriddenValue !== undefined}
                 masked={state.masked}
                 error={errors[field.id]}
               />

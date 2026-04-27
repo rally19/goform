@@ -3,13 +3,134 @@
 import { db } from "@/db";
 import { forms, formFields, formResponses, assets } from "@/db/schema";
 import { createClient } from "@/lib/server";
-import { eq, desc, and, count, sql, gte, isNull, isNotNull, sum } from "drizzle-orm";
+import { eq, desc, and, count, sql, gt, gte, isNull, isNotNull, sum } from "drizzle-orm";
 import { enforceFormAccess } from "./forms";
-import type { ActionResult, FormAnswer, FormAnalytics, ResponseRow, FieldType } from "@/lib/form-types";
+import type { ActionResult, FormAnswer, FormAnalytics, ResponseRow, FieldType, BuilderField, LogicRule } from "@/lib/form-types";
+import { evaluateLogic, isAnswerEmpty } from "@/lib/form-logic";
 
 type FormWithFields = typeof forms.$inferSelect & {
   fields: (typeof formFields.$inferSelect)[];
 };
+
+// ─── Server-side validation ───────────────────────────────────────────────────
+
+/** Field types that don't accept input — never validated. */
+const NON_INPUT_TYPES = new Set([
+  "section", "page_break", "paragraph", "divider", "video",
+]);
+
+/**
+ * Re-runs the logic engine and validates required fields, min/max, lengths,
+ * and patterns server-side. Returns the first error message, or null if OK.
+ *
+ * The client also runs this, but it is not authoritative.
+ */
+function validateAnswersServerSide(
+  form: FormWithFields,
+  answers: Record<string, FormAnswer>,
+): string | null {
+  const builderFields: BuilderField[] = form.fields.map((f) => ({
+    id: f.id,
+    type: f.type as BuilderField["type"],
+    label: f.label,
+    description: f.description ?? undefined,
+    placeholder: f.placeholder ?? undefined,
+    required: f.required,
+    orderIndex: f.orderIndex,
+    options: (f.options as BuilderField["options"]) ?? undefined,
+    validation: (f.validation as BuilderField["validation"]) ?? undefined,
+    properties: (f.properties as BuilderField["properties"]) ?? undefined,
+    sectionId: f.sectionId ?? undefined,
+  }));
+
+  const rules = (form.logic ?? []) as unknown as LogicRule[];
+  const { states } = evaluateLogic(builderFields, rules, answers);
+
+  for (const f of builderFields) {
+    if (NON_INPUT_TYPES.has(f.type)) continue;
+    const state = states[f.id] ?? { visible: true, enabled: true, required: f.required, masked: false };
+    // Hidden / disabled fields don't need to satisfy required (matches the
+    // client's behaviour and avoids false rejections from skip-to-section flows).
+    if (!state.visible || !state.enabled) continue;
+
+    const value = answers[f.id];
+
+    // Required
+    if (state.required) {
+      if (f.type === "radio_grid" || f.type === "checkbox_grid") {
+        const rows = (f.options ?? []) as { value: string }[];
+        const grid = (value && typeof value === "object" && !Array.isArray(value))
+          ? value as Record<string, string | string[]>
+          : {};
+        for (const row of rows) {
+          const v = grid[row.value];
+          if (v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0)) {
+            return `"${f.label}": all rows are required`;
+          }
+        }
+      } else if (isAnswerEmpty(value)) {
+        return `"${f.label}" is required`;
+      } else if (f.type === "rating" && value === 0) {
+        return `"${f.label}" is required`;
+      }
+    }
+
+    if (isAnswerEmpty(value)) continue;
+
+    const v = f.validation ?? {};
+
+    // Length checks (text-ish fields)
+    if (typeof value === "string") {
+      if (typeof v.minLength === "number" && value.length < v.minLength) {
+        return `"${f.label}" must be at least ${v.minLength} characters`;
+      }
+      if (typeof v.maxLength === "number" && value.length > v.maxLength) {
+        return `"${f.label}" must be at most ${v.maxLength} characters`;
+      }
+      if (v.pattern) {
+        try {
+          if (!new RegExp(v.pattern).test(value)) {
+            return `"${f.label}" has an invalid format`;
+          }
+        } catch {
+          // bad pattern in the form definition — skip silently
+        }
+      }
+    }
+
+    // Numeric / scale / rating range
+    if (f.type === "number" || f.type === "scale" || f.type === "rating") {
+      const n = Number(value as string | number);
+      if (!Number.isFinite(n)) {
+        return `"${f.label}" must be a number`;
+      }
+      if (typeof v.min === "number" && n < v.min) {
+        return `"${f.label}" must be ≥ ${v.min}`;
+      }
+      if (typeof v.max === "number" && n > v.max) {
+        return `"${f.label}" must be ≤ ${v.max}`;
+      }
+    }
+
+    // Choice answers must come from the declared option set.
+    if ((f.type === "radio" || f.type === "select") && typeof value === "string") {
+      const allowed = (f.options ?? []).map((o) => o.value);
+      if (allowed.length > 0 && !allowed.includes(value)) {
+        return `"${f.label}" has an unknown option selected`;
+      }
+    }
+    if ((f.type === "checkbox" || f.type === "multi_select" || f.type === "ranking") && Array.isArray(value)) {
+      const allowed = new Set((f.options ?? []).map((o) => o.value));
+      for (const item of value) {
+        if (typeof item === "string" && allowed.size > 0 && !allowed.has(item)) {
+          return `"${f.label}" has an unknown option selected`;
+        }
+      }
+    }
+  }
+
+  return null;
+}
 
 // ─── Submit Form Response ─────────────────────────────────────────────────────
 
@@ -40,17 +161,18 @@ export async function submitFormResponse(
       }
     }
 
-    // Load form to check if accepting responses
+    // Load form + fields together so we can validate server-side
     const form = await db.query.forms.findFirst({
       where: eq(forms.id, formId),
-    });
+      with: { fields: true },
+    }) as FormWithFields | undefined;
 
     if (!form) return { success: false, error: "Form not found" };
 
     let isBypassed = false;
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
     if (metadata?.previewBypass && form.previewBypass) {
-      const supabase = await createClient();
-      const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         try {
           // If the user has viewer access (meaning they can preview), we allow the bypass
@@ -87,36 +209,42 @@ export async function submitFormResponse(
         return { success: false, error: "This form is not yet open for submissions" };
       }
 
-      // Submission limit check
-      if (form.submissionLimitEnabled && form.submissionLimit != null) {
-        if (form.submissionLimitDecremental) {
-          // Decremental mode: use the remaining counter directly
-          const remaining = form.submissionLimitRemaining ?? form.submissionLimit;
-          if (remaining <= 0) {
-            return { success: false, error: "This form has reached its submission limit" };
-          }
-        } else {
-          // Count-existing mode: compare total responses to limit
-          const [{ total }] = await db
-            .select({ total: count(formResponses.id) })
-            .from(formResponses)
-            .where(eq(formResponses.formId, formId));
-          if (total >= form.submissionLimit) {
-            return { success: false, error: "This form has reached its submission limit" };
-          }
+      // Non-decremental limit check (point-in-time; the decremental path is
+      // enforced atomically inside the transaction below to avoid races).
+      if (
+        form.submissionLimitEnabled &&
+        form.submissionLimit != null &&
+        !form.submissionLimitDecremental
+      ) {
+        const [{ total }] = await db
+          .select({ total: count(formResponses.id) })
+          .from(formResponses)
+          .where(eq(formResponses.formId, formId));
+        if (total >= form.submissionLimit) {
+          return { success: false, error: "This form has reached its submission limit" };
         }
       }
     }
 
-    // Check auth if required
+    // Check auth if required (or if oneResponsePerUser is on — otherwise that
+    // toggle is silently a no-op for anonymous submissions).
     let respondentId: string | undefined;
     let respondentEmail: string | undefined;
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (form.requireAuth) {
-      if (!user) return { success: false, error: "Authentication required" };
+    if (form.requireAuth || (!isBypassed && form.oneResponsePerUser)) {
+      if (!user) {
+        return {
+          success: false,
+          error: form.requireAuth
+            ? "Authentication required"
+            : "This form requires sign-in so each respondent can only submit once",
+        };
+      }
+      respondentId = user.id;
+      respondentEmail = user.email ?? undefined;
+    } else if (user) {
+      // Still attribute the response to the user when authenticated, even if
+      // not strictly required — useful for one-response-per-user later.
       respondentId = user.id;
       respondentEmail = user.email ?? undefined;
     }
@@ -132,28 +260,77 @@ export async function submitFormResponse(
       if (existing) return { success: false, error: "You have already submitted a response to this form" };
     }
 
-    const [response] = await db
-      .insert(formResponses)
-      .values({
-        formId,
-        respondentId: respondentId ?? null,
-        respondentEmail: respondentEmail ?? null,
-        answers,
-        metadata: metadata ?? null,
-      })
-      .returning({ id: formResponses.id });
+    // ── Server-side answer validation ───────────────────────────────────────
+    // Drop unknown field IDs, run the logic engine, and enforce required
+    // / min / max / length / pattern. Client-side validation is convenience;
+    // this is the source of truth.
+    const validationError = validateAnswersServerSide(form, answers);
+    if (validationError) {
+      return { success: false, error: validationError };
+    }
 
-    // Decrement remaining counter if in decremental mode
-    if (
-      form.submissionLimitEnabled &&
-      form.submissionLimitDecremental &&
-      form.submissionLimit != null
-    ) {
-      const current = form.submissionLimitRemaining ?? form.submissionLimit;
-      await db
-        .update(forms)
-        .set({ submissionLimitRemaining: Math.max(0, current - 1) })
-        .where(eq(forms.id, formId));
+    // Strip unknown ids so attackers can't smuggle data into the answers JSON.
+    const knownIds = new Set(form.fields.map((f) => f.id));
+    const filteredAnswers: Record<string, FormAnswer> = {};
+    for (const [k, v] of Object.entries(answers)) {
+      if (knownIds.has(k)) filteredAnswers[k] = v;
+    }
+
+    // Insert + decremental limit update happen atomically.
+    let response: { id: string } | undefined;
+    try {
+      response = await db.transaction(async (tx) => {
+        if (
+          !isBypassed &&
+          form.submissionLimitEnabled &&
+          form.submissionLimitDecremental &&
+          form.submissionLimit != null
+        ) {
+          // Atomic decrement: only succeeds while remaining > 0.
+          // COALESCE so first-time forms (remaining=null) seed from the limit.
+          const updated = await tx
+            .update(forms)
+            .set({
+              submissionLimitRemaining: sql`GREATEST(COALESCE(${forms.submissionLimitRemaining}, ${forms.submissionLimit}) - 1, 0)`,
+            })
+            .where(
+              and(
+                eq(forms.id, formId),
+                gt(
+                  sql`COALESCE(${forms.submissionLimitRemaining}, ${forms.submissionLimit})`,
+                  0,
+                ),
+              ),
+            )
+            .returning({ remaining: forms.submissionLimitRemaining });
+
+          if (updated.length === 0) {
+            // Roll back: limit already reached by a concurrent submission.
+            throw new Error("__LIMIT_REACHED__");
+          }
+        }
+
+        const [row] = await tx
+          .insert(formResponses)
+          .values({
+            formId,
+            respondentId: respondentId ?? null,
+            respondentEmail: respondentEmail ?? null,
+            answers: filteredAnswers,
+            metadata: metadata ?? null,
+          })
+          .returning({ id: formResponses.id });
+        return row;
+      });
+    } catch (txErr) {
+      if ((txErr as Error).message === "__LIMIT_REACHED__") {
+        return { success: false, error: "This form has reached its submission limit" };
+      }
+      throw txErr;
+    }
+
+    if (!response) {
+      return { success: false, error: "Failed to create response" };
     }
 
     // Handle uploaded files by inserting them into the assets table

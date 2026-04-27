@@ -568,8 +568,10 @@ export const LOGIC_OPERATOR_META: {
   { operator: "greater_than_or_equal", label: "is ≥", requiresValue: true, appliesTo: ["number", "rating", "scale", "date", "time", "datetime"] },
   { operator: "less_than_or_equal", label: "is ≤", requiresValue: true, appliesTo: ["number", "rating", "scale", "date", "time", "datetime"] },
   { operator: "between", label: "is between", requiresValue: true, requiresSecondValue: true, appliesTo: ["number", "rating", "scale", "date", "time", "datetime"] },
-  { operator: "is_one_of", label: "is one of", requiresValue: true, appliesTo: ["radio", "select", "short_text", "number"] },
-  { operator: "is_none_of", label: "is none of", requiresValue: true, appliesTo: ["radio", "select", "short_text", "number"] },
+  // multi_select / checkbox have array answers; the runtime engine handles them
+  // via asArray(actual). These were previously omitted from the UI dropdown.
+  { operator: "is_one_of", label: "is one of", requiresValue: true, appliesTo: ["radio", "select", "short_text", "number", "multi_select", "checkbox"] },
+  { operator: "is_none_of", label: "is none of", requiresValue: true, appliesTo: ["radio", "select", "short_text", "number", "multi_select", "checkbox"] },
   { operator: "ranked_higher_than", label: "is ranked higher than", requiresValue: true, requiresSecondValue: true, appliesTo: ["ranking"] },
   { operator: "ranked_lower_than", label: "is ranked lower than", requiresValue: true, requiresSecondValue: true, appliesTo: ["ranking"] },
 ];

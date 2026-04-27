@@ -167,10 +167,14 @@ function compareNumeric(a: FormAnswer, b: FormAnswer): number | null {
   return na - nb;
 }
 
+/** Field types whose answer is a {row -> value(s)} object handled by gridRowContains. */
+const GRID_FIELD_TYPES = new Set(["radio_grid", "checkbox_grid"]);
+
 export function evaluateCondition(
   condition: LogicCondition,
   answers: Record<string, FormAnswer>,
   activeSectionId?: string,
+  fieldById?: Map<string, BuilderField>,
 ): boolean {
   // Nav-trigger conditions match when the user clicks Next/Submit on that section
   if (isNavTrigger(condition.fieldId)) {
@@ -179,6 +183,11 @@ export function evaluateCondition(
 
   const actual = answers[condition.fieldId];
   const { operator, value, value2 } = condition;
+  // Only treat the answer as a grid when the source field is actually a grid.
+  // Without this, any future field whose answer is a plain object would be
+  // mis-detected as a grid and produce confusing equality results.
+  const sourceField = fieldById?.get(condition.fieldId);
+  const isGrid = !!sourceField && GRID_FIELD_TYPES.has(sourceField.type);
 
   switch (operator) {
     case "empty":
@@ -187,19 +196,25 @@ export function evaluateCondition(
       return !isAnswerEmpty(actual);
 
     case "equal": {
-      const gridResult = gridRowContains(actual, value ?? null, value2 ?? null);
-      if (gridResult !== null) return gridResult;
+      if (isGrid) {
+        const gridResult = gridRowContains(actual, value ?? null, value2 ?? null);
+        if (gridResult !== null) return gridResult;
+      }
       return normalize(actual) === normalize(value ?? null);
     }
     case "not_equal": {
-      const gridResult = gridRowContains(actual, value ?? null, value2 ?? null);
-      if (gridResult !== null) return !gridResult;
+      if (isGrid) {
+        const gridResult = gridRowContains(actual, value ?? null, value2 ?? null);
+        if (gridResult !== null) return !gridResult;
+      }
       return normalize(actual) !== normalize(value ?? null);
     }
 
     case "contains": {
-      const gridResult = gridRowContains(actual, value ?? null, value2 ?? null);
-      if (gridResult !== null) return gridResult;
+      if (isGrid) {
+        const gridResult = gridRowContains(actual, value ?? null, value2 ?? null);
+        if (gridResult !== null) return gridResult;
+      }
       const needle = String(value ?? "").toLowerCase();
       if (Array.isArray(actual)) {
         return actual.some((item) => String(item).toLowerCase().includes(needle));
@@ -207,8 +222,10 @@ export function evaluateCondition(
       return String(actual ?? "").toLowerCase().includes(needle);
     }
     case "not_contains": {
-      const gridResult = gridRowContains(actual, value ?? null, value2 ?? null);
-      if (gridResult !== null) return !gridResult;
+      if (isGrid) {
+        const gridResult = gridRowContains(actual, value ?? null, value2 ?? null);
+        if (gridResult !== null) return !gridResult;
+      }
       const needle = String(value ?? "").toLowerCase();
       if (Array.isArray(actual)) {
         return !actual.some((item) => String(item).toLowerCase().includes(needle));
@@ -238,8 +255,13 @@ export function evaluateCondition(
       return cmp !== null && cmp <= 0;
     }
     case "between": {
-      const low = compareNumeric(actual, value ?? null);
-      const high = compareNumeric(actual, value2 ?? null);
+      // Normalize bounds so a flipped range (e.g. between 100 and 10) still
+      // works the way the author meant: lo <= actual <= hi.
+      const cmpBounds = compareNumeric(value ?? null, value2 ?? null);
+      const lo = cmpBounds !== null && cmpBounds > 0 ? value2 : value;
+      const hi = cmpBounds !== null && cmpBounds > 0 ? value : value2;
+      const low = compareNumeric(actual, lo ?? null);
+      const high = compareNumeric(actual, hi ?? null);
       return low !== null && high !== null && low >= 0 && high <= 0;
     }
 
@@ -277,16 +299,17 @@ export function evaluateConditionGroup(
   group: LogicConditionGroup,
   answers: Record<string, FormAnswer>,
   activeSectionId?: string,
+  fieldById?: Map<string, BuilderField>,
 ): boolean {
   const combinator = group.combinator ?? "and";
   const results: boolean[] = [];
 
   for (const cond of group.conditions ?? []) {
-    results.push(evaluateCondition(cond, answers, activeSectionId));
+    results.push(evaluateCondition(cond, answers, activeSectionId, fieldById));
   }
 
   for (const sub of group.groups ?? []) {
-    results.push(evaluateConditionGroup(sub, answers, activeSectionId));
+    results.push(evaluateConditionGroup(sub, answers, activeSectionId, fieldById));
   }
 
   if (results.length === 0) return true; // vacuously true — "always match"
@@ -327,11 +350,24 @@ function resolveValue(
   if (src.mode === "copy_field") return answers[src.sourceFieldId ?? ""] ?? null;
 
   if (src.mode === "formula") {
+    let hasMissing = false;
     const expr = (src.formula ?? "").replace(/\{([a-z0-9_-]+)\}/gi, (_, id) => {
       const v = answers[id];
+      // Treat empty / non-numeric inputs as missing so the formula returns
+      // null instead of silently substituting 0 (which masks "no data" as a
+      // real result, e.g. {a}-{b} → 0 when both are empty).
+      if (v === null || v === undefined || v === "") {
+        hasMissing = true;
+        return "0";
+      }
       const n = Number(v);
-      return Number.isFinite(n) ? String(n) : "0";
+      if (!Number.isFinite(n)) {
+        hasMissing = true;
+        return "0";
+      }
+      return String(n);
     });
+    if (hasMissing) return null;
     if (!/^[-+*/().\d\s]+$/.test(expr)) return null;
     try {
       const result = Function(`"use strict"; return (${expr});`)();
@@ -417,7 +453,11 @@ export function evaluateLogic(
   activeSectionId?: string,
 ): EngineResult {
   const states: Record<string, FieldDynamicState> = {};
-  for (const f of fields) states[f.id] = baselineState(f);
+  const fieldById = new Map<string, BuilderField>();
+  for (const f of fields) {
+    states[f.id] = baselineState(f);
+    fieldById.set(f.id, f);
+  }
 
   const warnings: string[] = [];
   let navigation: NavigationOverride | undefined;
@@ -430,7 +470,7 @@ export function evaluateLogic(
     const rule = migrateRule(rawRule);
     let matched = true;
     try {
-      matched = evaluateConditionGroup(rule.conditions, answers, activeSectionId);
+      matched = evaluateConditionGroup(rule.conditions, answers, activeSectionId, fieldById);
     } catch (err) {
       warnings.push(`Rule "${rule.name ?? rule.id}" failed: ${(err as Error).message}`);
       matched = false;
@@ -475,8 +515,12 @@ export function detectLogicIssues(
   const fieldIds = new Set(fields.map((f) => f.id));
   const fieldById = new Map(fields.map((f) => [f.id, f]));
 
-  // Per-target action tally for conflict detection
-  const actionsByTarget = new Map<string, Set<LogicAction>>();
+  // Per-rule, per-target action tally. We only flag intra-rule conflicts —
+  // mutually exclusive actions between *different* rules are usually
+  // intentional (e.g. "show when X" and "hide when not X") and would otherwise
+  // produce noisy false-positive warnings on every well-built form.
+  type RuleTargetKey = `${string}::${string}`;
+  const actionsByRuleTarget = new Map<RuleTargetKey, { actions: Set<LogicAction>; ruleName: string }>();
 
   for (const rawRule of rules) {
     const rule = migrateRule(rawRule);
@@ -544,8 +588,16 @@ export function detectLogicIssues(
                 message: `Field "${targetField.label}" (${targetField.type}) cannot be targeted by ${actionLabel(ruleAction.action)}`,
               });
             }
-            if (!actionsByTarget.has(t)) actionsByTarget.set(t, new Set());
-            actionsByTarget.get(t)!.add(ruleAction.action);
+            const key = `${rule.id}::${t}` as RuleTargetKey;
+            const entry = actionsByRuleTarget.get(key);
+            if (entry) {
+              entry.actions.add(ruleAction.action);
+            } else {
+              actionsByRuleTarget.set(key, {
+                actions: new Set([ruleAction.action]),
+                ruleName,
+              });
+            }
           }
         }
       }
@@ -599,20 +651,23 @@ export function detectLogicIssues(
     }
   }
 
-  // Conflicting actions on the same target
-  for (const [targetId, actions] of actionsByTarget.entries()) {
-    for (const action of actions) {
+  // Conflicting actions on the same target inside the same rule.
+  for (const [key, entry] of actionsByRuleTarget.entries()) {
+    const targetId = key.split("::")[1];
+    for (const action of entry.actions) {
       const meta = LOGIC_ACTION_META.find((m) => m.action === action);
       if (!meta) continue;
       for (const conflict of meta.conflictsWith) {
-        if (actions.has(conflict)) {
+        if (entry.actions.has(conflict)) {
           const field = fieldById.get(targetId);
           issues.push({
             severity: "warning",
             fieldId: targetId,
-            message: `Field "${field?.label ?? targetId.slice(0, 6)}" is targeted by conflicting rules (${meta.label} vs ${
+            message: `Rule "${entry.ruleName}" applies conflicting actions to "${
+              field?.label ?? targetId.slice(0, 6)
+            }" (${meta.label} vs ${
               LOGIC_ACTION_META.find((m) => m.action === conflict)?.label ?? conflict
-            }). Later-defined rule wins.`,
+            }). Later-applied action wins.`,
           });
           break;
         }
