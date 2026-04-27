@@ -478,6 +478,11 @@ function RankingField({
 }) {
   const options = (field.options ?? []) as { label: string; value: string }[];
 
+  // The user has "started ranking" only when the answer is a non-empty array.
+  // Until then we show a Start button so required-validation can detect non-engagement
+  // and so submissions that weren't started serialize as empty.
+  const hasStarted = Array.isArray(value) && (value as string[]).length > 0;
+
   // Compute the ordered list of option values from the stored answer,
   // appending any options that haven't been ranked yet (in their default order).
   const order = useMemo(() => {
@@ -512,33 +517,93 @@ function RankingField({
 
   return (
     <div className="space-y-2">
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext items={order} strategy={verticalListSortingStrategy}>
-          <div className="space-y-2">
-            {order.map((optValue, idx) => {
-              const opt = options.find((o) => o.value === optValue);
-              if (!opt) return null;
-              return (
-                <SortableRankingItem
-                  key={optValue}
-                  id={optValue}
-                  rank={idx + 1}
-                  label={opt.label}
-                  accentColor={accentColor}
-                  disabled={disabled}
-                />
-              );
-            })}
-          </div>
-        </SortableContext>
-      </DndContext>
-      <p className="text-[11px] text-muted-foreground">
-        Drag items to rank them — top is 1st place.
-      </p>
+      {hasStarted ? (
+        <DndContext
+          id={`ranking-${field.id}`}
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={order} strategy={verticalListSortingStrategy}>
+            <div className="space-y-2">
+              {order.map((optValue, idx) => {
+                const opt = options.find((o) => o.value === optValue);
+                if (!opt) return null;
+                return (
+                  <SortableRankingItem
+                    key={optValue}
+                    id={optValue}
+                    rank={idx + 1}
+                    label={opt.label}
+                    accentColor={accentColor}
+                    disabled={disabled}
+                  />
+                );
+              })}
+            </div>
+          </SortableContext>
+        </DndContext>
+      ) : (
+        <div className="space-y-2 opacity-60 pointer-events-none">
+          {options.map((opt) => (
+            <div
+              key={opt.value}
+              className="flex items-center gap-3 rounded-md border border-dashed bg-muted/30 p-3"
+            >
+              <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/40" />
+              <span className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold shrink-0 bg-muted text-muted-foreground">
+                –
+              </span>
+              <SafeHtml
+                className="prose-sm max-w-full flex-1 [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-md preserve-spaces"
+                html={opt.label}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Action row — fixed structure in both states to prevent layout shift */}
+      <div className="flex items-center justify-between gap-2 min-h-8">
+        <p className="text-[11px] text-muted-foreground">
+          {hasStarted
+            ? "Drag items to rank them — top is 1st place."
+            : field.required
+              ? "Click to begin ranking — top is 1st place."
+              : "Click to begin ranking, or leave unranked to skip."}
+        </p>
+        <div className="shrink-0">
+          {hasStarted ? (
+            !field.required && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={disabled}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => onChange(null)}
+                className="h-7 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5 mr-1" />
+                Clear ranking
+              </Button>
+            )
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={disabled}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => onChange(options.map((o) => o.value))}
+              className="h-7 text-xs"
+              style={{ borderColor: accentColor, color: accentColor }}
+            >
+              Start ranking
+            </Button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

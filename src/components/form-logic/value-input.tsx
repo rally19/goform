@@ -85,7 +85,7 @@ export function ValueInput({ field, operator, value, onChange, placeholder, rowV
   }
 
   // Choice-style fields with a known option set
-  if (field && ["radio", "select"].includes(field.type) && !isListOperator) {
+  if (field && ["radio", "select", "ranking"].includes(field.type) && !isListOperator) {
     return (
       <Select
         value={value != null ? String(value) : ""}
@@ -108,7 +108,7 @@ export function ValueInput({ field, operator, value, onChange, placeholder, rowV
     );
   }
 
-  if (field && ["checkbox", "multi_select", "ranking"].includes(field.type) && !isListOperator) {
+  if (field && ["checkbox", "multi_select"].includes(field.type) && !isListOperator) {
     const current = Array.isArray(value) ? (value as string[]) : [];
     return (
       <MultiSelect

@@ -254,6 +254,20 @@ export function evaluateCondition(
       return !actualItems.some((item) => set.includes(item));
     }
 
+    case "ranked_higher_than":
+    case "ranked_lower_than": {
+      // value = option A, value2 = option B. "Higher" = closer to rank 1 = lower index.
+      if (!Array.isArray(actual)) return false;
+      const order = (actual as unknown[]).map((v) => String(v).toLowerCase());
+      const a = String(value ?? "").toLowerCase();
+      const b = String(value2 ?? "").toLowerCase();
+      if (!a || !b) return false;
+      const ai = order.indexOf(a);
+      const bi = order.indexOf(b);
+      if (ai === -1 || bi === -1) return false;
+      return operator === "ranked_higher_than" ? ai < bi : ai > bi;
+    }
+
     default:
       return false;
   }

@@ -250,7 +250,7 @@ function ConditionRow({
                 </div>
                 {needsSecondValue && !isGrid && (
                   <>
-                    <span className="text-xs text-muted-foreground self-center">and</span>
+                    <span className="text-xs text-muted-foreground self-center">{condition.operator === "ranked_higher_than" || condition.operator === "ranked_lower_than" ? "than" : "and"}</span>
                     <div className="flex-1 min-w-0">
                       <ValueInput
                         field={selectedField}

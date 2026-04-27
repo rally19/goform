@@ -458,7 +458,9 @@ export type LogicOperator =
   | "less_than_or_equal"
   | "between"
   | "is_one_of"
-  | "is_none_of";
+  | "is_none_of"
+  | "ranked_higher_than"
+  | "ranked_lower_than";
 
 export interface LogicCondition {
   id: string;
@@ -568,6 +570,8 @@ export const LOGIC_OPERATOR_META: {
   { operator: "between", label: "is between", requiresValue: true, requiresSecondValue: true, appliesTo: ["number", "rating", "scale", "date", "time", "datetime"] },
   { operator: "is_one_of", label: "is one of", requiresValue: true, appliesTo: ["radio", "select", "short_text", "number"] },
   { operator: "is_none_of", label: "is none of", requiresValue: true, appliesTo: ["radio", "select", "short_text", "number"] },
+  { operator: "ranked_higher_than", label: "is ranked higher than", requiresValue: true, requiresSecondValue: true, appliesTo: ["ranking"] },
+  { operator: "ranked_lower_than", label: "is ranked lower than", requiresValue: true, requiresSecondValue: true, appliesTo: ["ranking"] },
 ];
 
 // ─── Section Types ────────────────────────────────────────────────────────────
