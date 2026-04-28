@@ -13,6 +13,7 @@ const TITLES: Record<string, string> = {
   "branding": "Design & Customization",
   "integrations": "Integrations",
   "api-reference": "API & Developer Tools",
+  "workflow-automation": "Workflow Automation",
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

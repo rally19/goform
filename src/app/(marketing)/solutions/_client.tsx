@@ -13,7 +13,7 @@ const SOLUTIONS = [
     description: "Convert visitors into customers with high-performance forms designed for speed and completion.",
     icon: Target,
     color: "bg-blue-500",
-    features: ["A/B Testing", "Email Notifications", "CRM Integrations"]
+    features: ["Conditional Logic", "Email Notifications", "Custom Redirects"]
   },
   {
     id: "customer-feedback",
@@ -21,7 +21,7 @@ const SOLUTIONS = [
     description: "Listen to your users and gather actionable insights with NPS, CSAT, and open-ended surveys.",
     icon: MessageSquare,
     color: "bg-emerald-500",
-    features: ["Sentiment Analysis", "Anonymous Submissions", "Real-time Alerts"]
+    features: ["Anonymous Submissions", "Submission Limits", "Export to PDF/XLSX"]
   },
   {
     id: "internal-workflows",
@@ -29,7 +29,7 @@ const SOLUTIONS = [
     description: "Streamline operations with internal request forms, approval flows, and automated notifications.",
     icon: Zap,
     color: "bg-amber-500",
-    features: ["Multi-page Logic", "File Uploads", "Role-based Access"]
+    features: ["Multi-page Logic", "File Uploads", "5 Team Roles"]
   },
   {
     id: "event-registration",
@@ -37,7 +37,7 @@ const SOLUTIONS = [
     description: "Manage event sign-ups, ticket types, and attendee data with ease and security.",
     icon: Users,
     color: "bg-purple-500",
-    features: ["Capacity Limits", "Confirmation Emails", "Data Export"]
+    features: ["Capacity Limits", "QR Code Sharing", "CSV/XLSX Export"]
   }
 ];
 

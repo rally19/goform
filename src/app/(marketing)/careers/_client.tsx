@@ -4,6 +4,7 @@ import * as React from "react";
 import { motion } from "framer-motion";
 import { Rocket, Heart, Globe, Zap, Coffee, Monitor } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 const BENEFITS = [
   { title: "Remote First", icon: Globe, desc: "Work from anywhere in the world. We believe in results, not office hours." },
@@ -71,12 +72,14 @@ export default function CareersPageClient() {
             <div className="max-w-4xl mx-auto rounded-[3rem] bg-card border border-border p-12 md:p-20 text-center space-y-8">
                <h2 className="text-3xl md:text-5xl font-bold">Open Positions</h2>
                <p className="text-muted-foreground text-xl leading-relaxed">
-                  We don't have any open roles at the moment, but we're always looking for talented people. Send us your resume and we'll keep you in mind for future openings.
+                  We do not have any open roles at the moment, but we are always interested in meeting talented people. Reach out through our contact page and we will keep you in mind for future openings.
                </p>
                <div className="pt-8">
-                  <Button size="lg" className="h-14 px-10 text-lg font-bold">
-                     Send Your Resume
-                  </Button>
+                  <Link href="/contact">
+                    <Button size="lg" className="h-14 px-10 text-lg font-bold">
+                       Get in Touch
+                    </Button>
+                  </Link>
                </div>
             </div>
          </div>

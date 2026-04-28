@@ -5,43 +5,80 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Layout, BarChart3, Zap, Shield, Sparkles, Rocket, Globe, MousePointer2, Smartphone, Cpu, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const FEATURES = [
   {
     title: "Visual Form Builder",
-    description: "Build complex multi-page forms without writing code. Use our intuitive editor with 20+ field types to create beautiful interfaces in minutes.",
+    slug: "form-builder",
+    description: "Build complex multi-page forms without writing code. Use our intuitive editor with 24 field types to create beautiful interfaces in minutes.",
     icon: Layout,
     color: "text-blue-500",
+    bullets: [
+      "24 field types including file uploads, ratings, and grids",
+      "Drag-and-drop reordering with live preview",
+      "Sections, page breaks, and rich text descriptions"
+    ]
   },
   {
     title: "Insightful Analytics",
+    slug: "analytics",
     description: "Watch submissions roll in and see how your forms are performing with daily trends and field-level distribution charts.",
     icon: BarChart3,
     color: "text-emerald-500",
+    bullets: [
+      "Daily submission volume trends",
+      "Field-level choice and rating distributions",
+      "Average completion time tracking"
+    ]
   },
   {
     title: "Smart Logic & Branching",
+    slug: "logic-branching",
     description: "Create smart forms that react to user input. Use conditional visibility and mathematical formulas to personalize every experience.",
     icon: Zap,
     color: "text-amber-500",
+    bullets: [
+      "Conditional show/hide based on prior answers",
+      "Mathematical formula support for dynamic values",
+      "Skip logic and section branching"
+    ]
   },
   {
     title: "Team Collaboration",
+    slug: "collaboration",
     description: "Work together in real-time with cursor presence and synchronized edits. Perfect for modern, distributed teams.",
     icon: Users,
     color: "text-blue-600",
+    bullets: [
+      "Live cursors and multi-user presence",
+      "Synchronized field editing in real time",
+      "Organization workspaces with role-based access"
+    ]
   },
   {
     title: "Organization Management",
-    description: "Scale your workflow with multiple organizations and workspaces. Manage team permissions with granular roles.",
+    slug: "organizations",
+    description: "Scale your workflow with multiple organizations and workspaces. Manage team permissions with 5 granular roles.",
     icon: Globe,
     color: "text-purple-500",
+    bullets: [
+      "5 roles: owner, manager, admin, editor, viewer",
+      "Email invites with token-based acceptance",
+      "Workspace-scoped forms and assets"
+    ]
   },
   {
-    title: "Developer-First API",
-    description: "Integrate form data into your own applications. Access your responses programmatically via secure API keys.",
+    title: "Developer API",
+    slug: "api-reference",
+    description: "Integrate form data into your own applications. Access responses programmatically via hashed API keys with usage tracking.",
     icon: Cpu,
     color: "text-indigo-500",
+    bullets: [
+      "Secure API keys with prefix and last-used tracking",
+      "Programmatic response retrieval",
+      "Webhook support planned for v1.1"
+    ]
   },
 ];
 
@@ -72,9 +109,9 @@ export default function FeaturesPageClient() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <Link href="/features">
+            <Link href="/login">
               <Button size="lg" className="h-14 px-10 text-lg font-bold">
-                Explore All Features
+                Start Building Now
               </Button>
             </Link>
           </motion.div>
@@ -98,18 +135,14 @@ export default function FeaturesPageClient() {
                   {feature.description}
                 </p>
                 <div className="pt-4 space-y-4">
-                  {[
-                    "Industry leading performance",
-                    "Built-in security best practices",
-                    "Fully customizable workflows"
-                  ].map((item) => (
+                  {feature.bullets.map((item) => (
                     <div key={item} className="flex items-center gap-3">
                        <div className="h-2 w-2 rounded-full bg-primary" />
                        <span className="font-medium">{item}</span>
                     </div>
                   ))}
                 </div>
-                <Link href={`/resources/${feature.title.toLowerCase().replace(/ /g, "-")}`}>
+                <Link href={`/resources/${feature.slug}`}>
                    <Button variant="link" className="px-0 text-lg text-primary font-bold mt-4">
                       Learn more about {feature.title} →
                    </Button>
@@ -180,6 +213,3 @@ export default function FeaturesPageClient() {
   );
 }
 
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(" ");
-}

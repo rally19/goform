@@ -5,8 +5,6 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ShieldCheck, Zap, Users, Globe2, MessageSquare, Headphones, Lock, CheckCircle2, Server, Key } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 
 const ENTERPRISE_FEATURES = [
   {
@@ -25,13 +23,13 @@ const ENTERPRISE_FEATURES = [
     icon: Globe2,
   },
   {
-    title: "API-First Workflow",
-    description: "Connect your form data to your internal tools via our secure and performant API.",
+    title: "API & Integrations",
+    description: "Internal API keys for programmatic access today, with public API docs and webhooks coming in v1.1.",
     icon: Zap,
   },
   {
     title: "Asset Centralization",
-    description: "Manage all your organization's files, images, and documents in one secure repository.",
+    description: "Manage all your organization's files, images, and documents in one secure repository with Supabase Storage.",
     icon: Server,
   },
   {

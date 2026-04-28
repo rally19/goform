@@ -59,7 +59,7 @@ const TOPICS = [
   },
   {
     title: "Workflow Automation",
-    slug: "logic-branching",
+    slug: "workflow-automation",
     description: "Automate your data collection and connect your forms to the services you use.",
     icon: Zap,
     count: 9,
@@ -110,10 +110,12 @@ export default function ResourcesPageClient() {
             <BookOpen className="h-6 w-6 text-primary" />
             Browse by Topic
           </h2>
-          <Button variant="ghost" className="text-primary hover:text-primary/80">
-            View all articles
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
+          <Link href="/support">
+            <Button variant="ghost" className="text-primary hover:text-primary/80">
+              View all articles
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ChevronLeft, Layout, BarChart3, Puzzle, Shield, Sparkles, Rocket, CheckCircle2, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const CONTENT = {
   "form-builder": {
@@ -34,7 +35,7 @@ const CONTENT = {
       "Detailed field-level breakdown stats",
       "Average completion time tracking",
       "Choice and rating distribution charts",
-      "Export to CSV or JSON formats"
+      "Export to CSV, XLSX, or PDF formats"
     ],
     detailedContent: "Knowing how many people filled out your form is only the beginning. You need to know the average time it takes to complete and see exactly how your respondents are answering specific questions. Our analytics work automatically without any extra setup."
   },
@@ -93,10 +94,40 @@ const CONTENT = {
       "Full API access with hashed keys",
       "Real-time collaboration for teams",
       "Programmatic response retrieval",
-      "Data export to CSV and JSON",
+      "Data export to CSV, XLSX, and PDF",
       "Webhooks and Zapier (Coming Soon)"
     ],
     detailedContent: "Collecting data is just the beginning. Our API allows you to integrate form responses directly into your own applications or internal tools. Collaborate with your team in real-time as you build and manage your forms."
+  },
+  "api-reference": {
+    title: "API & Developer Tools",
+    subtitle: "Build custom integrations and extend FormTo.Link.",
+    icon: Rocket,
+    color: "bg-violet-500",
+    description: "Secure API keys, programmatic access, and developer-friendly tools to extend FormTo.Link into your own stack.",
+    features: [
+      "Hashed API keys with prefix tracking",
+      "Programmatic response retrieval",
+      "Secure key storage with last-used timestamps",
+      "Webhook support planned for v1.1",
+      "Full developer documentation"
+    ],
+    detailedContent: "Our developer tools give you the power to build custom integrations. Every API key is hashed for security, and you can track usage with last-used timestamps. Webhook support is on the roadmap for v1.1, bringing real-time event-driven automation to your workflows."
+  },
+  "workflow-automation": {
+    title: "Workflow Automation",
+    subtitle: "Automate your data collection pipeline.",
+    icon: Puzzle,
+    color: "bg-cyan-500",
+    description: "Connect your forms to the rest of your stack and automate repetitive tasks with conditional logic and scheduled actions.",
+    features: [
+      "Conditional logic and branching rules",
+      "Custom redirect URLs on completion",
+      "Submission limit and schedule windows",
+      "Auto-save and collaboration sync",
+      "Webhook support planned for v1.1"
+    ],
+    detailedContent: "Workflow automation turns your forms into active participants in your business processes. Use conditional logic to route respondents to different outcomes, set submission limits for capacity planning, and schedule forms to open and close automatically."
   }
 };
 
@@ -169,9 +200,11 @@ export default function FeatureDetailPageClient() {
                   </div>
                 ))}
               </div>
-              <Button className="w-full mt-8 bg-primary h-12 text-lg font-bold">
-                Try it yourself
-              </Button>
+              <Link href="/login" className="w-full">
+                <Button className="w-full mt-8 bg-primary h-12 text-lg font-bold">
+                  Try it yourself
+                </Button>
+              </Link>
             </motion.div>
           </div>
         </div>
@@ -199,16 +232,20 @@ export default function FeatureDetailPageClient() {
                 Join the modern organizations using FormTo.Link to power their data collection and workflows.
              </p>
              <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-                <Button size="lg" variant="secondary" className="px-8 font-bold text-primary">Get Started Now</Button>
-                <Button size="lg" variant="outline" className="px-8 border-white/20 hover:bg-white/10 text-white">Contact Sales</Button>
+                <Link href="/login">
+                  <Button size="lg" variant="secondary" className="px-8 font-bold text-primary">Get Started Now</Button>
+                </Link>
+                <Link href="/contact">
+                  <Button size="lg" variant="outline" className="px-8 border-white/20 hover:bg-white/10 text-white">Contact Sales</Button>
+                </Link>
              </div>
           </div>
 
           <div className="pt-12 flex items-center justify-between border-t border-border">
              <div className="space-y-1">
-                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Next Feature</p>
-                <Link href="#" className="text-xl font-bold hover:text-primary transition-colors flex items-center gap-2">
-                   Check out Analytics
+                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Explore More</p>
+                <Link href="/resources" className="text-xl font-bold hover:text-primary transition-colors flex items-center gap-2">
+                   Browse all resources
                    <ArrowRight className="h-5 w-5" />
                 </Link>
              </div>
@@ -219,6 +256,3 @@ export default function FeatureDetailPageClient() {
   );
 }
 
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(" ");
-}

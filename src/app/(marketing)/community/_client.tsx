@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Users, MessageCircle, Globe, Star, Heart, Lightbulb } from "lucide-react";
 import * as icons from "simple-icons";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 function SimpleIcon({ icon, className }: { icon: icons.SimpleIcon; className?: string }) {
   return (
@@ -25,28 +26,28 @@ const COMMUNITY_CHANNELS = [
     title: "Community Forum", 
     icon: (props: any) => <Globe {...props} />, 
     desc: "Join our official forum to ask questions, share your forms, and get feedback from the community.",
-    link: "#",
+    link: "/contact",
     color: "bg-blue-500"
   },
   { 
     title: "Discord Server", 
     icon: (props: any) => <SimpleIcon icon={icons.siDiscord} {...props} />, 
     desc: "Chat in real-time with other FormTo.Link users and our engineering team.",
-    link: "#",
+    link: "/support",
     color: "bg-indigo-500"
   },
   { 
     title: "Twitter / X", 
     icon: (props: any) => <SimpleIcon icon={icons.siX} {...props} />, 
     desc: "Follow us for the latest updates, tips, and feature announcements.",
-    link: "#",
+    link: "/support",
     color: "bg-sky-500"
   },
   { 
     title: "Feedback & Requests", 
     icon: (props: any) => <Lightbulb {...props} />, 
     desc: "Help us shape the future of FormTo.Link by submitting and voting on new features.",
-    link: "#",
+    link: "/contact",
     color: "bg-amber-500"
   },
 ];
@@ -102,9 +103,11 @@ export default function CommunityPageClient() {
                 <p className="text-muted-foreground text-lg leading-relaxed">
                   {channel.desc}
                 </p>
-                <Button variant="link" className="px-0 text-primary font-bold text-lg">
-                   Join Channel →
-                </Button>
+                <Link href={channel.link}>
+                  <Button variant="link" className="px-0 text-primary font-bold text-lg">
+                     Join Channel →
+                  </Button>
+                </Link>
               </div>
             </motion.div>
           ))}
@@ -122,13 +125,13 @@ export default function CommunityPageClient() {
             <div className="flex gap-4">
                <div className="flex flex-col items-center p-8 rounded-3xl bg-white/10 backdrop-blur-md border border-white/20">
                   <Star className="h-10 w-10 mb-4 text-amber-400 fill-amber-400" />
-                  <p className="text-4xl font-bold">5.0</p>
-                  <p className="text-sm opacity-70">User Rating</p>
+                  <p className="text-4xl font-bold">24+</p>
+                  <p className="text-sm opacity-70">Field Types</p>
                </div>
                <div className="flex flex-col items-center p-8 rounded-3xl bg-white/10 backdrop-blur-md border border-white/20">
                   <Heart className="h-10 w-10 mb-4 text-rose-400 fill-rose-400" />
-                  <p className="text-4xl font-bold">1k+</p>
-                  <p className="text-sm opacity-70">Active Teams</p>
+                  <p className="text-4xl font-bold">5</p>
+                  <p className="text-sm opacity-70">Team Roles</p>
                </div>
             </div>
          </div>

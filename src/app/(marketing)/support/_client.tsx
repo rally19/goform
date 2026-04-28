@@ -5,14 +5,15 @@ import { motion } from "framer-motion";
 import { Search, HelpCircle, Book, MessageSquare, Zap, Shield, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 const SUPPORT_CATEGORIES = [
-  { title: "Getting Started", icon: Zap, desc: "New to FormTo.Link? Start here to build your first form." },
-  { title: "Account & Billing", icon: Shield, desc: "Manage your subscription, invoices, and account settings." },
-  { title: "Forms & Logic", icon: HelpCircle, desc: "Learn about field types, conditional logic, and formulas." },
-  { title: "Teams & Organizations", icon: Users, desc: "Collaborate with your team and manage organization permissions." },
-  { title: "API & Integrations", icon: Book, desc: "Technical guides for developers and connecting other tools." },
-  { title: "Security & Privacy", icon: Shield, desc: "How we protect your data and stay compliant." },
+  { title: "Getting Started", icon: Zap, desc: "New to FormTo.Link? Start here to build your first form.", href: "/resources/form-builder" },
+  { title: "Account & Billing", icon: Shield, desc: "Manage your subscription, invoices, and account settings.", href: "/pricing" },
+  { title: "Forms & Logic", icon: HelpCircle, desc: "Learn about field types, conditional logic, and formulas.", href: "/resources/logic-branching" },
+  { title: "Teams & Organizations", icon: Users, desc: "Collaborate with your team and manage organization permissions.", href: "/resources/integrations" },
+  { title: "API & Integrations", icon: Book, desc: "Technical guides for developers and connecting other tools.", href: "/resources/api-reference" },
+  { title: "Security & Privacy", icon: Shield, desc: "How we protect your data and stay compliant.", href: "/resources/security" },
 ];
 
 export default function SupportPageClient() {
@@ -48,8 +49,8 @@ export default function SupportPageClient() {
         <h2 className="text-2xl font-bold mb-12 text-center">Browse by Category</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
           {SUPPORT_CATEGORIES.map((cat, i) => (
+            <Link href={cat.href} key={cat.title}>
             <motion.div
-              key={cat.title}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -64,6 +65,7 @@ export default function SupportPageClient() {
                 {cat.desc}
               </p>
             </motion.div>
+            </Link>
           ))}
         </div>
       </section>
@@ -75,13 +77,17 @@ export default function SupportPageClient() {
                If you couldn't find what you were looking for, our support team is just a message away.
             </p>
             <div className="flex gap-4 justify-center">
-               <Button size="lg" className="h-14 px-10 text-lg font-bold">
-                  <MessageSquare className="mr-2 h-5 w-5" />
-                  Live Chat
-               </Button>
-               <Button size="lg" variant="outline" className="h-14 px-10 text-lg font-bold">
-                  Email Support
-               </Button>
+               <Link href="/contact">
+                 <Button size="lg" className="h-14 px-10 text-lg font-bold">
+                    <MessageSquare className="mr-2 h-5 w-5" />
+                    Contact Us
+                 </Button>
+               </Link>
+               <Link href="/resources">
+                 <Button size="lg" variant="outline" className="h-14 px-10 text-lg font-bold">
+                    Browse Guides
+                 </Button>
+               </Link>
             </div>
          </div>
       </section>

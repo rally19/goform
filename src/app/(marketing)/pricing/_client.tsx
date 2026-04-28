@@ -7,6 +7,7 @@ import { Check, HelpCircle, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 const PRICING_PLANS = [
   {
@@ -45,9 +46,9 @@ const PRICING_PLANS = [
     description: "Collaboration and power for busy teams.",
     features: [
       "Everything in Pro",
-      "Unlimited submissions",
+      "25,000 responses/month",
       "Collaborative editing",
-      "API Access with secure keys",
+      "API access with secure keys",
       "Organization management",
       "Priority email support",
       "Multiple workspaces",
@@ -68,11 +69,11 @@ const FAQS = [
   },
   {
     question: "What happens if I exceed my submission limit?",
-    answer: "We'll never stop collecting your data. If you exceed your limit, we'll notify you and give you a grace period to upgrade. If you consistently exceed it, we'll simply bill you for the extra submissions at a fair rate.",
+    answer: "We'll notify you when you approach your limit. You can upgrade at any time, and we provide a short grace period so your forms never stop collecting data unexpectedly.",
   },
   {
     question: "Is my data secure?",
-    answer: "Security is our top priority. All data is encrypted at rest and in transit. We are fully GDPR and CCPA compliant.",
+    answer: "Security is our top priority. All data is encrypted at rest and in transit with Supabase Row-Level Security. We store IP hashes only and are fully GDPR and CCPA compliant.",
   },
 ];
 
@@ -231,6 +232,3 @@ export default function PricingPageClient() {
   );
 }
 
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(" ");
-}
