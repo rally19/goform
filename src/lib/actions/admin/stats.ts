@@ -104,6 +104,12 @@ export async function adminGetStats() {
       },
     };
   } catch (err) {
+    // Re-throw Next.js framework signals (prerender abort, redirect, notFound).
+    // Swallowing these breaks Cache Components / PPR rendering.
+    const digest = (err as { digest?: string } | null)?.digest;
+    if (typeof digest === "string" && (digest === "HANGING_PROMISE_REJECTION" || digest.startsWith("NEXT_"))) {
+      throw err;
+    }
     console.error("adminGetStats error:", err);
     return { success: false, error: (err as Error).message };
   }
