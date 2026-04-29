@@ -162,21 +162,21 @@
     display: none !important;
   }
 
-  .prose ul, .prose-sm ul, .prose-xs ul {
+  [class*="prose"] ul {
     list-style-type: disc !important;
     padding-left: 1.25rem !important;
     margin-top: 0.5rem;
     margin-bottom: 0.5rem;
   }
 
-  .prose ol, .prose-sm ol, .prose-xs ol {
+  [class*="prose"] ol {
     list-style-type: decimal !important;
     padding-left: 1.25rem !important;
     margin-top: 0.5rem;
     margin-bottom: 0.5rem;
   }
 
-  .prose li, .prose-sm li, .prose-xs li {
+  [class*="prose"] li {
     margin-top: 0.25rem;
     margin-bottom: 0.25rem;
   }
