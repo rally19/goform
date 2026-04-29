@@ -115,6 +115,11 @@ function formatAnswer(val: FormAnswer, field: FormField): string {
       return `${row.label}: ${colLabel}`;
     }).join("\n");
   }
+  if (field.type === "signature" && val && typeof val === "object" && !Array.isArray(val)) {
+    const sig = val as { kind?: string; text?: string };
+    if (sig.kind === "type" && sig.text) return `Signature (typed): ${sig.text}`;
+    return `Signature (${sig.kind ?? "drawn"})`;
+  }
   if (field.type === "ranking" && Array.isArray(val)) {
     return val
       .map((v, i) => {
@@ -880,6 +885,23 @@ export function ResultsClient({ formId, form, fields, initialResponses }: Result
                             {Array.isArray(answer) ? answer.map((path, i) => (
                                <FileLink key={i} path={String(path)} />
                             )) : <FileLink path={String(answer)} />}
+                          </div>
+                        ) : field.type === "signature" && answer && typeof answer === "object" && !Array.isArray(answer) && typeof (answer as { dataUrl?: unknown }).dataUrl === "string" ? (
+                          <div className="bg-muted/10 border border-border/40 rounded-xl p-3 space-y-1.5">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={(answer as { dataUrl: string }).dataUrl}
+                              alt="Signature"
+                              className="max-h-32 w-auto bg-card rounded-md border border-border/40 p-1"
+                            />
+                            <p className="text-[11px] text-muted-foreground">
+                              {(() => {
+                                const sig = answer as { kind?: string; text?: string };
+                                if (sig.kind === "type" && sig.text) return `Typed: ${sig.text}`;
+                                if (sig.kind === "upload") return "Uploaded image";
+                                return "Drawn signature";
+                              })()}
+                            </p>
                           </div>
                         ) : field.type === "long_text" ? (
                           <div 

@@ -559,9 +559,9 @@ function ActionTargetEditor({
   if (visualOnlyActions.includes(ruleAction.action) || fieldTargetingActions.includes(ruleAction.action)) {
     targetFields = realFields;
   } else if (ruleAction.action === "set_value") {
-    targetFields = realFields.filter((f) => !["paragraph", "divider", "video", "radio_grid", "checkbox_grid", "file", "ranking"].includes(f.type));
+    targetFields = realFields.filter((f) => !["paragraph", "divider", "video", "radio_grid", "checkbox_grid", "file", "ranking", "signature"].includes(f.type));
   } else if (valueActions.includes(ruleAction.action)) {
-    targetFields = realFields.filter((f) => !["paragraph", "divider", "video", "radio_grid", "checkbox_grid", "file", "ranking"].includes(f.type));
+    targetFields = realFields.filter((f) => !["paragraph", "divider", "video", "radio_grid", "checkbox_grid", "file", "ranking", "signature"].includes(f.type));
   } else {
     targetFields = realFields.filter((f) => !["paragraph", "divider", "video"].includes(f.type));
   }
@@ -722,7 +722,7 @@ function ActionSetValueEditor({
 
       {source.mode === "copy_field" && (
         <FieldPicker
-          fields={fields.filter((f) => !["page_break", "section", "paragraph", "divider", "video", "radio_grid", "checkbox_grid", "ranking"].includes(f.type))}
+          fields={fields.filter((f) => !["page_break", "section", "paragraph", "divider", "video", "radio_grid", "checkbox_grid", "ranking", "signature"].includes(f.type))}
           sections={sections}
           value={source.sourceFieldId ?? ""}
           onChange={(v) => onChange({ valueSource: { mode: "copy_field", sourceFieldId: v } })}

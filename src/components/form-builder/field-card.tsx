@@ -10,7 +10,7 @@ import {
   CircleDot, CheckSquare, ChevronDown, ListChecks,
   SlidersHorizontal, Heading, Columns2, Upload, CalendarClock,
   EyeClosed, PencilOff, RectangleEllipsis,
-  TextQuote, Minus, Grid2X2, Grid2X2Check, ListOrdered,
+  TextQuote, Minus, Grid2X2, Grid2X2Check, ListOrdered, PenTool,
 } from "lucide-react";
 import { FieldMoveDialog } from "./field-move-dialog";
 import type { BuilderSection } from "@/lib/form-types";
@@ -50,6 +50,7 @@ const FIELD_ICONS: Record<string, React.ElementType> = {
   divider: Minus,
   radio_grid: Grid2X2,
   checkbox_grid: Grid2X2Check,
+  signature: PenTool,
 };
 
 interface FieldCardProps {
@@ -310,6 +311,14 @@ export const FieldCard = memo(function FieldCard({
         <div className="border-2 border-dashed border-muted-foreground/20 rounded-md p-4 text-center text-sm text-muted-foreground pointer-events-none">
           <Upload className="h-5 w-5 mx-auto mb-1 opacity-50" />
           Click or drag file here
+        </div>
+      );
+    }
+    if (field.type === "signature") {
+      return (
+        <div className="border-2 border-dashed border-muted-foreground/20 rounded-md p-4 text-center text-sm text-muted-foreground pointer-events-none bg-muted/30">
+          <PenTool className="h-5 w-5 mx-auto mb-1 opacity-50" />
+          Sign here
         </div>
       );
     }

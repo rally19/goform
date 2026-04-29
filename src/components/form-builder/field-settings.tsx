@@ -276,6 +276,7 @@ export function FieldSettings({
   const isLayout = ["section", "page_break", "paragraph", "divider", "video"].includes(field.type);
   const isFile = field.type === "file";
   const isVideo = field.type === "video";
+  const isSignature = field.type === "signature";
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -362,7 +363,7 @@ export function FieldSettings({
             </div>
           </div>
 
-          {!isLayout && !["radio", "checkbox", "radio_grid", "checkbox_grid", "rating", "scale", "ranking"].includes(field.type) && (
+          {!isLayout && !isSignature && !["radio", "checkbox", "radio_grid", "checkbox_grid", "rating", "scale", "ranking", "file"].includes(field.type) && (
             <div className="space-y-1.5 pt-1.5">
               <Label className="text-xs font-medium">Placeholder</Label>
               <Input
@@ -779,6 +780,112 @@ export function FieldSettings({
                   placeholder="e.g. image/*, .pdf"
                   className="h-8 text-sm"
                 />
+              </div>
+            </div>
+          )}
+
+          {isSignature && (
+            <div className="space-y-3 pt-2" data-cursor-id="signature-settings">
+              <Separator />
+              <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Signature Settings</Label>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] text-muted-foreground uppercase">Allowed Modes</Label>
+                {(["draw", "type", "upload"] as const).map((m) => {
+                  const current = (field.properties?.signatureModes ?? ["draw", "type", "upload"]) as ("draw" | "type" | "upload")[];
+                  const checked = current.includes(m);
+                  return (
+                    <label
+                      key={m}
+                      className="flex items-center justify-between rounded-md border border-input bg-card px-3 py-2 text-sm cursor-pointer"
+                    >
+                      <span className="capitalize">{m}</span>
+                      <Switch
+                        checked={checked}
+                        onCheckedChange={(on) => {
+                          let next = current.filter((v) => v !== m);
+                          if (on) next = [...current.filter((v) => v !== m), m];
+                          // Preserve canonical order
+                          const order: ("draw" | "type" | "upload")[] = ["draw", "type", "upload"];
+                          next = order.filter((v) => next.includes(v));
+                          if (next.length === 0) return; // require at least one
+                          onUpdate?.({
+                            properties: { ...(field.properties ?? {}), signatureModes: next },
+                          });
+                        }}
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[10px] text-muted-foreground uppercase">Pen Color</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={field.properties?.penColor ?? "#111827"}
+                    onChange={(e) =>
+                      onUpdate?.({
+                        properties: { ...(field.properties ?? {}), penColor: e.target.value },
+                      })
+                    }
+                    className="h-8 w-12 rounded border border-input cursor-pointer bg-card"
+                  />
+                  <Input
+                    value={field.properties?.penColor ?? "#111827"}
+                    onChange={(e) =>
+                      onUpdate?.({
+                        properties: { ...(field.properties ?? {}), penColor: e.target.value },
+                      })
+                    }
+                    className="h-8 text-sm flex-1 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[10px] text-muted-foreground uppercase">Background Color</Label>
+                  {field.properties?.signatureBgColor && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onUpdate?.({
+                          properties: { ...(field.properties ?? {}), signatureBgColor: undefined },
+                        })
+                      }
+                      className="text-[10px] text-muted-foreground hover:text-foreground"
+                    >
+                      Reset to transparent
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={field.properties?.signatureBgColor || "#ffffff"}
+                    onChange={(e) =>
+                      onUpdate?.({
+                        properties: { ...(field.properties ?? {}), signatureBgColor: e.target.value },
+                      })
+                    }
+                    className="h-8 w-12 rounded border border-input cursor-pointer bg-card"
+                  />
+                  <Input
+                    value={field.properties?.signatureBgColor ?? ""}
+                    onChange={(e) =>
+                      onUpdate?.({
+                        properties: { ...(field.properties ?? {}), signatureBgColor: e.target.value || undefined },
+                      })
+                    }
+                    placeholder="transparent"
+                    className="h-8 text-sm flex-1 font-mono"
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Leave blank for a transparent canvas. Solid backgrounds are baked into the saved image.
+                </p>
               </div>
             </div>
           )}

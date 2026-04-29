@@ -50,6 +50,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { SignatureField } from "./signature-field";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -1104,6 +1105,18 @@ function FieldRenderer({
           field={field}
           files={(value as unknown as File[]) ?? []}
           onChange={(files) => onChange(files as unknown as FormAnswer)}
+          disabled={disabled}
+          error={error}
+        />
+      );
+
+    case "signature":
+      return (
+        <SignatureField
+          field={field}
+          value={value}
+          onChange={onChange}
+          accentColor={accentColor}
           disabled={disabled}
           error={error}
         />

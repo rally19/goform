@@ -150,7 +150,15 @@ export function isAnswerEmpty(v: FormAnswer): boolean {
   if (typeof v === "string") return v.trim().length === 0;
   if (Array.isArray(v)) return v.length === 0;
   if (typeof v === "number") return Number.isNaN(v);
-  if (typeof v === "object") return Object.keys(v).length === 0;
+  if (typeof v === "object") {
+    // Signature shape: { kind, dataUrl, ... } — empty if dataUrl is missing/blank.
+    const obj = v as Record<string, unknown>;
+    if ("dataUrl" in obj) {
+      const d = obj.dataUrl;
+      return typeof d !== "string" || d.trim().length === 0;
+    }
+    return Object.keys(obj).length === 0;
+  }
   return false;
 }
 

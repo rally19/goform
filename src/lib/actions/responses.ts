@@ -737,6 +737,17 @@ export async function getFormAnalytics(formId: string, timezone = "UTC"): Promis
           };
         }
 
+        // Signature — only response count is meaningful (data URL length is noise).
+        if (field.type === "signature" || field.type === "file") {
+          return {
+            fieldId: field.id,
+            label: field.label,
+            type: field.type as FieldType,
+            responseCount,
+            avgLength: 0,
+          };
+        }
+
         // Text fields
         const avgLength = fieldAnswers.length
           ? Math.round(
@@ -882,6 +893,12 @@ export async function getFormResponsesForExport(formId: string, timezone = "UTC"
              const colLabel = cols?.find((c) => c.value === rowAnswer)?.label ?? String(rowAnswer);
              return `${stripHtml(row.label)}: ${colLabel}`;
            }).join("; ");
+        }
+
+        if (f.type === "signature" && rawVal && typeof rawVal === "object" && !Array.isArray(rawVal)) {
+           const sig = rawVal as { kind?: string; text?: string };
+           if (sig.kind === "type" && sig.text) return `[Signature: ${sig.text}]`;
+           return `[Signature: ${sig.kind ?? "drawn"}]`;
         }
 
         if (f.type === "ranking" && Array.isArray(rawVal)) {

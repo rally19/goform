@@ -26,7 +26,8 @@ export type FieldType =
   | "page_break"
   | "paragraph"
   | "divider"
-  | "video";
+  | "video"
+  | "signature";
 
 export type FieldCategory =
   | "text"
@@ -315,6 +316,18 @@ export const FIELD_TYPE_META: FieldTypeMeta[] = [
     defaultLabel: "Upload File",
     defaultProperties: { maxFiles: 1, maxFileSize: 5000 },
   },
+  {
+    type: "signature",
+    label: "Signature",
+    icon: "PenTool",
+    category: "media",
+    description: "Draw, type, or upload a signature",
+    defaultLabel: "Signature",
+    defaultProperties: {
+      signatureModes: ["draw", "type", "upload"],
+      penColor: "#111827",
+    },
+  },
 ];
 
 export const FIELD_CATEGORIES: {
@@ -372,6 +385,10 @@ export interface BuilderField {
     controls?: boolean;
     loop?: boolean;
     columns?: { label: string; value: string }[];
+    // Signature
+    signatureModes?: ("draw" | "type" | "upload")[];
+    penColor?: string;
+    signatureBgColor?: string;
     // Default interactive state — used as a baseline for runtime state,
     // can be overridden by logic rules (enable/disable, mask/unmask).
     defaultDisabled?: boolean;

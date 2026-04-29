@@ -54,6 +54,7 @@ export const fieldTypeEnum = pgEnum("field_type", [
   "checkbox_grid",
   "video",
   "ranking",
+  "signature",
 ]);
 
 export const organizationRoleEnum = pgEnum("organization_role", [
@@ -258,6 +259,10 @@ export const formFields = pgTable(
       controls?: boolean;
       loop?: boolean;
       columns?: { label: string; value: string }[];
+      // Signature
+      signatureModes?: ("draw" | "type" | "upload")[];
+      penColor?: string;
+      signatureBgColor?: string;
     }>(),
     // Section this field belongs to
     sectionId: uuid("section_id"),
