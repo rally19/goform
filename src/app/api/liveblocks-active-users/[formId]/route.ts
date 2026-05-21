@@ -29,6 +29,16 @@ export async function GET(
       return NextResponse.json({ error: "Invalid form ID" }, { status: 400 });
     }
 
+    // Get form details
+    const form = await db.query.forms.findFirst({
+      where: eq(forms.id, formId),
+      columns: { userId: true, organizationId: true },
+    });
+
+    if (!form) {
+      return NextResponse.json({ error: "Form not found" }, { status: 404 });
+    }
+
     // Check user role for admin access
     const dbUser = await db.query.users.findFirst({
       where: eq(users.id, user.id),
@@ -39,16 +49,6 @@ export async function GET(
 
     // If not admin, check form access
     if (!isAdmin) {
-      // Get form details
-      const form = await db.query.forms.findFirst({
-        where: eq(forms.id, formId),
-        columns: { userId: true, organizationId: true },
-      });
-
-      if (!form) {
-        return NextResponse.json({ error: "Form not found" }, { status: 404 });
-      }
-
       // Check if user is the owner
       const isOwner = form.userId === user.id;
 
@@ -68,6 +68,11 @@ export async function GET(
       if (!isOwner && !isOrgMember) {
         return NextResponse.json({ error: "Forbidden: You don't have access to this form" }, { status: 403 });
       }
+    }
+
+    // If it's a personal/individual form, we never use liveblocks, so there are no active liveblocks users
+    if (!form.organizationId) {
+      return NextResponse.json({ activeUsers: [], count: 0 });
     }
 
     // Get active users from Liveblocks room

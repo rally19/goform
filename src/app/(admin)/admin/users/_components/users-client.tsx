@@ -77,6 +77,27 @@ function RoleBadge({ role }: { role: UserRole }) {
   );
 }
 
+const planStyles: Record<string, string> = {
+  free: "bg-muted text-muted-foreground border-border",
+  lite: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+  pro: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+  max: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+};
+
+function PlanBadge({ plan }: { plan: string }) {
+  const label = plan.charAt(0).toUpperCase() + plan.slice(1);
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider",
+        planStyles[plan] || "bg-muted text-muted-foreground border-border"
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
 export function UsersClient({ users }: { users: AdminUser[] }) {
   const [query, setQuery] = useState("");
   const [localUsers, setLocalUsers] = useState<AdminUser[]>(users);
@@ -160,6 +181,7 @@ export function UsersClient({ users }: { users: AdminUser[] }) {
               <TableHead className="text-xs font-semibold uppercase tracking-wider">User</TableHead>
               <TableHead className="hidden md:table-cell text-xs font-semibold uppercase tracking-wider">Joined</TableHead>
               <TableHead className="hidden sm:table-cell text-center w-24 text-xs font-semibold uppercase tracking-wider">Forms</TableHead>
+              <TableHead className="w-24 text-center text-xs font-semibold uppercase tracking-wider">Plan</TableHead>
               <TableHead className="w-32 text-center text-xs font-semibold uppercase tracking-wider">Role</TableHead>
               <TableHead className="w-12" />
             </TableRow>
@@ -168,7 +190,7 @@ export function UsersClient({ users }: { users: AdminUser[] }) {
             {filtered.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={7}
                   className="text-center py-16 text-muted-foreground text-sm"
                 >
                   {query ? "No users match your search" : "No users found"}
@@ -225,6 +247,9 @@ export function UsersClient({ users }: { users: AdminUser[] }) {
                       <FileText className="h-3 w-3" />
                       {user.formCount}
                     </span>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <PlanBadge plan={user.plan || "free"} />
                   </TableCell>
                   <TableCell className="text-center">
                     <RoleBadge role={user.role} />
@@ -332,6 +357,15 @@ export function UsersClient({ users }: { users: AdminUser[] }) {
                   <div>
                     <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Forms Created</p>
                     <p className="font-medium">{viewingUser.formCount} total forms</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="h-8 w-8 rounded-lg bg-background flex items-center justify-center shadow-sm border border-border/50">
+                    <Shield className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Subscription Plan</p>
+                    <p className="font-medium uppercase">{viewingUser.plan || "free"}</p>
                   </div>
                 </div>
               </div>

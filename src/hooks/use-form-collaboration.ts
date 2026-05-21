@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useState } from "react";
+import React, { useEffect, useRef, useCallback, useState, createContext, useContext, ReactNode } from "react";
 import { 
   useStorage, 
   useMutation, 
@@ -26,14 +26,59 @@ interface UseFormCollaborationOptions {
   autoSave?: boolean;
 }
 
-export function useFormCollaboration({
+export type CollaborationContextProps = {
+  isCollaborative: boolean;
+  fields: BuilderField[];
+  form: BuilderForm;
+  sections: BuilderSection[];
+  others: readonly any[];
+  self: any;
+  myPresence: any;
+  updateMyPresence: (presence: any) => void;
+  addField: (field: BuilderField, index?: number) => void;
+  removeField: (id: string) => void;
+  updateField: (id: string, changes: Partial<BuilderField>) => void;
+  reorderFields: (from: number, to: number) => void;
+  updateFormMeta: (changes: Partial<BuilderForm>) => void;
+  addSection: (section: BuilderSection) => void;
+  removeSection: (id: string) => void;
+  updateSection: (id: string, changes: Partial<BuilderSection>) => void;
+  reorderSection: (id: string, toIndex: number) => void;
+  duplicateSection: (id: string, newSectionId: string) => void;
+  selectField: (id: string | null) => void;
+  selectedFieldId: string | null;
+  isDragging: boolean;
+  currentSectionId: string | null;
+  setCurrentSectionId: (id: string | null) => void;
+  selectedSectionId: string | null;
+  selectSection: (id: string | null) => void;
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  isSaving: boolean;
+  manualSave: () => Promise<{ success: boolean; error?: string }>;
+  autoSave: boolean;
+};
+
+const FormCollaborationContext = createContext<CollaborationContextProps | null>(null);
+
+export function useFormCollaborationContext() {
+  const context = useContext(FormCollaborationContext);
+  if (!context) {
+    throw new Error("useFormCollaborationContext must be used within FormCollaborationProvider");
+  }
+  return context;
+}
+
+// ─── Liveblocks Collaboration Hook ──────────────────────────────────────────
+function useLiveblocksCollaboration({
   formId,
   initialForm,
   initialFields,
   initialSections,
   autoSave = true,
-}: UseFormCollaborationOptions) {
-  // Read autoSave from Liveblocks form metadata for real-time sync
+}: UseFormCollaborationOptions): CollaborationContextProps {
   const liveAutoSave = useStorage((root) => (root.formMetadata as any)?.autoSave) ?? autoSave;
   const { 
     selectedFieldId, 
@@ -45,7 +90,6 @@ export function useFormCollaboration({
     selectSection,
   } = useFormBuilder();
 
-  // ─── Presence ─────────────────────────────────────────────────────────────
   const [myPresence, updateMyPresence] = useMyPresence();
   const others = useOthers();
   const self = useSelf();
@@ -55,7 +99,6 @@ export function useFormCollaboration({
   const canRedo = useCanRedo();
   const history = useHistory();
 
-  // Update presence when local Zustand state changes
   useEffect(() => {
     updateMyPresence({ 
       selectedFieldId,
@@ -64,21 +107,14 @@ export function useFormCollaboration({
     });
   }, [selectedFieldId, selectedSectionId, isDragging, updateMyPresence]);
 
-  // ─── Storage Access ───────────────────────────────────────────────────────
-  // useStorage returns an immutable readonly snapshot typed via liveblocks.config.ts.
-  // We use shallow selectors to avoid re-rendering on unrelated storage changes.
   const fields = useStorage((root) => root.fields) as unknown as BuilderField[] | null;
   const form = useStorage((root) => root.formMetadata) as unknown as BuilderForm | null;
   const sections = useStorage((root) => root.sections) as unknown as BuilderSection[] | null;
 
-  // ─── Mutations ────────────────────────────────────────────────────────────
-  
   const addField = useMutation(({ storage }, field: BuilderField, index?: number) => {
     const list = storage.get("fields");
     if (typeof index === "number") {
       list.insert(new LiveObject<BuilderField>(field), index);
-      // Reassign orderIndex so subsequent reads (renderer/preview) reflect the
-      // new ordering immediately, without waiting for a Supabase save.
       for (let i = 0; i < list.length; i++) {
         const f = list.get(i) as LiveObject<BuilderField>;
         if (f.get("orderIndex") !== i) f.set("orderIndex", i);
@@ -93,7 +129,6 @@ export function useFormCollaboration({
     const index = list.findIndex((f) => (f as LiveObject<BuilderField>).get("id") === id);
     if (index !== -1) {
       list.delete(index);
-      // Re-pack orderIndex after removal so there are no holes.
       for (let i = 0; i < list.length; i++) {
         const f = list.get(i) as LiveObject<BuilderField>;
         if (f.get("orderIndex") !== i) f.set("orderIndex", i);
@@ -114,8 +149,6 @@ export function useFormCollaboration({
   const reorderFields = useMutation(({ storage }, from: number, to: number) => {
     const list = storage.get("fields");
     list.move(from, to);
-    // Reassign orderIndex so consumers that sort by it (e.g. the renderer) see
-    // the new order immediately, without waiting for a Supabase save.
     for (let i = 0; i < list.length; i++) {
       const f = list.get(i) as LiveObject<BuilderField>;
       if (f.get("orderIndex") !== i) f.set("orderIndex", i);
@@ -143,18 +176,12 @@ export function useFormCollaboration({
     }
   }, []);
 
-  // ─── One-time field→section reconciliation ──────────────────────────────
-  // Runs once when sections + fields are first available from Liveblocks.
-  // Patches fields that have no sectionId (created before sections existed)
-  // by assigning them to the first section. Also restores sections from DB
-  // if the Liveblocks sections list is somehow empty.
   const reconcileStorage = useMutation(({ storage }, seedSections: BuilderSection[]) => {
     history.disable(() => {
       const sectionsList = storage.get("sections");
       const fieldsList = storage.get("fields");
       const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-      // Replace any section with a non-UUID id (e.g. "default") with a valid UUID
       for (let i = 0; i < sectionsList.length; i++) {
         const s = sectionsList.get(i) as LiveObject<BuilderSection>;
         const sid = s.get("id");
@@ -163,7 +190,6 @@ export function useFormCollaboration({
         }
       }
 
-      // If Liveblocks still has no valid sections, seed from DB or create a default
       if (sectionsList.length === 0) {
         const toSeed: BuilderSection[] = seedSections.length > 0
           ? seedSections.map((s) => ({ ...s, id: uuidRe.test(s.id) ? s.id : crypto.randomUUID() }))
@@ -173,7 +199,6 @@ export function useFormCollaboration({
         }
       }
 
-      // Determine the valid section IDs after reconciliation
       const validIds = new Set<string>();
       for (let i = 0; i < sectionsList.length; i++) {
         validIds.add((sectionsList.get(i) as LiveObject<BuilderSection>).get("id"));
@@ -182,7 +207,6 @@ export function useFormCollaboration({
       if (validIds.size === 0) return;
       const firstSectionId = (sectionsList.get(0) as LiveObject<BuilderSection>).get("id");
 
-      // Patch fields that have no sectionId, a non-UUID sectionId, or an orphaned sectionId
       for (let i = 0; i < fieldsList.length; i++) {
         const f = fieldsList.get(i) as LiveObject<BuilderField>;
         const sid = f.get("sectionId");
@@ -195,7 +219,6 @@ export function useFormCollaboration({
 
   const reorderSection = useMutation(({ storage }, id: string, toIndex: number) => {
     const list = storage.get("sections");
-    // Build a sorted snapshot of [liveObject, orderIndex] pairs
     const items: { obj: LiveObject<BuilderSection>; orderIndex: number }[] = [];
     for (let i = 0; i < list.length; i++) {
       const obj = list.get(i) as LiveObject<BuilderSection>;
@@ -207,11 +230,9 @@ export function useFormCollaboration({
     if (fromIndex === -1 || fromIndex === toIndex) return;
     const clampedTo = Math.max(0, Math.min(toIndex, items.length - 1));
 
-    // Proper arrayMove: remove from old position, insert at new position
     const [moved] = items.splice(fromIndex, 1);
     items.splice(clampedTo, 0, moved);
 
-    // Reassign sequential orderIndex values so sorting is always deterministic
     items.forEach((item, idx) => {
       item.obj.set("orderIndex", idx);
     });
@@ -270,7 +291,6 @@ export function useFormCollaboration({
     });
   }, [history]);
 
-  // ─── Persistence to Supabase ───────────────────────────────────────────────
   const lastSavedRef = useRef<string | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const isSavingRef = useRef(false);
@@ -298,10 +318,6 @@ export function useFormCollaboration({
 
   const persistToSupabase = useCallback(async (currentFields: BuilderField[], currentForm: BuilderForm, currentSections: BuilderSection[], showSavingState = false) => {
     const payload = JSON.stringify({ currentFields, currentForm, currentSections });
-    
-    // Strict Path Sequestration: Ensure we are actually on the edit page for this form.
-    // This prevents backgrounded tabs or transitioning states from firing syncs
-    // that would trigger a router refresh on the wrong path (e.g., the dashboard).
     const isEditingThisForm = typeof window !== "undefined" && 
       window.location.pathname === `/forms/${formId}/edit`;
 
@@ -329,18 +345,12 @@ export function useFormCollaboration({
       isSavingRef.current = false;
       if (showSavingState) setIsSaving(false);
       
-      // If changes happened while we were saving, trigger another save immediately
-      // BUT ONLY if we are still mounted!
       if (isDirtyRef.current && mountedRef.current && fields && form) {
         persistToSupabase(fields, form, sections ?? []);
       }
     }
   }, [formId, fields, form, sections]);
 
-  // ─── One-time reconciliation on mount ────────────────────────────────────
-  // Runs once when Liveblocks storage first becomes available. Patches any
-  // fields that are missing a sectionId (e.g. undefined or "default")
-  // and seeds sections from DB if Liveblocks has none stored yet.
   const reconciledRef = useRef(false);
   const reconcileDoneRef = useRef(false);
   const fieldsReady = fields !== null;
@@ -351,16 +361,11 @@ export function useFormCollaboration({
     reconciledRef.current = true;
     reconcileStorage(initialSections ?? []);
     reconcileDoneRef.current = true;
-  // reconcileStorage is stable (useMutation with [] deps); initialSections is stable from props
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fieldsReady, sectionsReady]);
+  }, [fieldsReady, sectionsReady, reconcileStorage, initialSections]);
 
   useEffect(() => {
     if (!fields || !form) return;
-    // Wait for reconciliation to complete before saving, to avoid persisting
-    // stale sectionId values (e.g. undefined or "default") from old Liveblocks rooms
     if (!reconcileDoneRef.current) return;
-    // Only auto-save if autoSave is enabled (read from Liveblocks for real-time sync)
     if (!liveAutoSave) return;
 
     clearTimeout(saveTimeoutRef.current);
@@ -371,9 +376,6 @@ export function useFormCollaboration({
     return () => clearTimeout(saveTimeoutRef.current);
   }, [fields, form, sections, persistToSupabase, liveAutoSave]);
 
-  // ─── Initial Metadata Sync ────────────────────────────────────────────────
-  // On mount, if the storage metadata differs from the DB truth (initialForm),
-  // we force a sync to Liveblocks. This prevents stale storage resets.
   useEffect(() => {
     if (!form || !initialForm) return;
 
@@ -401,11 +403,8 @@ export function useFormCollaboration({
     if (hasChanges) {
       updateFormMetaWithoutHistory(changes);
     }
-    // We only want to run this once when the form becomes available
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [!!form]);
+  }, [!!form, initialForm, updateFormMetaWithoutHistory]);
 
-  // ─── Manual Save (for when autoSave is disabled) ────────────────────────────
   const manualSave = useCallback(async () => {
     if (!fields || !form) return { success: false, error: "No data to save" };
     try {
@@ -417,6 +416,7 @@ export function useFormCollaboration({
   }, [fields, form, sections, persistToSupabase]);
 
   return {
+    isCollaborative: true,
     fields: fields || [],
     form: form || initialForm,
     sections: sections || [],
@@ -449,4 +449,439 @@ export function useFormCollaboration({
     manualSave,
     autoSave: liveAutoSave,
   };
+}
+
+// ─── Local/Single-User Collaboration Hook ──────────────────────────────────
+interface Snapshot {
+  fields: BuilderField[];
+  form: BuilderForm;
+  sections: BuilderSection[];
+}
+
+function useLocalCollaboration({
+  formId,
+  initialForm,
+  initialFields,
+  initialSections,
+  autoSave = true,
+}: UseFormCollaborationOptions): CollaborationContextProps {
+  const { 
+    selectedFieldId, 
+    selectField,
+    isDragging,
+    currentSectionId,
+    setCurrentSectionId,
+    selectedSectionId,
+    selectSection,
+  } = useFormBuilder();
+
+  // Initialize state with default section if empty
+  const [state, setState] = useState<Snapshot>(() => {
+    const rawSections: BuilderSection[] = initialSections && initialSections.length > 0
+      ? initialSections
+      : [{ id: crypto.randomUUID(), name: "Section 1", description: "", orderIndex: 0, type: "next" as const }];
+    
+    // Ensure all fields have a sectionId assigned
+    const validIds = new Set(rawSections.map(s => s.id));
+    const firstSectionId = rawSections[0].id;
+    const patchedFields = initialFields.map(f => {
+      if (!f.sectionId || !validIds.has(f.sectionId)) {
+        return { ...f, sectionId: firstSectionId };
+      }
+      return f;
+    });
+
+    return {
+      fields: patchedFields,
+      form: initialForm,
+      sections: rawSections
+    };
+  });
+
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  const [past, setPast] = useState<Snapshot[]>([]);
+  const [future, setFuture] = useState<Snapshot[]>([]);
+
+  // ─── Presence State ───────────────────────────────────────────────────────
+  const [myPresence, setMyPresence] = useState<any>({
+    cursor: null,
+    selectedFieldId: null,
+    selectedSectionId: null,
+    draggingFieldId: null,
+  });
+
+  const updateMyPresence = useCallback((presence: any) => {
+    setMyPresence((prev: any) => ({ ...prev, ...presence }));
+  }, []);
+
+  const others: any[] = [];
+  
+  const self = {
+    connectionId: 0,
+    info: {
+      name: "You",
+      avatar: "",
+      color: "#6366f1",
+    },
+    presence: myPresence,
+  };
+
+  useEffect(() => {
+    updateMyPresence({ 
+      selectedFieldId,
+      selectedSectionId,
+      draggingFieldId: isDragging ? selectedFieldId : null
+    });
+  }, [selectedFieldId, selectedSectionId, isDragging, updateMyPresence]);
+
+  // ─── Mutations / Local State Actions ──────────────────────────────────────
+  const addField = useCallback((field: BuilderField, index?: number) => {
+    const current = stateRef.current;
+    let nextFields = [...current.fields];
+    if (typeof index === "number") {
+      nextFields.splice(index, 0, field);
+    } else {
+      nextFields.push(field);
+    }
+    nextFields = nextFields.map((f, i) => ({ ...f, orderIndex: i }));
+    
+    setPast(p => [...p, current]);
+    setFuture([]);
+    setState({ ...current, fields: nextFields });
+  }, []);
+
+  const removeField = useCallback((id: string) => {
+    const current = stateRef.current;
+    let nextFields = current.fields.filter(f => f.id !== id);
+    nextFields = nextFields.map((f, i) => ({ ...f, orderIndex: i }));
+    
+    setPast(p => [...p, current]);
+    setFuture([]);
+    setState({ ...current, fields: nextFields });
+  }, []);
+
+  const updateField = useCallback((id: string, changes: Partial<BuilderField>) => {
+    const current = stateRef.current;
+    const nextFields = current.fields.map(f => f.id === id ? { ...f, ...changes } : f);
+    
+    setPast(p => [...p, current]);
+    setFuture([]);
+    setState({ ...current, fields: nextFields });
+  }, []);
+
+  const reorderFields = useCallback((from: number, to: number) => {
+    const current = stateRef.current;
+    const nextFields = [...current.fields];
+    const [moved] = nextFields.splice(from, 1);
+    nextFields.splice(to, 0, moved);
+    const updatedFields = nextFields.map((f, i) => ({ ...f, orderIndex: i }));
+    
+    setPast(p => [...p, current]);
+    setFuture([]);
+    setState({ ...current, fields: updatedFields });
+  }, []);
+
+  const addSection = useCallback((section: BuilderSection) => {
+    const current = stateRef.current;
+    const nextSections = [...current.sections, section];
+    
+    setPast(p => [...p, current]);
+    setFuture([]);
+    setState({ ...current, sections: nextSections });
+  }, []);
+
+  const removeSection = useCallback((id: string) => {
+    const current = stateRef.current;
+    const nextSections = current.sections.filter(s => s.id !== id);
+    
+    setPast(p => [...p, current]);
+    setFuture([]);
+    setState({ ...current, sections: nextSections });
+  }, []);
+
+  const updateSection = useCallback((id: string, changes: Partial<BuilderSection>) => {
+    const current = stateRef.current;
+    const nextSections = current.sections.map(s => s.id === id ? { ...s, ...changes } : s);
+    
+    setPast(p => [...p, current]);
+    setFuture([]);
+    setState({ ...current, sections: nextSections });
+  }, []);
+
+  const reorderSection = useCallback((id: string, toIndex: number) => {
+    const current = stateRef.current;
+    const sorted = [...current.sections].sort((a, b) => a.orderIndex - b.orderIndex);
+    const fromIndex = sorted.findIndex(s => s.id === id);
+    if (fromIndex === -1) return;
+    const clampedTo = Math.max(0, Math.min(toIndex, sorted.length - 1));
+    const [moved] = sorted.splice(fromIndex, 1);
+    sorted.splice(clampedTo, 0, moved);
+    const nextSections = sorted.map((s, idx) => ({ ...s, orderIndex: idx }));
+    
+    setPast(p => [...p, current]);
+    setFuture([]);
+    setState({ ...current, sections: nextSections });
+  }, []);
+
+  const duplicateSection = useCallback((id: string, newSectionId: string) => {
+    const current = stateRef.current;
+    const srcSection = current.sections.find(s => s.id === id);
+    if (!srcSection) return;
+    
+    const srcType = srcSection.type;
+    const newSection: BuilderSection = {
+      id: newSectionId,
+      name: `${srcSection.name} (Copy)`,
+      description: srcSection.description ?? "",
+      orderIndex: current.sections.length,
+      type: srcType === "success" ? "success" : (srcType ?? "next"),
+    };
+    
+    const srcFields = current.fields.filter(f => f.sectionId === id);
+    const duplicatedFields = srcFields.map(f => ({
+      ...f,
+      id: crypto.randomUUID(),
+      sectionId: newSectionId,
+      isNew: true,
+    }));
+    
+    setPast(p => [...p, current]);
+    setFuture([]);
+    setState({
+      ...current,
+      sections: [...current.sections, newSection],
+      fields: [...current.fields, ...duplicatedFields]
+    });
+  }, []);
+
+  const updateFormMeta = useCallback((changes: Partial<BuilderForm>) => {
+    const current = stateRef.current;
+    const nextForm = { ...current.form, ...changes };
+    
+    setPast(p => [...p, current]);
+    setFuture([]);
+    setState({ ...current, form: nextForm });
+  }, []);
+
+  const undo = useCallback(() => {
+    if (past.length === 0) return;
+    const current = stateRef.current;
+    const previous = past[past.length - 1];
+    setPast(p => p.slice(0, p.length - 1));
+    setFuture(f => [current, ...f]);
+    setState(previous);
+  }, [past]);
+
+  const redo = useCallback(() => {
+    if (future.length === 0) return;
+    const current = stateRef.current;
+    const next = future[0];
+    setFuture(f => f.slice(1));
+    setPast(p => [...p, current]);
+    setState(next);
+  }, [future]);
+
+  const canUndo = past.length > 0;
+  const canRedo = future.length > 0;
+
+  // ─── Autosave / Manual Save ──────────────────────────────────────────────
+  const lastSavedRef = useRef<string | null>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const isSavingRef = useRef(false);
+  const isDirtyRef = useRef(false);
+  const mountedRef = useRef(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    
+    const killSync = () => {
+      mountedRef.current = false;
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+
+    window.addEventListener("beforeunload", killSync);
+    window.addEventListener("pagehide", killSync);
+
+    return () => {
+      killSync();
+      window.removeEventListener("beforeunload", killSync);
+      window.removeEventListener("pagehide", killSync);
+    };
+  }, []);
+
+  const persistToSupabase = useCallback(async (
+    currentFields: BuilderField[],
+    currentForm: BuilderForm,
+    currentSections: BuilderSection[],
+    showSavingState = false
+  ) => {
+    const payload = JSON.stringify({ currentFields, currentForm, currentSections });
+    const isEditingThisForm = typeof window !== "undefined" && 
+      window.location.pathname === `/forms/${formId}/edit`;
+
+    if (payload === lastSavedRef.current || !mountedRef.current || !isEditingThisForm) return;
+
+    if (isSavingRef.current) {
+      isDirtyRef.current = true;
+      return;
+    }
+
+    try {
+      isSavingRef.current = true;
+      if (showSavingState) setIsSaving(true);
+      isDirtyRef.current = false;
+
+      const result = await syncFormState(formId, currentFields, currentForm, false, currentSections);
+
+      if (!result.success) throw new Error(result.error);
+
+      lastSavedRef.current = payload;
+    } catch (err) {
+      console.error("Auto-save to Supabase failed:", err);
+      throw err;
+    } finally {
+      isSavingRef.current = false;
+      if (showSavingState) setIsSaving(false);
+      
+      if (isDirtyRef.current && mountedRef.current) {
+        const latest = stateRef.current;
+        persistToSupabase(latest.fields, latest.form, latest.sections);
+      }
+    }
+  }, [formId]);
+
+  useEffect(() => {
+    if (!autoSave) return;
+
+    clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      persistToSupabase(state.fields, state.form, state.sections);
+    }, 3000);
+
+    return () => clearTimeout(saveTimeoutRef.current);
+  }, [state.fields, state.form, state.sections, persistToSupabase, autoSave]);
+
+  const manualSave = useCallback(async () => {
+    try {
+      await persistToSupabase(state.fields, state.form, state.sections, true);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  }, [state.fields, state.form, state.sections, persistToSupabase]);
+
+  return {
+    isCollaborative: false,
+    fields: state.fields,
+    form: state.form,
+    sections: state.sections,
+    others,
+    self,
+    myPresence,
+    updateMyPresence,
+    addField,
+    removeField,
+    updateField,
+    reorderFields,
+    updateFormMeta,
+    addSection,
+    removeSection,
+    updateSection,
+    reorderSection,
+    duplicateSection,
+    selectField,
+    selectedFieldId,
+    isDragging,
+    currentSectionId,
+    setCurrentSectionId,
+    selectedSectionId,
+    selectSection,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    isSaving,
+    manualSave,
+    autoSave,
+  };
+}
+
+// ─── Provider Component ──────────────────────────────────────────────────────
+interface FormCollaborationProviderProps {
+  children: ReactNode;
+  roomId: string;
+  initialForm: BuilderForm;
+  initialFields: BuilderField[];
+  initialSections?: BuilderSection[];
+  enabled: boolean;
+}
+
+export function FormCollaborationProvider({
+  children,
+  roomId,
+  initialForm,
+  initialFields,
+  initialSections,
+  enabled,
+}: FormCollaborationProviderProps) {
+  if (enabled) {
+    return React.createElement(
+      LiveblocksCollaborationWrapper,
+      { roomId, initialForm, initialFields, initialSections, children }
+    );
+  }
+
+  return React.createElement(
+    LocalCollaborationWrapper,
+    { roomId, initialForm, initialFields, initialSections, children }
+  );
+}
+
+function LiveblocksCollaborationWrapper({
+  children,
+  roomId,
+  initialForm,
+  initialFields,
+  initialSections,
+}: Omit<FormCollaborationProviderProps, "enabled">) {
+  const value = useLiveblocksCollaboration({
+    formId: roomId,
+    initialForm,
+    initialFields,
+    initialSections,
+    autoSave: initialForm.autoSave,
+  });
+
+  return React.createElement(
+    FormCollaborationContext.Provider,
+    { value },
+    children
+  );
+}
+
+function LocalCollaborationWrapper({
+  children,
+  roomId,
+  initialForm,
+  initialFields,
+  initialSections,
+}: Omit<FormCollaborationProviderProps, "enabled">) {
+  const value = useLocalCollaboration({
+    formId: roomId,
+    initialForm,
+    initialFields,
+    initialSections,
+    autoSave: initialForm.autoSave,
+  });
+
+  return React.createElement(
+    FormCollaborationContext.Provider,
+    { value },
+    children
+  );
 }

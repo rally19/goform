@@ -8,6 +8,7 @@ import { createClient } from "@/lib/server";
 import { cleanupUserResources } from "../users";
 import type { UserRole } from "@/db/schema";
 import { assertAdmin } from "./utils";
+import { INDIVIDUAL_PLANS } from "../../constants";
 import { cleanupFormResources } from "../forms";
 
 // ─── User Management Types ───────────────────────────────────────────────────
@@ -18,6 +19,7 @@ export type AdminUser = {
   name: string | null;
   avatarUrl: string | null;
   role: UserRole;
+  plan: "free" | "lite" | "pro" | "max";
   createdAt: Date;
   emailVerifiedAt: Date | null;
   formCount: number;
@@ -70,6 +72,7 @@ export async function adminGetUsers(): Promise<
         name: users.name,
         avatarUrl: users.avatarUrl,
         role: users.role,
+        plan: users.plan,
         createdAt: users.createdAt,
         emailVerifiedAt: users.emailVerifiedAt,
         formCount: sql<number>`cast(count(${forms.id}) as int)`,
@@ -169,7 +172,15 @@ export async function adminGetUser(id: string): Promise<
           storagePath: a.storagePath,
           createdAt: a.createdAt,
         })),
-        storage: { totalBytes, totalFiles, assetBytes, assetFiles, formBytes, formFiles, limitBytes: 100 * 1024 * 1024 },
+        storage: {
+          totalBytes,
+          totalFiles,
+          assetBytes,
+          assetFiles,
+          formBytes,
+          formFiles,
+          limitBytes: INDIVIDUAL_PLANS[row.plan ?? "free"].storageLimit
+        },
       } as AdminUser,
     };
   } catch (err) {
@@ -183,6 +194,7 @@ export async function adminUpdateUser(
     name?: string; 
     email?: string; 
     role?: UserRole;
+    plan?: "free" | "lite" | "pro" | "max";
     avatarUrl?: string | null;
     emailVerifiedAt?: Date | null;
     userMetadata?: any;
@@ -243,6 +255,7 @@ export async function adminUpdateUser(
         ...(data.name !== undefined && { name: data.name }),
         ...(data.email !== undefined && { email: data.email }),
         ...(data.role !== undefined && { role: data.role }),
+        ...(data.plan !== undefined && { plan: data.plan }),
         ...(data.avatarUrl !== undefined && { avatarUrl: data.avatarUrl }),
         ...(data.emailVerifiedAt !== undefined && { emailVerifiedAt: data.emailVerifiedAt }),
       })

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMyPresence, useOthers } from "@liveblocks/react";
+import { useFormCollaborationContext } from "@/hooks/use-form-collaboration";
 import { useRef, useCallback, ReactNode, useEffect, useState } from "react";
 import { Cursor } from "./cursors";
 
@@ -13,14 +13,15 @@ interface CursorAreaProps {
 }
 
 export function CursorArea({ id, children, className, onClick, isDragging = false }: CursorAreaProps) {
-  const [myPresence, updateMyPresence] = useMyPresence();
-  const others = useOthers();
+  const { myPresence, updateMyPresence, others, isCollaborative } = useFormCollaborationContext();
   const containerRef = useRef<HTMLDivElement>(null);
   // Keep isDragging in a ref so the stable useEffect closure can read the latest value
   const isDraggingRef = useRef(isDragging);
   useEffect(() => { isDraggingRef.current = isDragging; }, [isDragging]);
 
   useEffect(() => {
+    if (!isCollaborative) return;
+
     const handlePointerMove = (e: PointerEvent) => {
       if (!containerRef.current) return;
 
@@ -180,6 +181,22 @@ export function CursorArea({ id, children, className, onClick, isDragging = fals
       window.removeEventListener("touchmove", handleTouchMove);
     };
   }, [id, updateMyPresence, myPresence?.cursor?.area]);
+
+  if (!isCollaborative) {
+    return (
+      <div
+        ref={containerRef}
+        className={className}
+        onClick={onClick}
+        style={{ 
+          position: "relative",
+          touchAction: (id.startsWith("canvas-") || id === "canvas") && isDragging ? "none" : "pan-y"
+        }}
+      >
+        {children}
+      </div>
+    );
+  }
 
   return (
     <div

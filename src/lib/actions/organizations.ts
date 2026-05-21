@@ -3,7 +3,7 @@
 import { db } from "@/db";
 import { organizations, organizationMembers, organizationInvites, users, forms, assets } from "@/db/schema";
 import { createClient } from "@/lib/server";
-import { eq, and, sql, inArray } from "drizzle-orm";
+import { eq, and, sql, inArray, count, sum, isNotNull } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { cache } from "react";
@@ -71,6 +71,23 @@ export const verifyWorkspaceAccess = cache(async (
       return { success: true, role: "owner" };
     }
 
+    const org = await db.query.organizations.findFirst({
+      where: eq(organizations.id, orgId),
+      columns: { status: true }
+    });
+
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.id, user.id),
+      columns: { role: true }
+    });
+
+    if (org?.status === "suspended") {
+      if (dbUser?.role === "admin" || dbUser?.role === "superadmin") {
+        return { success: true, role: "owner" };
+      }
+      return { success: false, error: "This organization is suspended. Please contact support." };
+    }
+
     const member = await db.query.organizationMembers.findFirst({
       where: and(
         eq(organizationMembers.organizationId, orgId),
@@ -80,11 +97,6 @@ export const verifyWorkspaceAccess = cache(async (
 
     // PLATFORM ADMIN OVERRIDE:
     // If the user is a website administrator or superadmin, they get "owner" access to everything.
-    const dbUser = await db.query.users.findFirst({
-      where: eq(users.id, user.id),
-      columns: { role: true }
-    });
-
     if (dbUser?.role === "admin" || dbUser?.role === "superadmin") {
       return { success: true, role: "owner" };
     }
@@ -134,7 +146,51 @@ export async function getOrganization(id: string) {
       where: eq(organizations.id, id)
     });
 
-    return { success: true, data: { ...org, currentUserRole: access.role, currentUserId: user.id } };
+    if (!org) throw new Error("Organization not found");
+
+    // Fetch workspace usage statistics
+    const [membersCountRes] = await db
+      .select({ count: count() })
+      .from(organizationMembers)
+      .where(eq(organizationMembers.organizationId, id));
+    const memberCount = Number(membersCountRes?.count ?? 0);
+
+    const [invitesCountRes] = await db
+      .select({ count: count() })
+      .from(organizationInvites)
+      .where(eq(organizationInvites.organizationId, id));
+    const invitesCount = Number(invitesCountRes?.count ?? 0);
+
+    const [formsCountRes] = await db
+      .select({ count: count() })
+      .from(forms)
+      .where(eq(forms.organizationId, id));
+    const formUsage = Number(formsCountRes?.count ?? 0);
+
+    const [storageUsageRes] = await db
+      .select({ totalBytes: sum(assets.size) })
+      .from(assets)
+      .where(and(
+        isNotNull(assets.organizationId),
+        eq(assets.organizationId, id)
+      ));
+    const storageUsageBytes = Number(storageUsageRes?.totalBytes ?? 0);
+
+    const stats = {
+      memberUsage: memberCount + invitesCount,
+      formUsage,
+      storageUsageBytes,
+    };
+
+    return { 
+      success: true, 
+      data: { 
+        ...org, 
+        currentUserRole: access.role, 
+        currentUserId: user.id,
+        stats
+      } 
+    };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
@@ -162,7 +218,15 @@ export async function getOrganizationMembers(id: string) {
 
 // ─── Organization Writers ───────────────────────────────────────────────────
 
-export async function createOrganization(input: { name: string, description?: string }) {
+export async function createOrganization(input: {
+  name: string;
+  description?: string;
+  planName?: string;
+  memberLimit?: number;
+  storageLimit?: number;
+  formLimit?: number;
+  submissionLimit?: number;
+}) {
   try {
     const user = await getAuthUser();
     
@@ -172,6 +236,12 @@ export async function createOrganization(input: { name: string, description?: st
     const [org] = await db.insert(organizations).values({
       name: input.name,
       description: input.description,
+      planName: input.planName ?? "Custom",
+      memberLimit: input.memberLimit ?? 5,
+      storageLimit: input.storageLimit ?? 1073741824, // 1 GB default
+      formLimit: input.formLimit ?? 10,
+      submissionLimit: input.submissionLimit ?? 1000,
+      status: "active",
     }).returning({ id: organizations.id });
 
     await db.insert(organizationMembers).values({
@@ -344,6 +414,29 @@ export async function inviteMember(orgId: string, email: string, role: "manager"
     const access = await verifyWorkspaceAccess(orgId, requiredAccess);
     if (!access.success) throw new Error(access.error);
 
+    // Check organization details (seat limit & name)
+    const org = await db.query.organizations.findFirst({
+      where: eq(organizations.id, orgId),
+      columns: { name: true, memberLimit: true }
+    });
+    if (!org) throw new Error("Organization not found");
+
+    const [membersCountRes] = await db
+      .select({ count: count() })
+      .from(organizationMembers)
+      .where(eq(organizationMembers.organizationId, orgId));
+    const membersCount = Number(membersCountRes?.count ?? 0);
+
+    const [invitesCountRes] = await db
+      .select({ count: count() })
+      .from(organizationInvites)
+      .where(eq(organizationInvites.organizationId, orgId));
+    const invitesCount = Number(invitesCountRes?.count ?? 0);
+
+    if (membersCount + invitesCount >= org.memberLimit) {
+      throw new Error(`Member limit reached. Upgrade organization limits to invite more members (Current limit: ${org.memberLimit} seats).`);
+    }
+
     // 1. Check if user is already a member
     const existingMember = await db.query.organizationMembers.findFirst({
       where: and(
@@ -355,11 +448,6 @@ export async function inviteMember(orgId: string, email: string, role: "manager"
     if (existingMember) {
       throw new Error("This email is already a member of the organization");
     }
-
-    // 2. Resolve organization name for the email
-    const org = await db.query.organizations.findFirst({
-      where: eq(organizations.id, orgId)
-    });
 
     // Create a unguessable token
     const token = crypto.randomBytes(32).toString("hex");
@@ -449,6 +537,23 @@ export async function acceptInvite(token: string) {
 
     if (!invite) throw new Error("Invalid or expired invite");
     if (invite.expiresAt < new Date()) throw new Error("Invite expired");
+
+    // Check seat limit
+    const org = await db.query.organizations.findFirst({
+      where: eq(organizations.id, invite.organizationId),
+      columns: { memberLimit: true }
+    });
+    if (!org) throw new Error("Organization not found");
+
+    const [membersCountRes] = await db
+      .select({ count: count() })
+      .from(organizationMembers)
+      .where(eq(organizationMembers.organizationId, invite.organizationId));
+    const membersCount = Number(membersCountRes?.count ?? 0);
+
+    if (membersCount >= org.memberLimit) {
+      throw new Error(`The organization has reached its seat limit (${org.memberLimit} members). Please ask the owner to increase the limit.`);
+    }
 
     // Ensure email matches
     if (user.email !== invite.email) {

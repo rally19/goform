@@ -40,8 +40,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Camera, Monitor, ShieldCheck, LogOut, Mail } from "lucide-react";
+import { Camera, Monitor, ShieldCheck, LogOut, Mail, CreditCard, Database, Send, FileText, Shield } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { INDIVIDUAL_PLANS } from "@/lib/constants";
 import {
   updateProfileAction,
   updatePasswordAction,
@@ -65,14 +67,27 @@ const OTP_RESEND_SECONDS = Number(process.env.NEXT_PUBLIC_OTP_RESEND_COOLDOWN_SE
 export function SettingsClient({
   user,
   identities,
-  hasPassword
+  hasPassword,
+  stats
 }: {
-  user: { id: string, name: string | null, email: string, avatarUrl: string | null },
+  user: { id: string, name: string | null, email: string, avatarUrl: string | null, plan: "free" | "lite" | "pro" | "max" },
   identities: UserIdentity[],
-  hasPassword: boolean
+  hasPassword: boolean,
+  stats: { formUsage: number, storageUsageBytes: number }
 }) {
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const currentPlan = user.plan || "free";
+  const planLimits = INDIVIDUAL_PLANS[currentPlan] || INDIVIDUAL_PLANS.free;
+
+  const storageUsedMB = (stats?.storageUsageBytes ?? 0) / (1024 * 1024);
+  const storageLimitMB = planLimits.storageLimit / (1024 * 1024);
+  const storagePercentage = Math.min(100, Math.round((storageUsedMB / storageLimitMB) * 100));
+
+  const formUsage = stats?.formUsage ?? 0;
+  const formLimit = planLimits.formLimit;
+  const formPercentage = Math.min(100, Math.round((formUsage / formLimit) * 100));
 
   const [signOutOthersOpen, setSignOutOthersOpen] = useState(false);
   const [deletePasswordDialogOpen, setDeletePasswordDialogOpen] = useState(false);
@@ -559,6 +574,7 @@ export function SettingsClient({
             <TabsTrigger value="personal">Personal</TabsTrigger>
             <TabsTrigger value="password">Password</TabsTrigger>
             <TabsTrigger value="account">Account</TabsTrigger>
+            <TabsTrigger value="subscription">Subscription</TabsTrigger>
             <TabsTrigger value="danger" className="text-destructive data-[state=active]:text-destructive">Danger</TabsTrigger>
           </TabsList>
 
@@ -901,6 +917,136 @@ export function SettingsClient({
                   </Button>
                 </CardFooter>
               </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="subscription" className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-3">
+              <Card className="md:col-span-2 overflow-hidden bg-card">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-xl font-bold flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-indigo-600" />
+                    Personal Subscription
+                  </CardTitle>
+                  <CardDescription>View your current tier and individual workspace quotas.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-muted/30 border border-border/50">
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Plan Tier</p>
+                      <h4 className="text-2xl font-black tracking-tight text-foreground uppercase">
+                        {currentPlan} Plan
+                      </h4>
+                    </div>
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-3 py-1 rounded-full uppercase tracking-wider">
+                        <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                        Active
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h5 className="text-sm font-semibold tracking-tight text-foreground">Usage & Quotas</h5>
+
+                    {/* Forms usage */}
+                    <div className="space-y-2 p-4 rounded-xl border border-border/40 bg-card">
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2 font-medium">
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                          <span>Personal Forms Created</span>
+                        </div>
+                        <span className="font-semibold text-muted-foreground">
+                          {formUsage} <span className="text-xs font-normal">/ {formLimit} forms</span>
+                        </span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                        <div 
+                          className={cn(
+                            "h-full transition-all duration-500",
+                            formPercentage >= 90 ? "bg-destructive" : formPercentage >= 75 ? "bg-amber-500" : "bg-indigo-600"
+                          )}
+                          style={{ width: `${formPercentage}%` }}
+                        />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Total number of forms created in your personal (non-organization) workspace.
+                      </p>
+                    </div>
+
+                    {/* Storage usage */}
+                    <div className="space-y-2 p-4 rounded-xl border border-border/40 bg-card">
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2 font-medium">
+                          <Database className="h-4 w-4 text-muted-foreground" />
+                          <span>Personal Storage</span>
+                        </div>
+                        <span className="font-semibold text-muted-foreground">
+                          {storageUsedMB.toFixed(1)} MB <span className="text-xs font-normal">/ {storageLimitMB.toFixed(0)} MB</span>
+                        </span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                        <div 
+                          className={cn(
+                            "h-full transition-all duration-500",
+                            storagePercentage >= 90 ? "bg-destructive" : storagePercentage >= 75 ? "bg-amber-500" : "bg-indigo-600"
+                          )}
+                          style={{ width: `${storagePercentage}%` }}
+                        />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Storage used by uploaded images, files and media in your personal workspace.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="space-y-6">
+                <Card className="bg-card">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-md font-bold flex items-center gap-2">
+                      <Send className="h-4 w-4 text-indigo-600" />
+                      Submission Limits
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="p-4 rounded-xl bg-muted/40 border border-border/30">
+                      <div className="text-2xl font-black text-foreground">
+                        {planLimits.submissionLimit.toLocaleString()}
+                      </div>
+                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-1">
+                        Submissions Per Form
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                        Under your current plan, each form can accept up to this many responses. Submissions are capped on a per-form basis.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-gradient-to-br from-indigo-500/10 to-violet-500/10 border-indigo-500/20">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                      Need more capacity?
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Upgrade to Pro or Max to get more form slots, increased file upload storage, and higher response caps. Or request custom limits for your organization workspace.
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      className="w-full text-xs font-semibold h-8 border-indigo-500/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10"
+                      onClick={() => {
+                        toast.info("Individual plan upgrades are handled by administration. Please contact support.");
+                      }}
+                    >
+                      Request Plan Upgrade
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </TabsContent>
 

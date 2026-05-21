@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { forms, formFields, formResponses, assets, type NewForm, type NewFormField } from "@/db/schema";
+import { forms, formFields, formResponses, assets, users, organizations, type NewForm, type NewFormField } from "@/db/schema";
 import { createClient } from "@/lib/server";
 import { liveblocks } from "@/lib/liveblocks";
 import { eq, desc, ilike, and, count, sql, isNull, inArray } from "drizzle-orm";
@@ -9,7 +9,7 @@ import { revalidatePath } from "next/cache";
 import type { ActionResult, BuilderField, BuilderForm, BuilderSection, LogicRule } from "@/lib/form-types";
 import { z } from "zod";
 import { getActiveWorkspace, verifyWorkspaceAccess } from "./organizations";
-import { PERSONAL_WORKSPACE_ID } from "../constants";
+import { PERSONAL_WORKSPACE_ID, INDIVIDUAL_PLANS } from "../constants";
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
@@ -223,6 +223,43 @@ export async function createForm(
       if (!access.success) throw new Error(access.error);
     }
 
+    // Enforce form limits before creating the form
+    if (isPersonal) {
+      const userRow = await db.query.users.findFirst({
+        where: eq(users.id, user.id),
+        columns: { plan: true }
+      });
+      const plan = userRow?.plan ?? "free";
+      const limit = INDIVIDUAL_PLANS[plan].formLimit;
+
+      const [countResult] = await db
+        .select({ count: count() })
+        .from(forms)
+        .where(and(eq(forms.userId, user.id), isNull(forms.organizationId)));
+      const existingCount = Number(countResult?.count ?? 0);
+
+      if (existingCount >= limit) {
+        throw new Error(`Form limit reached. Upgrade your plan to create more forms (Current limit: ${limit} forms).`);
+      }
+    } else {
+      const orgRow = await db.query.organizations.findFirst({
+        where: eq(organizations.id, workspaceId),
+        columns: { formLimit: true }
+      });
+      if (!orgRow) throw new Error("Organization not found");
+      const limit = orgRow.formLimit;
+
+      const [countResult] = await db
+        .select({ count: count() })
+        .from(forms)
+        .where(eq(forms.organizationId, workspaceId));
+      const existingCount = Number(countResult?.count ?? 0);
+
+      if (existingCount >= limit) {
+        throw new Error(`Form limit reached. Upgrade organization limits to create more forms (Current limit: ${limit} forms).`);
+      }
+    }
+
     // Ensure user exists in users table
     const { users: usersTable } = await import("@/db/schema");
     await db
@@ -281,6 +318,44 @@ export async function moveForms(formIds: string[], targetWorkspaceId: string): P
     if (!targetIsPersonal) {
       const targetAccess = await verifyWorkspaceAccess(targetWorkspaceId, "administrator");
       if (!targetAccess.success) throw new Error("Need administrator access to target workspace to move forms there");
+    }
+
+    // Enforce form limits in target workspace
+    const formCountToMove = formIds.length;
+    if (targetIsPersonal) {
+      const userRow = await db.query.users.findFirst({
+        where: eq(users.id, user.id),
+        columns: { plan: true }
+      });
+      const plan = userRow?.plan ?? "free";
+      const limit = INDIVIDUAL_PLANS[plan].formLimit;
+
+      const [countResult] = await db
+        .select({ count: count() })
+        .from(forms)
+        .where(and(eq(forms.userId, user.id), isNull(forms.organizationId)));
+      const existingCount = Number(countResult?.count ?? 0);
+
+      if (existingCount + formCountToMove > limit) {
+        throw new Error(`Cannot move forms. Target personal workspace has a limit of ${limit} forms, and already has ${existingCount} forms.`);
+      }
+    } else {
+      const orgRow = await db.query.organizations.findFirst({
+        where: eq(organizations.id, targetWorkspaceId),
+        columns: { formLimit: true }
+      });
+      if (!orgRow) throw new Error("Target organization not found");
+      const limit = orgRow.formLimit;
+
+      const [countResult] = await db
+        .select({ count: count() })
+        .from(forms)
+        .where(eq(forms.organizationId, targetWorkspaceId));
+      const existingCount = Number(countResult?.count ?? 0);
+
+      if (existingCount + formCountToMove > limit) {
+        throw new Error(`Cannot move forms. Target organization has a limit of ${limit} forms, and already has ${existingCount} forms.`);
+      }
     }
 
     for (const id of formIds) {

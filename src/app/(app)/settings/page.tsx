@@ -1,8 +1,8 @@
 import { createClient } from '@/lib/server';
 import type { Metadata } from "next";
 import { db } from '@/db';
-import { users } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { users, forms, assets } from '@/db/schema';
+import { eq, and, isNull, count, sum } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 import { SettingsClient } from './client';
 import { Suspense } from 'react';
@@ -48,17 +48,55 @@ async function SettingsData() {
 
   const identities = user.identities || [];
 
-  const initialUser = dbUser || { 
+  const initialUser = dbUser ? {
+    id: dbUser.id,
+    email: dbUser.email,
+    name: dbUser.name,
+    avatarUrl: dbUser.avatarUrl,
+    plan: dbUser.plan,
+  } : { 
     id: user.id, 
     email: user.email!, 
     name: user.user_metadata?.name || null, 
-    avatarUrl: user.user_metadata?.avatar_url || null 
+    avatarUrl: user.user_metadata?.avatar_url || null,
+    plan: "free" as const
+  };
+
+  // Fetch personal workspace usage statistics
+  const [personalFormsCountRes] = await db
+    .select({ count: count() })
+    .from(forms)
+    .where(and(
+      isNull(forms.organizationId),
+      eq(forms.userId, user.id)
+    ));
+  const personalFormUsage = Number(personalFormsCountRes?.count ?? 0);
+
+  const [personalStorageRes] = await db
+    .select({ totalBytes: sum(assets.size) })
+    .from(assets)
+    .where(and(
+      isNull(assets.organizationId),
+      eq(assets.userId, user.id)
+    ));
+  const personalStorageBytes = Number(personalStorageRes?.totalBytes ?? 0);
+
+  const stats = {
+    formUsage: personalFormUsage,
+    storageUsageBytes: personalStorageBytes,
   };
 
   const hasPassword = (user.app_metadata?.providers || []).includes('email') || 
                     identities.some(identity => identity.provider === 'email');
 
-  return <SettingsClient user={initialUser} identities={identities} hasPassword={hasPassword} />;
+  return (
+    <SettingsClient 
+      user={initialUser} 
+      identities={identities} 
+      hasPassword={hasPassword} 
+      stats={stats}
+    />
+  );
 }
 
 function SettingsSkeleton() {

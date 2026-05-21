@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback, useState, useMemo } from "react";
 import { useFormBuilder } from "@/hooks/use-form-builder";
-import { useFormCollaboration } from "@/hooks/use-form-collaboration";
+import { useFormCollaborationContext } from "@/hooks/use-form-collaboration";
 import { FieldCard } from "./field-card";
 import { FormHeaderEditor } from "./form-header-editor";
 import { ComponentPanel } from "./component-panel";
@@ -335,8 +335,9 @@ export function BuilderCanvas({
     setMultiSelect,
   } = useFormBuilder();
 
-  // ─── Liveblocks Engine ────────────────────────────────────────────────────
+  // ─── Collaboration Engine (Liveblocks or Local Fallback) ──────────────────
   const {
+    isCollaborative,
     fields,
     form,
     sections,
@@ -359,13 +360,7 @@ export function BuilderCanvas({
     isSaving,
     manualSave,
     autoSave,
-  } = useFormCollaboration({
-    formId,
-    initialForm,
-    initialFields,
-    initialSections,
-    autoSave: initialForm.autoSave,
-  });
+  } = useFormCollaborationContext();
 
   // ─── Section state bootstrap ───────────────────────────────────────────────
   // Once sections load, initialise currentSectionId to the first section
@@ -687,9 +682,12 @@ export function BuilderCanvas({
           {/* Header */}
           <header className="h-14 border-b border-border bg-card flex items-center justify-between px-4 shrink-0 z-20">
             <div className="flex items-center gap-3 min-w-0">
-              <ActiveMembers self={self} others={others} />
-
-              <div className="w-px h-4 bg-border mx-1 hidden sm:block" />
+              {isCollaborative && (
+                <>
+                  <ActiveMembers self={self} others={others} />
+                  <div className="w-px h-4 bg-border mx-1 hidden sm:block" />
+                </>
+              )}
 
               <div className="flex items-center gap-1.5 min-w-0">
                 {/* Status Dot with Tooltip */}

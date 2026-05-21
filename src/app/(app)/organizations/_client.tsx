@@ -42,6 +42,11 @@ export function OrganizationsClient({
   const [isCreating, setIsCreating] = useState(false);
   const [open, setOpen] = useState(false);
   const [orgName, setOrgName] = useState("");
+  const [planName, setPlanName] = useState("Custom");
+  const [memberLimit, setMemberLimit] = useState(5);
+  const [storageLimitMB, setStorageLimitMB] = useState(1024); // 1 GB
+  const [formLimit, setFormLimit] = useState(10);
+  const [submissionLimit, setSubmissionLimit] = useState(1000);
   const [isSwitching, setIsSwitching] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [pendingOrgId, setPendingOrgId] = useState<string | null>(null);
@@ -55,13 +60,25 @@ export function OrganizationsClient({
     if (!orgName.trim()) return;
     
     setIsCreating(true);
-    const res = await createOrganization({ name: orgName });
+    const res = await createOrganization({
+      name: orgName,
+      planName,
+      memberLimit,
+      storageLimit: storageLimitMB * 1024 * 1024,
+      formLimit,
+      submissionLimit,
+    });
     setIsCreating(false);
 
     if (res.success) {
       toast.success("Organization created");
       setOpen(false);
       setOrgName("");
+      setPlanName("Custom");
+      setMemberLimit(5);
+      setStorageLimitMB(1024);
+      setFormLimit(10);
+      setSubmissionLimit(1000);
       // Forces a full refresh to push new cookie to layout
       window.location.assign("/organizations");
     } else {
@@ -101,7 +118,7 @@ export function OrganizationsClient({
                     Collaborate with others by moving forms into a shared workspace.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="py-4 space-y-4">
+                <div className="py-4 space-y-4 max-h-[60vh] overflow-y-auto px-1">
                   <div className="space-y-2">
                     <Label htmlFor="name">Organization Name</Label>
                     <Input
@@ -111,6 +128,66 @@ export function OrganizationsClient({
                       onChange={(e) => setOrgName(e.target.value)}
                       autoFocus
                     />
+                  </div>
+
+                  <div className="border-t border-border pt-4 space-y-4">
+                    <h4 className="text-sm font-semibold text-primary">Custom Limits & Planning</h4>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="planName">Plan Name</Label>
+                        <Input
+                          id="planName"
+                          placeholder="e.g. Custom, Starter"
+                          value={planName}
+                          onChange={(e) => setPlanName(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="memberLimit">Seat Limit (Members)</Label>
+                        <Input
+                          id="memberLimit"
+                          type="number"
+                          min={1}
+                          value={memberLimit}
+                          onChange={(e) => setMemberLimit(Number(e.target.value))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="storageLimitMB">Storage Limit (MB)</Label>
+                        <Input
+                          id="storageLimitMB"
+                          type="number"
+                          min={0}
+                          value={storageLimitMB}
+                          onChange={(e) => setStorageLimitMB(Number(e.target.value))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="formLimit">Form Limit</Label>
+                        <Input
+                          id="formLimit"
+                          type="number"
+                          min={0}
+                          value={formLimit}
+                          onChange={(e) => setFormLimit(Number(e.target.value))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="submissionLimit">Form Submission Quota</Label>
+                      <Input
+                        id="submissionLimit"
+                        type="number"
+                        min={0}
+                        value={submissionLimit}
+                        onChange={(e) => setSubmissionLimit(Number(e.target.value))}
+                      />
+                    </div>
                   </div>
                 </div>
                 <DialogFooter>

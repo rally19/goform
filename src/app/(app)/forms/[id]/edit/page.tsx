@@ -100,7 +100,13 @@ async function BuilderData({ params }: { params: Promise<{ id: string }> }) {
   const workspaceId = form.organizationId || PERSONAL_WORKSPACE_ID;
 
   return (
-    <Room roomId={id} initialForm={builderForm} initialFields={builderFields} initialSections={sections}>
+    <Room 
+      roomId={id} 
+      initialForm={builderForm} 
+      initialFields={builderFields} 
+      initialSections={sections}
+      enabled={!!form.organizationId}
+    >
       <BuilderCanvas
         formId={id}
         initialForm={builderForm}
@@ -120,7 +126,7 @@ function BuilderSkeleton() {
       <Loader2 className="h-10 w-10 animate-spin text-primary/20" />
       <div className="space-y-2 text-center">
         <p className="text-sm font-medium text-muted-foreground animate-pulse">Loading builder...</p>
-        <p className="text-xs text-muted-foreground/60">Connecting to realtime collaboration</p>
+        <p className="text-xs text-muted-foreground/60">Setting up editor workspace</p>
       </div>
     </div>
   );

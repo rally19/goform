@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     const { data: forms, error } = await supabase
       .from("forms")
-      .select("id, title, slug, created_at");
+      .select("id, title, slug, created_at, organization_id");
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -31,6 +31,17 @@ export async function GET(request: NextRequest) {
     let totalActiveUsers = 0;
 
     for (const form of forms) {
+      if (!form.organization_id) {
+        roomStats.push({
+          formId: form.id,
+          formTitle: form.title,
+          formSlug: form.slug,
+          createdAt: form.created_at,
+          activeUsers: 0,
+          lastActivity: null,
+        });
+        continue;
+      }
       try {
         // Get active users from Liveblocks room
         const activeUsersResponse = await liveblocks.getActiveUsers(form.id);

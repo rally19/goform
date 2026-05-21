@@ -1,13 +1,43 @@
 "use server";
 
 import { db } from "@/db";
-import { assets, users } from "@/db/schema";
+import { assets, users, organizations } from "@/db/schema";
 import { createClient } from "@/lib/server";
 import { eq, and, isNull, isNotNull, sum, count, desc, notIlike, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { PERSONAL_WORKSPACE_ID } from "@/lib/constants";
+import { PERSONAL_WORKSPACE_ID, INDIVIDUAL_PLANS } from "@/lib/constants";
 import { verifyWorkspaceAccess } from "./organizations";
 import type { Asset } from "@/db/schema";
+
+async function checkWorkspaceStorageLimit(workspaceId: string, additionalBytes: number, userId: string) {
+  const isPersonal = workspaceId === PERSONAL_WORKSPACE_ID;
+  let limitBytes = 100 * 1024 * 1024;
+
+  if (isPersonal) {
+    const userRow = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: { plan: true }
+    });
+    const plan = userRow?.plan ?? "free";
+    limitBytes = INDIVIDUAL_PLANS[plan].storageLimit;
+  } else {
+    const orgRow = await db.query.organizations.findFirst({
+      where: eq(organizations.id, workspaceId),
+      columns: { storageLimit: true }
+    });
+    if (!orgRow) throw new Error("Workspace organization not found");
+    limitBytes = orgRow.storageLimit;
+  }
+
+  const usage = await getWorkspaceStorageUsage(workspaceId);
+  const currentBytes = usage.data?.totalBytes ?? 0;
+  if (currentBytes + additionalBytes > limitBytes) {
+    const limitFriendly = limitBytes >= 1024 * 1024 * 1024
+      ? `${(limitBytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
+      : `${(limitBytes / (1024 * 1024)).toFixed(0)} MB`;
+    throw new Error(`Workspace storage limit of ${limitFriendly} reached`);
+  }
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -187,11 +217,7 @@ export async function uploadAsset(workspaceId: string, formData: FormData) {
     if (file.size > MAX_SIZE) throw new Error("File size must be under 5 MB");
 
     // Check workspace limits
-    const usage = await getWorkspaceStorageUsage(workspaceId);
-    const currentBytes = usage.data?.totalBytes ?? 0;
-    if (currentBytes + file.size > 100 * 1024 * 1024) {
-      throw new Error("Workspace storage limit of 100 MB reached");
-    }
+    await checkWorkspaceStorageLimit(workspaceId, file.size, user.id);
 
     // Ensure user exists in DB
     await db
@@ -384,6 +410,9 @@ export async function moveAssets(
         throw new Error(`No permission to move "${asset.name}"`);
       }
     }
+    // Check target storage limit
+    const totalMoveBytes = rows.reduce((sum, row) => sum + row.size, 0);
+    await checkWorkspaceStorageLimit(targetWorkspaceId, totalMoveBytes, user.id);
 
     const { inArray } = await import("drizzle-orm");
     await db
@@ -432,6 +461,10 @@ export async function copyAssets(
         throw new Error(`No permission to read "${asset.name}"`);
       }
     }
+
+    // Check target storage limit
+    const totalCopyBytes = rows.reduce((sum, row) => sum + row.size, 0);
+    await checkWorkspaceStorageLimit(targetWorkspaceId, totalCopyBytes, user.id);
 
     const supabase = await createClient();
 

@@ -5,6 +5,7 @@ import {
   varchar,
   boolean,
   integer,
+  bigint,
   jsonb,
   uuid,
   pgEnum,
@@ -70,6 +71,13 @@ export const userRoleEnum = pgEnum("user_role", [
   "superadmin",
 ]);
 
+export const userPlanEnum = pgEnum("user_plan_enum", [
+  "free",
+  "lite",
+  "pro",
+  "max",
+]);
+
 // ─── Users (mirrors Supabase auth.users) ─────────────────────────────────────
 
 export const users = pgTable("users", {
@@ -80,6 +88,7 @@ export const users = pgTable("users", {
   emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   role: userRoleEnum("role").notNull().default("user"),
+  plan: userPlanEnum("plan").notNull().default("free"),
 });
 
 // ─── API Keys ───────────────────────────────────────────────────────────────
@@ -111,6 +120,12 @@ export const organizations = pgTable("organizations", {
   avatarUrl: text("avatar_url"),
   ownerDeletedAt: timestamp("owner_deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  planName: text("plan_name").notNull().default("Custom"),
+  memberLimit: integer("member_limit").notNull().default(5),
+  storageLimit: bigint("storage_limit", { mode: "number" }).notNull().default(1073741824), // 1 GB
+  formLimit: integer("form_limit").notNull().default(10),
+  submissionLimit: integer("submission_limit").notNull().default(1000),
+  status: text("status").notNull().default("active"), // 'active' or 'suspended'
 });
 
 export const organizationMembers = pgTable(

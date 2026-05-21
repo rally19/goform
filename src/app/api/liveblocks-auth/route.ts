@@ -66,6 +66,10 @@ export async function POST(request: NextRequest) {
       return new NextResponse("Form not found", { status: 404 });
     }
 
+    if (!form.organizationId) {
+      return new NextResponse("Forbidden: Personal forms do not support collaboration", { status: 403 });
+    }
+
     let hasAccess = false;
 
     if (form.organizationId) {

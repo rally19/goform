@@ -89,6 +89,7 @@ const userSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().email("Invalid email address"),
   role: z.enum(userRoleEnum.enumValues),
+  plan: z.enum(["free", "lite", "pro", "max"]),
 });
 
 type UserFormValues = z.infer<typeof userSchema>;
@@ -109,6 +110,7 @@ export function UserEditClient({ user }: { user: AdminUser }) {
       name: user.name || "",
       email: user.email,
       role: user.role,
+      plan: user.plan || "free",
       avatarUrl: user.avatarUrl || "",
       emailVerifiedAt: user.emailVerifiedAt 
         ? new Date(user.emailVerifiedAt).toISOString().slice(0, 16) 
@@ -425,7 +427,7 @@ export function UserEditClient({ user }: { user: AdminUser }) {
                       </div>
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="grid gap-4 sm:grid-cols-3">
                       <div className="space-y-2">
                         <Label htmlFor="name" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Full Name</Label>
                         <Input id="name" {...form.register("name")} />
@@ -443,6 +445,23 @@ export function UserEditClient({ user }: { user: AdminUser }) {
                             <SelectItem value="user">User</SelectItem>
                             <SelectItem value="admin">Admin</SelectItem>
                             <SelectItem value="superadmin">Super Admin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="plan" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Subscription Plan</Label>
+                        <Select
+                          defaultValue={form.getValues("plan")}
+                          onValueChange={(value) => form.setValue("plan", value as any)}
+                        >
+                          <SelectTrigger id="plan">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="free">Free</SelectItem>
+                            <SelectItem value="lite">Lite</SelectItem>
+                            <SelectItem value="pro">Pro</SelectItem>
+                            <SelectItem value="max">Max</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

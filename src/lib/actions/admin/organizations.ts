@@ -18,6 +18,12 @@ export type AdminOrganization = {
   ownerDeletedAt: Date | null;
   memberCount: number;
   formCount: number;
+  planName: string;
+  memberLimit: number;
+  storageLimit: number;
+  formLimit: number;
+  submissionLimit: number;
+  status: string;
 };
 
 export type AdminOrgAsset = {
@@ -79,6 +85,12 @@ export async function adminGetOrganizations(): Promise<
         avatarUrl: organizations.avatarUrl,
         createdAt: organizations.createdAt,
         ownerDeletedAt: organizations.ownerDeletedAt,
+        planName: organizations.planName,
+        memberLimit: organizations.memberLimit,
+        storageLimit: organizations.storageLimit,
+        formLimit: organizations.formLimit,
+        submissionLimit: organizations.submissionLimit,
+        status: organizations.status,
         memberCount: sql<number>`cast(count(distinct ${organizationMembers.id}) as int)`,
         formCount: sql<number>`cast(count(distinct ${forms.id}) as int)`,
       })
@@ -180,7 +192,15 @@ export async function adminGetOrganization(id: string): Promise<
           storagePath: a.storagePath,
           createdAt: a.createdAt,
         })),
-        storage: { totalBytes, totalFiles, assetBytes, assetFiles, formBytes, formFiles, limitBytes: 100 * 1024 * 1024 },
+        storage: {
+          totalBytes,
+          totalFiles,
+          assetBytes,
+          assetFiles,
+          formBytes,
+          formFiles,
+          limitBytes: org.storageLimit
+        },
       } as AdminOrganizationDetail,
     };
   } catch (err) {
@@ -194,6 +214,12 @@ export async function adminUpdateOrganization(
     name?: string;
     description?: string | null;
     avatarUrl?: string | null;
+    planName?: string;
+    memberLimit?: number;
+    storageLimit?: number;
+    formLimit?: number;
+    submissionLimit?: number;
+    status?: string;
   }
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {

@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { createClient } from "@/lib/client";
+import { cn } from "@/lib/utils";
 import { 
-  Building2, Users, Settings, Plus, Loader2, Link as LinkIcon, Trash2, Mail, Camera
+  Building2, Users, Settings, Plus, Loader2, Link as LinkIcon, Trash2, Mail, Camera, Shield, Database, FileText, Send
 } from "lucide-react";
 import {
   Card,
@@ -78,6 +79,21 @@ export function OrganizationManageClient({
   const isAdminOrOwner = isOwner || isManager || currentRole === "administrator";
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Compute quotas and limits
+  const storageUsedMB = (organization.stats?.storageUsageBytes ?? 0) / (1024 * 1024);
+  const storageLimitMB = (organization.storageLimit ?? 1073741824) / (1024 * 1024);
+  const storagePercentage = Math.min(100, Math.round((storageUsedMB / storageLimitMB) * 100));
+
+  const memberUsage = organization.stats?.memberUsage ?? 0;
+  const memberLimit = organization.memberLimit ?? 5;
+  const memberPercentage = Math.min(100, Math.round((memberUsage / memberLimit) * 100));
+
+  const formUsage = organization.stats?.formUsage ?? 0;
+  const formLimit = organization.formLimit ?? 10;
+  const formPercentage = Math.min(100, Math.round((formUsage / formLimit) * 100));
+
+  const isSuspended = organization.status === "suspended";
 
   // State
   const [orgName, setOrgName] = useState(organization.name);
@@ -407,6 +423,7 @@ export function OrganizationManageClient({
           {isAdminOrOwner && (
             <TabsTrigger value="invites" className="gap-2"><Mail className="h-4 w-4" /> Invites</TabsTrigger>
           )}
+          <TabsTrigger value="billing" className="gap-2"><Shield className="h-4 w-4" /> Plan & Quotas</TabsTrigger>
           {isAdminOrOwner && (
             <TabsTrigger value="settings" className="gap-2"><Settings className="h-4 w-4" /> Settings</TabsTrigger>
           )}
@@ -568,6 +585,189 @@ export function OrganizationManageClient({
             </Card>
           </TabsContent>
         )}
+
+        <TabsContent value="billing" className="space-y-6">
+          {isSuspended && (
+            <Card className="border-destructive/50 bg-destructive/5 overflow-hidden">
+              <CardContent className="p-6">
+                <div className="flex gap-4 items-start text-destructive">
+                  <div className="bg-destructive/10 p-3 rounded-xl border border-destructive/20 shrink-0">
+                    <Shield className="h-6 w-6" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-bold tracking-tight">Organization Suspended</h3>
+                    <p className="text-sm opacity-90 leading-relaxed">
+                      This organization has been suspended by an administrator. All forms in this workspace are currently offline and cannot collect new submissions. Please contact administration to resolve this issue.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="grid gap-6 md:grid-cols-3">
+            <Card className="md:col-span-2 overflow-hidden bg-card">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-xl font-bold flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-indigo-600" />
+                  Subscription Plan
+                </CardTitle>
+                <CardDescription>Current tier, limits and workspace status details.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-muted/30 border border-border/50">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Current Tier</p>
+                    <h4 className="text-2xl font-black tracking-tight text-foreground uppercase">
+                      {organization.planName || "Custom"} Plan
+                    </h4>
+                  </div>
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                    {isSuspended ? (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-destructive/10 text-destructive border border-destructive/20 px-3 py-1 rounded-full uppercase tracking-wider">
+                        <span className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
+                        Suspended
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-3 py-1 rounded-full uppercase tracking-wider">
+                        <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                        Active
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h5 className="text-sm font-semibold tracking-tight text-foreground">Workspace Quotas & Usage</h5>
+                  
+                  {/* Seats usage */}
+                  <div className="space-y-2 p-4 rounded-xl border border-border/40 bg-card">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2 font-medium">
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                        <span>Team Seats Used</span>
+                      </div>
+                      <span className="font-semibold text-muted-foreground">
+                        {memberUsage} <span className="text-xs font-normal">/ {memberLimit} seats</span>
+                      </span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                      <div 
+                        className={cn(
+                          "h-full transition-all duration-500",
+                          memberPercentage >= 90 ? "bg-destructive" : memberPercentage >= 75 ? "bg-amber-500" : "bg-indigo-600"
+                        )}
+                        style={{ width: `${memberPercentage}%` }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Seats count both active workspace members and pending invites.
+                    </p>
+                  </div>
+
+                  {/* Forms usage */}
+                  <div className="space-y-2 p-4 rounded-xl border border-border/40 bg-card">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2 font-medium">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <span>Forms Created</span>
+                      </div>
+                      <span className="font-semibold text-muted-foreground">
+                        {formUsage} <span className="text-xs font-normal">/ {formLimit} forms</span>
+                      </span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                      <div 
+                        className={cn(
+                          "h-full transition-all duration-500",
+                          formPercentage >= 90 ? "bg-destructive" : formPercentage >= 75 ? "bg-amber-500" : "bg-indigo-600"
+                        )}
+                        style={{ width: `${formPercentage}%` }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Total number of form builders created in this organization workspace.
+                    </p>
+                  </div>
+
+                  {/* Storage usage */}
+                  <div className="space-y-2 p-4 rounded-xl border border-border/40 bg-card">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2 font-medium">
+                        <Database className="h-4 w-4 text-muted-foreground" />
+                        <span>Asset Storage</span>
+                      </div>
+                      <span className="font-semibold text-muted-foreground">
+                        {storageUsedMB.toFixed(1)} MB <span className="text-xs font-normal">/ {storageLimitMB.toFixed(0)} MB</span>
+                      </span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                      <div 
+                        className={cn(
+                          "h-full transition-all duration-500",
+                          storagePercentage >= 90 ? "bg-destructive" : storagePercentage >= 75 ? "bg-amber-500" : "bg-indigo-600"
+                        )}
+                        style={{ width: `${storagePercentage}%` }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Storage used by uploaded logos, images, file uploads and form response assets.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="space-y-6">
+              <Card className="bg-card">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-md font-bold flex items-center gap-2">
+                    <Send className="h-4 w-4 text-indigo-600" />
+                    Submission Rules
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="p-4 rounded-xl bg-muted/40 border border-border/30">
+                    <div className="text-2xl font-black text-foreground">
+                      {organization.submissionLimit?.toLocaleString() ?? "1,000"}
+                    </div>
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-1">
+                      Submissions Per Form
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                      Each form can collect up to this many responses before automatically refusing new submissions. Quota limits apply per form, not collectively across the workspace.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-indigo-500/10 to-violet-500/10 border-indigo-500/20">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                    Need more capacity?
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Custom workspaces can have tailor-made limits for seats, storage, forms, and responses. Reach out to your account manager or organization owner to request quota adjustments.
+                  </p>
+                  {isAdminOrOwner && (
+                    <Button 
+                      variant="outline" 
+                      className="w-full text-xs font-semibold h-8 border-indigo-500/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10"
+                      onClick={() => {
+                        // Switch tab to settings
+                        setActiveTab("settings");
+                      }}
+                    >
+                      Workspace Settings
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
 
         <TabsContent value="settings" className="space-y-4">
           <Card>

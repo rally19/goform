@@ -91,6 +91,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const orgSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().nullable(),
+  planName: z.string().min(1, "Plan name is required"),
+  memberLimit: z.coerce.number().min(1),
+  storageLimit: z.coerce.number().min(0), // MB
+  formLimit: z.coerce.number().min(0),
+  submissionLimit: z.coerce.number().min(0),
+  status: z.enum(["active", "suspended"]),
 });
 
 export function OrganizationEditClient({ 
@@ -149,17 +155,27 @@ export function OrganizationEditClient({
     }
   };
 
-  const form = useForm<z.infer<typeof orgSchema>>({
+  const form = useForm<any>({
     resolver: zodResolver(orgSchema),
     defaultValues: {
       name: organization.name,
       description: organization.description,
+      planName: organization.planName || "Custom",
+      memberLimit: organization.memberLimit ?? 5,
+      storageLimit: Math.round((organization.storageLimit ?? 1073741824) / (1024 * 1024)), // convert to MB
+      formLimit: organization.formLimit ?? 10,
+      submissionLimit: organization.submissionLimit ?? 1000,
+      status: (organization.status as any) || "active",
     },
   });
 
-  const onSubmit = async (values: z.infer<typeof orgSchema>) => {
+  const onSubmit = async (values: any) => {
     startTransition(async () => {
-      const result = await adminUpdateOrganization(organization.id, values);
+      const payload = {
+        ...values,
+        storageLimit: values.storageLimit * 1024 * 1024, // convert MB to bytes
+      };
+      const result = await adminUpdateOrganization(organization.id, payload);
       if (result.success) {
         toast.success("Organization updated successfully");
         router.refresh();
@@ -271,6 +287,60 @@ export function OrganizationEditClient({
                             className="min-h-[100px] resize-none"
                           />
                         </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-border shadow-sm">
+                  <CardHeader className="py-4 border-b border-border/50 bg-muted/20">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <Settings className="h-4 w-4 text-primary" />
+                      Plan & Limits Configuration
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="planName" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Plan Name</Label>
+                        <Input id="planName" {...form.register("planName")} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="status" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Organization Status</Label>
+                        <Select
+                          defaultValue={form.getValues("status")}
+                          onValueChange={(value) => form.setValue("status", value as any)}
+                        >
+                          <SelectTrigger id="status">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="suspended">Suspended</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="memberLimit" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Seat (Member) Limit</Label>
+                        <Input id="memberLimit" type="number" {...form.register("memberLimit")} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="storageLimit" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Storage Limit (MB)</Label>
+                        <Input id="storageLimit" type="number" {...form.register("storageLimit")} />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="formLimit" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Form Limit</Label>
+                        <Input id="formLimit" type="number" {...form.register("formLimit")} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="submissionLimit" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Form Submission Quota</Label>
+                        <Input id="submissionLimit" type="number" {...form.register("submissionLimit")} />
                       </div>
                     </div>
                   </CardContent>

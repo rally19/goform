@@ -15,6 +15,8 @@ import { RoomErrorBoundary } from "./room-error-boundary";
 import { SyncErrorFallback } from "./error-fallback";
 import { motion } from "motion/react";
 
+import { FormCollaborationProvider } from "@/hooks/use-form-collaboration";
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function buildInitialStorage(
@@ -62,13 +64,20 @@ interface RoomProps {
   initialForm?: BuilderForm;
   initialFields?: BuilderField[];
   initialSections?: BuilderSection[];
+  enabled?: boolean;
 }
 
-export function Room({ children, roomId, initialForm, initialFields, initialSections }: RoomProps) {
+export function Room({ children, roomId, initialForm, initialFields, initialSections, enabled = true }: RoomProps) {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   // initialStorage must be computed exactly once — Liveblocks only uses it for
   // brand-new rooms. Using useRef guarantees stability and prevents UUID regeneration.
   const initialStorageRef = useRef<ReturnType<typeof buildInitialStorage> | null>(null);
-  if (initialStorageRef.current === null) {
+  if (initialStorageRef.current === null && enabled) {
     initialStorageRef.current = buildInitialStorage(initialFields, initialForm, initialSections);
   }
   const initialStorage = initialStorageRef.current;
@@ -109,6 +118,23 @@ export function Room({ children, roomId, initialForm, initialFields, initialSect
     }
   }, []);
 
+  if (!enabled) {
+    if (!isMounted) {
+      return <Loading enabled={false} />;
+    }
+    return (
+      <FormCollaborationProvider
+        roomId={roomId}
+        initialForm={initialForm!}
+        initialFields={initialFields || []}
+        initialSections={initialSections}
+        enabled={false}
+      >
+        {children}
+      </FormCollaborationProvider>
+    );
+  }
+
   if (localAuthError) {
     return (
       <SyncErrorFallback 
@@ -129,11 +155,19 @@ export function Room({ children, roomId, initialForm, initialFields, initialSect
             selectedSectionId: null,
             draggingFieldId: null 
           }}
-          initialStorage={initialStorage}
+          initialStorage={initialStorage!}
         >
           <ClientSideSuspense fallback={<Loading />}>
             <ReadyBoundary>
-              {children}
+              <FormCollaborationProvider
+                roomId={roomId}
+                initialForm={initialForm!}
+                initialFields={initialFields || []}
+                initialSections={initialSections}
+                enabled={true}
+              >
+                {children}
+              </FormCollaborationProvider>
             </ReadyBoundary>
           </ClientSideSuspense>
         </RoomProvider>
@@ -162,7 +196,7 @@ function ReadyBoundary({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-function Loading() {
+function Loading({ enabled = true }: { enabled?: boolean }) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center bg-background/50 backdrop-blur-sm h-full gap-4 animate-in fade-in duration-500">
       <div className="relative h-16 w-16">
@@ -171,14 +205,16 @@ function Loading() {
         <UsersRound className="absolute inset-0 m-auto h-6 w-6 text-primary animate-pulse" />
       </div>
       <div className="flex flex-col items-center gap-1">
-        <h3 className="text-sm font-semibold text-foreground">Entering Room</h3>
+        <h3 className="text-sm font-semibold text-foreground">
+          {enabled ? "Entering Room" : "Loading Workspace"}
+        </h3>
         <motion.p 
           initial={{ opacity: 0.5 }}
           animate={{ opacity: [0.5, 1, 0.5] }}
           transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
           className="text-xs text-muted-foreground"
         >
-          Syncing collaborative state...
+          {enabled ? "Syncing collaborative state..." : "Preparing form editor..."}
         </motion.p>
       </div>
     </div>

@@ -1,10 +1,11 @@
 "use server";
 
 import { db } from "@/db";
-import { forms, formFields, formResponses, assets } from "@/db/schema";
+import { forms, formFields, formResponses, assets, users, organizations } from "@/db/schema";
 import { createClient } from "@/lib/server";
 import { eq, desc, and, count, sql, gt, gte, isNull, isNotNull, sum } from "drizzle-orm";
 import { enforceFormAccess } from "./forms";
+import { INDIVIDUAL_PLANS } from "../constants";
 import type { ActionResult, FormAnswer, FormAnalytics, ResponseRow, FieldType, BuilderField, LogicRule } from "@/lib/form-types";
 import { evaluateLogic, isAnswerEmpty } from "@/lib/form-logic";
 
@@ -188,6 +189,43 @@ export async function submitFormResponse(
     }
 
     if (!isBypassed) {
+      // Check if organization is suspended
+      if (form.organizationId) {
+        const org = await db.query.organizations.findFirst({
+          where: eq(organizations.id, form.organizationId),
+          columns: { status: true }
+        });
+        if (org?.status === "suspended") {
+          return { success: false, error: "This form's organization has been suspended." };
+        }
+      }
+
+      // Check plan / organization submission quota
+      let submissionQuota = 100;
+      if (form.organizationId) {
+        const orgRow = await db.query.organizations.findFirst({
+          where: eq(organizations.id, form.organizationId),
+          columns: { submissionLimit: true }
+        });
+        submissionQuota = orgRow?.submissionLimit ?? 1000;
+      } else {
+        const ownerRow = await db.query.users.findFirst({
+          where: eq(users.id, form.userId!),
+          columns: { plan: true }
+        });
+        const plan = ownerRow?.plan ?? "free";
+        submissionQuota = INDIVIDUAL_PLANS[plan].submissionLimit;
+      }
+
+      const [{ count: currentResponsesCount }] = await db
+        .select({ count: count(formResponses.id) })
+        .from(formResponses)
+        .where(eq(formResponses.formId, formId));
+
+      if (currentResponsesCount >= submissionQuota) {
+        return { success: false, error: "This form has reached its plan's submission quota limit." };
+      }
+
       if (form.status === "draft") {
         return { success: false, error: "This form is not yet published" };
       }
@@ -943,6 +981,23 @@ export async function checkFormStorageQuota(formId: string, uploadSizeBytes: num
     if (!form) return { success: false, error: "Form not found" };
 
     const isPersonal = !form.organizationId;
+    let limitBytes = 100 * 1024 * 1024;
+
+    if (isPersonal) {
+      const ownerRow = await db.query.users.findFirst({
+        where: eq(users.id, form.userId!),
+        columns: { plan: true }
+      });
+      const plan = ownerRow?.plan ?? "free";
+      limitBytes = INDIVIDUAL_PLANS[plan].storageLimit;
+    } else {
+      const orgRow = await db.query.organizations.findFirst({
+        where: eq(organizations.id, form.organizationId!),
+        columns: { storageLimit: true }
+      });
+      limitBytes = orgRow?.storageLimit ?? 1073741824; // 1 GB fallback
+    }
+
     const conditions = isPersonal
       ? and(isNull(assets.organizationId), eq(assets.userId, form.userId!))
       : and(isNotNull(assets.organizationId), eq(assets.organizationId, form.organizationId!));
@@ -953,7 +1008,7 @@ export async function checkFormStorageQuota(formId: string, uploadSizeBytes: num
       .where(conditions);
 
     const currentBytes = Number(row.totalBytes ?? 0);
-    if (currentBytes + uploadSizeBytes > 100 * 1024 * 1024) {
+    if (currentBytes + uploadSizeBytes > limitBytes) {
       return { success: false, error: "Form owner has reached their file limit." };
     }
 

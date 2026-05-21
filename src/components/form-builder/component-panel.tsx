@@ -10,8 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { useMutation } from "@liveblocks/react";
-import { LiveObject } from "@liveblocks/client";
+import { useFormCollaborationContext } from "@/hooks/use-form-collaboration";
 import {
   Type, AlignLeft, Hash, Mail, Phone, Link, Calendar, Clock,
   CalendarClock, CircleDot, CheckSquare, ChevronDown, ListChecks,
@@ -39,13 +38,13 @@ const CATEGORY_COLORS: Record<FieldCategory, string> = {
 
 function DraggableSidebarItem({ item }: { item: FieldTypeMeta }) {
   const { selectedFieldId, selectField, currentSectionId } = useFormBuilder();
-  const addField = useMutation(({ storage }, type: FieldType, sectionId: string | null) => {
-    const list = storage.get("fields");
-    
+  const { addField, fields } = useFormCollaborationContext();
+
+  const onClick = () => {
     // Find index of selected field to insert below it
-    let insertIndex = list.length;
+    let insertIndex = fields.length;
     if (selectedFieldId) {
-      const selectedIndex = list.findIndex((f) => (f as any).get("id") === selectedFieldId);
+      const selectedIndex = fields.findIndex((f) => f.id === selectedFieldId);
       if (selectedIndex !== -1) {
         insertIndex = selectedIndex + 1;
       }
@@ -53,26 +52,21 @@ function DraggableSidebarItem({ item }: { item: FieldTypeMeta }) {
 
     const newField: BuilderField = {
       id: crypto.randomUUID(),
-      type,
+      type: item.type as FieldType,
       label: item.label,
       description: "",
       placeholder: "",
       required: false,
       orderIndex: insertIndex,
       isNew: true,
-      sectionId: sectionId ?? undefined,
+      sectionId: currentSectionId ?? undefined,
       options: item.defaultOptions ? [...item.defaultOptions] : undefined,
       properties: item.defaultProperties ? { ...item.defaultProperties } : undefined,
     };
 
-    if (insertIndex < list.length) {
-      list.insert(new LiveObject(newField), insertIndex);
-    } else {
-      list.push(new LiveObject(newField));
-    }
-    
+    addField(newField, insertIndex);
     selectField(newField.id);
-  }, [item, selectedFieldId]);
+  };
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `new:${item.type}`,
@@ -96,7 +90,7 @@ function DraggableSidebarItem({ item }: { item: FieldTypeMeta }) {
         "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-left text-sm hover:bg-muted transition-colors group cursor-grab active:cursor-grabbing",
         isDragging && "opacity-40"
       )}
-      onClick={() => addField(item.type as FieldType, currentSectionId)}
+      onClick={onClick}
       title={item.description}
     >
       <div
