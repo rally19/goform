@@ -738,6 +738,43 @@ export async function duplicateForm(id: string): Promise<ActionResult<{ id: stri
       const access = await verifyWorkspaceAccess(workspaceId, "editor");
       if (!access.success) throw new Error(access.error);
     }
+
+    // Enforce form limits before duplicating the form
+    if (isPersonal) {
+      const userRow = await db.query.users.findFirst({
+        where: eq(users.id, user.id),
+        columns: { plan: true }
+      });
+      const plan = userRow?.plan ?? "free";
+      const limit = INDIVIDUAL_PLANS[plan].formLimit;
+
+      const [countResult] = await db
+        .select({ count: count() })
+        .from(forms)
+        .where(and(eq(forms.userId, user.id), isNull(forms.organizationId)));
+      const existingCount = Number(countResult?.count ?? 0);
+
+      if (existingCount >= limit) {
+        throw new Error(`Form limit reached. Upgrade your plan to duplicate forms (Current limit: ${limit} forms).`);
+      }
+    } else {
+      const orgRow = await db.query.organizations.findFirst({
+        where: eq(organizations.id, workspaceId),
+        columns: { formLimit: true }
+      });
+      if (!orgRow) throw new Error("Organization not found");
+      const limit = orgRow.formLimit;
+
+      const [countResult] = await db
+        .select({ count: count() })
+        .from(forms)
+        .where(eq(forms.organizationId, workspaceId));
+      const existingCount = Number(countResult?.count ?? 0);
+
+      if (existingCount >= limit) {
+        throw new Error(`Form limit reached. Upgrade organization limits to duplicate forms (Current limit: ${limit} forms).`);
+      }
+    }
     
     const newSlug = generateSlug(form.title);
 

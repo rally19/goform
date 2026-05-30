@@ -317,6 +317,15 @@ export async function submitFormResponse(
       if (knownIds.has(k)) filteredAnswers[k] = v;
     }
 
+    // Enforce server-side storage quota check for file uploads
+    if (metadata?.uploads && metadata.uploads.length > 0) {
+      const totalUploadSizeBytes = metadata.uploads.reduce((sum, upload) => sum + (upload.size || 0), 0);
+      const quotaCheck = await checkFormStorageQuota(formId, totalUploadSizeBytes);
+      if (!quotaCheck.success) {
+        return { success: false, error: quotaCheck.error || "Storage limit exceeded" };
+      }
+    }
+
     // Insert + decremental limit update happen atomically.
     let response: { id: string } | undefined;
     try {
@@ -1025,6 +1034,8 @@ export async function getPublicFormStatus(formId: string): Promise<ActionResult<
   status: string;
   requireAuth: boolean;
   isAuthenticated: boolean;
+  isOrganizationSuspended?: boolean;
+  isQuotaLimitReached?: boolean;
 }>> {
   try {
     const form = await db.query.forms.findFirst({
@@ -1034,6 +1045,7 @@ export async function getPublicFormStatus(formId: string): Promise<ActionResult<
         endsAt: true, endsAtEnabled: true, startsAt: true, startsAtEnabled: true,
         submissionLimit: true, submissionLimitEnabled: true,
         submissionLimitRemaining: true, submissionLimitDecremental: true,
+        organizationId: true, userId: true,
       },
     });
 
@@ -1042,10 +1054,51 @@ export async function getPublicFormStatus(formId: string): Promise<ActionResult<
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
+    // Check organization suspension
+    let isOrganizationSuspended = false;
+    if (form.organizationId) {
+      const org = await db.query.organizations.findFirst({
+        where: eq(organizations.id, form.organizationId),
+        columns: { status: true }
+      });
+      if (org?.status === "suspended") {
+        isOrganizationSuspended = true;
+      }
+    }
+
+    // Check plan / organization submission quota
+    let isQuotaLimitReached = false;
+    let submissionQuota = 100;
+    if (form.organizationId) {
+      const orgRow = await db.query.organizations.findFirst({
+        where: eq(organizations.id, form.organizationId),
+        columns: { submissionLimit: true }
+      });
+      submissionQuota = orgRow?.submissionLimit ?? 1000;
+    } else if (form.userId) {
+      const ownerRow = await db.query.users.findFirst({
+        where: eq(users.id, form.userId),
+        columns: { plan: true }
+      });
+      const plan = ownerRow?.plan ?? "free";
+      submissionQuota = INDIVIDUAL_PLANS[plan].submissionLimit;
+    }
+
+    const [{ count: currentResponsesCount }] = await db
+      .select({ count: count(formResponses.id) })
+      .from(formResponses)
+      .where(eq(formResponses.formId, formId));
+
+    if (currentResponsesCount >= submissionQuota) {
+      isQuotaLimitReached = true;
+    }
+
     const now = new Date();
     let acceptResponses = form.acceptResponses;
 
-    if (!acceptResponses) {
+    if (form.status === "draft" || form.status === "closed" || isOrganizationSuspended || isQuotaLimitReached) {
+      acceptResponses = false;
+    } else if (!acceptResponses) {
       // master gate already false — skip sub-checks
     } else if (form.endsAtEnabled && form.endsAt && now >= new Date(form.endsAt)) {
       acceptResponses = false;
@@ -1056,11 +1109,7 @@ export async function getPublicFormStatus(formId: string): Promise<ActionResult<
         const remaining = form.submissionLimitRemaining ?? form.submissionLimit;
         if (remaining <= 0) acceptResponses = false;
       } else {
-        const [{ total }] = await db
-          .select({ total: count(formResponses.id) })
-          .from(formResponses)
-          .where(eq(formResponses.formId, formId));
-        if (total >= form.submissionLimit) acceptResponses = false;
+        if (currentResponsesCount >= form.submissionLimit) acceptResponses = false;
       }
     }
 
@@ -1071,6 +1120,8 @@ export async function getPublicFormStatus(formId: string): Promise<ActionResult<
         status: form.status,
         requireAuth: form.requireAuth,
         isAuthenticated: !!user,
+        isOrganizationSuspended,
+        isQuotaLimitReached,
       },
     };
   } catch (err) {

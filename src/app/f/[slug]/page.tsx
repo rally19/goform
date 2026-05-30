@@ -6,6 +6,10 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { createClient } from "@/lib/server";
 import { stripHtml } from "@/lib/sanitize";
+import { db } from "@/db";
+import { formResponses, users, organizations } from "@/db/schema";
+import { eq, count } from "drizzle-orm";
+import { INDIVIDUAL_PLANS } from "@/lib/constants";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -44,20 +48,69 @@ async function FormPageData({ params }: PageProps) {
   const { data: { user } } = await supabase.auth.getUser();
   const isAuthenticated = !!user;
 
+  // Check if organization is suspended
+  let isOrganizationSuspended = false;
+  if (form.organizationId) {
+    const org = await db.query.organizations.findFirst({
+      where: eq(organizations.id, form.organizationId),
+      columns: { status: true }
+    });
+    if (org?.status === "suspended") {
+      isOrganizationSuspended = true;
+    }
+  }
+
+  // Check plan / organization submission quota limit
+  let submissionQuota = 100;
+  if (form.organizationId) {
+    const orgRow = await db.query.organizations.findFirst({
+      where: eq(organizations.id, form.organizationId),
+      columns: { submissionLimit: true }
+    });
+    submissionQuota = orgRow?.submissionLimit ?? 1000;
+  } else if (form.userId) {
+    const ownerRow = await db.query.users.findFirst({
+      where: eq(users.id, form.userId),
+      columns: { plan: true }
+    });
+    const plan = ownerRow?.plan ?? "free";
+    submissionQuota = INDIVIDUAL_PLANS[plan].submissionLimit;
+  }
+
+  const [{ count: currentResponsesCount }] = await db
+    .select({ count: count(formResponses.id) })
+    .from(formResponses)
+    .where(eq(formResponses.formId, form.id));
+
+  const isQuotaLimitReached = currentResponsesCount >= submissionQuota;
+
   const now = new Date();
   const startsAt = form.startsAt ? new Date(form.startsAt) : null;
   const endsAt = form.endsAt ? new Date(form.endsAt) : null;
 
   // Check form state
+  const isDraft = form.status === "draft";
+  const isClosed = form.status === "closed";
   const isBeforeStart = form.startsAtEnabled && startsAt && now < startsAt;
   const isAfterEnd = form.endsAtEnabled && endsAt && now >= endsAt;
-  const isLimitReached = form.submissionLimitEnabled && form.submissionLimitDecremental 
-    ? (form.submissionLimitRemaining ?? form.submissionLimit ?? 0) <= 0
+  const isLimitReached = form.submissionLimitEnabled
+    ? (form.submissionLimitDecremental
+        ? (form.submissionLimitRemaining ?? form.submissionLimit ?? 0) <= 0
+        : currentResponsesCount >= (form.submissionLimit ?? 0))
     : false;
 
   // Determine form status message
   let statusMessage: { title: string; subtitle: string; icon: "clock" | "closed" | "limit" } | null = null;
-  if (isBeforeStart) {
+  
+  if (isDraft) {
+    statusMessage = { title: "Not yet published", subtitle: "This form is in draft mode and not accepting submissions.", icon: "closed" };
+  } else if (isClosed) {
+    statusMessage = { title: "Form closed", subtitle: "This form is no longer accepting responses.", icon: "closed" };
+  } else if (isOrganizationSuspended) {
+    statusMessage = { title: "Workspace Suspended", subtitle: "This form's organization workspace has been suspended.", icon: "closed" };
+  } else if (isQuotaLimitReached) {
+    statusMessage = { title: "Submission Quota Exceeded", subtitle: "This form has reached its plan's submission quota limit.", icon: "limit" };
+  } else if (isBeforeStart) {
     statusMessage = { title: "Not yet open", subtitle: "This form is not yet accepting responses.", icon: "clock" };
   } else if (isAfterEnd) {
     statusMessage = { title: "Form closed", subtitle: "This form is no longer accepting responses.", icon: "closed" };
