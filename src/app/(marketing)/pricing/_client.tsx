@@ -32,7 +32,7 @@ const PRICING_PLANS = [
       "Unlimited forms",
       "5,000 submissions/month",
       "File Upload field",
-      "Advanced logic & formulas",
+      "Advanced logic & rules",
       "Remove branding",
       "Custom redirect URLs",
       "Insightful analytics",

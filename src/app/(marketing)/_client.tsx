@@ -176,7 +176,7 @@ export default function LandingPageClient() {
                   "Optimized for high completion rates",
                   "Average completion time tracking",
                   "100% responsive on all mobile devices",
-                  "Export responses to CSV, XLSX, or PDF anytime"
+                  "Export responses to CSV or JSON anytime"
                 ].map((benefit) => (
                   <div key={benefit} className="flex items-center gap-3">
                     <CheckCircle2 className="h-5 w-5 text-primary-foreground/80" />

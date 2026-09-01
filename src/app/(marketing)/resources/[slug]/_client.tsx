@@ -4,8 +4,29 @@ import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ChevronLeft, Layout, BarChart3, Puzzle, Shield, Sparkles, Rocket, CheckCircle2, ArrowRight, Lightbulb, HelpCircle } from "lucide-react";
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  Layout, 
+  BarChart3, 
+  Puzzle, 
+  Shield, 
+  Sparkles, 
+  Clock, 
+  CheckCircle2, 
+  ArrowRight, 
+  Lightbulb, 
+  HelpCircle, 
+  Cpu, 
+  Users, 
+  BookOpen, 
+  Search,
+  FileText,
+  Bookmark,
+  Share2
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 type DocSection = {
@@ -19,6 +40,7 @@ type DocContent = {
   subtitle: string;
   icon: React.ElementType;
   color: string;
+  category: string;
   description: string;
   features: string[];
   sections: DocSection[];
@@ -26,381 +48,440 @@ type DocContent = {
   faq: { q: string; a: string }[];
 };
 
+const DOC_NAVIGATION = [
+  { slug: "form-builder", title: "Interactive Form Builder", icon: Layout, category: "Form Creation" },
+  { slug: "logic-branching", title: "Logic & Branching", icon: Puzzle, category: "Logic & Rules" },
+  { slug: "branding", title: "Design & Customization", icon: Sparkles, category: "Form Creation" },
+  { slug: "scheduling", title: "Form Scheduling & Limits", icon: Clock, category: "Form Creation" },
+  { slug: "analytics", title: "Advanced Analytics", icon: BarChart3, category: "Insights" },
+  { slug: "security", title: "Security & Data Isolation", icon: Shield, category: "Security & API" },
+  { slug: "api-reference", title: "API Keys & Developer Tools", icon: Cpu, category: "Security & API" },
+  { slug: "collaboration", title: "Teams & Collaboration", icon: Users, category: "Workspaces" },
+];
+
 const CONTENT: Record<string, DocContent> = {
   "form-builder": {
     title: "Interactive Form Builder",
     subtitle: "The most intuitive drag-and-drop experience for modern teams.",
     icon: Layout,
     color: "bg-blue-500",
-    description: "Our form builder is designed to be powerful yet simple. No more fighting with complex interfaces. Just drag, drop, and publish.",
+    category: "Form Creation",
+    description: "FormTo.Link's visual form builder allows you to construct complex, highly interactive forms in minutes. By eliminating technical overhead, your team can focus on capturing the right information from respondents with real-time preview and multiplayer co-editing.",
     features: [
-      "Real-time visual preview as you build",
-      "Over 20+ field types including file uploads",
-      "Section and page break management",
-      "Rich text support for descriptions",
-      "Auto-save so you never lose your work"
+      "Real-time visual drag-and-drop builder with handle reordering",
+      "Over 24+ field types across Text, Choice, Rating/Scale, and Layout/Media",
+      "Multipage sections with Next, Submit, and Success page configurations",
+      "Rich text formatting for field labels, descriptions, and video embeds",
+      "Live multiplayer co-editing with real-time cursor presence",
+      "Field validation rules (min/max values, length, pattern regex, step numbers)"
     ],
     sections: [
       {
-        heading: "Getting Started",
+        heading: "Canvas & Drag-and-Drop Editor",
         paragraphs: [
-          "Create your first form in under three minutes. Click New Form in your dashboard, give it a title, and start adding fields from the sidebar. Every change is saved automatically.",
-          "Use the drag handle on each field to reorder questions. Sections and page breaks help you organize long forms into digestible chunks. Preview anytime to see exactly what respondents will experience."
+          "To create a form, navigate to your FormTo.Link dashboard and click 'New Form'. You will be presented with a visual canvas and a field sidebar. Simply drag a field or click it to place it on your workspace.",
+          "Every field can be repositioned using its handle or reordered via the Section Reorder dialog. An instant preview mode lets you view the respondent's exact viewport across mobile, tablet, and desktop viewports."
         ]
       },
       {
-        heading: "Field Types Overview",
+        heading: "24+ Field Types & Validation",
         paragraphs: [
-          "FormTo.Link supports 24 field types organized into text (short, long, email, phone, URL), choice (select, multi-select, checkbox, radio, ranking), input (number, date, time, rating, file), and layout (section, page break, paragraph, divider, video, radio grid, checkbox grid).",
-          "Each field has its own configuration panel. Set labels, placeholders, descriptions, validation rules, and whether a response is required. File uploads support images and documents up to your plan limits."
+          "We support 24 distinct question and layout types across four main categories: Text (Short, Long, Email, Phone, URL, Date, Time, DateTime), Choice (Select, Multi-Select, Checkbox, Radio, Radio Grid, Checkbox Grid, Ranking), Rating & Scale (Star Rating, Linear Scale 1-10, File Upload), and Layout/Media (Section, Page Break, Paragraph, Divider, Video Embed).",
+          "Each field includes a property sidebar where you can customize labels, placeholders, guidelines, required flags, min/max values, character lengths, pattern regex matching, and step numbers."
         ]
       },
       {
-        heading: "Publishing and Sharing",
+        heading: "Sections, Publishing & Access Control",
         paragraphs: [
-          "When your form is ready, set its status to Active and choose a unique slug. Your form becomes instantly available at formto.link/f/your-slug.",
-          "Control who can respond with optional authentication, one-response-per-user limits, and scheduled open/close windows. Generate a QR code for in-person events or print materials."
+          "Group fields into logical sections configured as 'Next' (advances page), 'Submit' (submits form), or 'Success Page' (completion message). Customize form status (Draft, Active, Closed) and access controls.",
+          "Configure settings like custom URL slug (/f/your-slug), primary accent color, response acceptance toggle, require authentication toggle, one response per user, submission capacity limits, and start/end scheduling."
         ],
-        tips: ["Start with 5-7 fields for highest completion rates", "Use page breaks every 8-10 fields on mobile", "Always preview on a phone before publishing"]
+        tips: [
+          "Keep your forms under 8-10 fields per page to minimize friction and boost completion rates.",
+          "Use input placeholders and detailed guidelines to ensure clean data entry.",
+          "Preview your layout on a mobile screen representation to verify spacing and layout flow."
+        ]
       }
     ],
     useCases: [
-      { title: "Lead Capture", desc: "Build a minimal name + email form with a custom redirect to your thank-you page." },
-      { title: "Event RSVP", desc: "Use date pickers, dropdowns for meal preference, and capacity limits to manage sign-ups." },
-      { title: "Job Application", desc: "Collect resumes with file uploads, structured questions, and multi-page sections." }
+      { title: "Lead Capture Forms", desc: "Create compact intake forms with validation rules and clean completion redirects." },
+      { title: "Multi-Step Surveys", desc: "Organize long questionnaires into multi-page sections with progress bar indicators." },
+      { title: "Job Applications", desc: "Implement file upload inputs to securely collect candidate resumes and portfolios." }
     ],
     faq: [
-      { q: "Can I duplicate an existing form?", a: "Yes. Open any form, click the menu in the top-right, and select Duplicate. This creates a copy with all fields, logic, and settings intact." },
-      { q: "Is there a limit to how many fields I can add?", a: "There is no hard limit. However, we recommend keeping forms under 30 fields for the best respondent experience and completion rates." }
-    ]
-  },
-  "analytics": {
-    title: "Insightful Analytics",
-    subtitle: "Turn submissions into actionable data.",
-    icon: BarChart3,
-    color: "bg-emerald-500",
-    description: "Don't just collect data—understand it. Our analytics dashboard provides clear visualizations of your form performance.",
-    features: [
-      "Submission volume over time charts",
-      "Detailed field-level breakdown stats",
-      "Average completion time tracking",
-      "Choice and rating distribution charts",
-      "Export to CSV, XLSX, or PDF formats"
-    ],
-    sections: [
-      {
-        heading: "Submission Trends",
-        paragraphs: [
-          "The analytics dashboard opens with a daily submission volume chart. Spot spikes after email campaigns, social posts, or product launches. Hover over any point to see the exact count for that day.",
-          "All charts are rendered client-side for speed and update in real time as new responses arrive. You can filter by date range to isolate specific campaigns or seasons."
-        ]
-      },
-      {
-        heading: "Field-Level Breakdowns",
-        paragraphs: [
-          "Every choice, rating, and scale field gets its own distribution chart. See which options are most popular, identify outliers, and spot trends in qualitative data.",
-          "For text fields, view a word-frequency summary and read full responses in a scrollable list. Ratings and scales are aggregated into averages with standard deviation indicators."
-        ]
-      },
-      {
-        heading: "Exporting Data",
-        paragraphs: [
-          "Export your entire response set or a filtered subset at any time. CSV works best for spreadsheets, XLSX preserves formatting, and PDF generates a print-ready report with charts embedded.",
-          "Exports include all metadata: submission time, completion duration, device type, and IP hash for deduplication analysis."
-        ],
-        tips: ["Wait at least 24 hours after launch before drawing conclusions", "Export before archiving a form to keep historical data offline", "Use date filters to compare pre/post campaign performance"]
-      }
-    ],
-    useCases: [
-      { title: "Campaign Tracking", desc: "Monitor daily submission spikes to measure the impact of a product launch email." },
-      { title: "Product Feedback", desc: "Analyze rating distributions to identify which features users love most." },
-      { title: "Audit Reports", desc: "Export a PDF summary of all responses for stakeholder reviews or compliance." }
-    ],
-    faq: [
-      { q: "Do analytics update in real time?", a: "Yes. As soon as a respondent submits, the charts refresh automatically. There is no need to refresh the page manually." },
-      { q: "Can I share analytics with my team?", a: "Anyone with editor access to the workspace can view the analytics tab. Viewer roles can see responses but not analytics dashboards." }
+      { q: "Can I duplicate an existing form?", a: "Yes. Select the options dropdown in your form list or within the builder header, and choose 'Duplicate' to copy all fields, configurations, and settings." },
+      { q: "Is there a limit on fields or sections?", a: "We do not enforce a hard limit on form length, but for optimal loading times and respondent engagement, we suggest keeping forms under 35 fields." }
     ]
   },
   "logic-branching": {
     title: "Logic & Branching",
-    subtitle: "Forms that adapt to your users.",
+    subtitle: "Build intelligent forms that react dynamically to respondent choices.",
     icon: Puzzle,
     color: "bg-purple-500",
-    description: "Create smart forms that adapt to user responses in real-time. Only show relevant questions and improve completion rates.",
+    category: "Logic & Rules",
+    description: "Static questionnaires lead to drop-offs. FormTo.Link's visual logic engine evaluates respondent choices in real time, allowing you to show or hide fields, alter field states, populate values, skip sections, or trigger external redirects dynamically.",
     features: [
-      "Conditional field visibility (Show/Hide)",
-      "Skip to specific pages or sections",
-      "Mathematical formula support",
-      "Set field values automatically",
-      "Redirect to URLs based on answers"
+      "Visibility rules: Show or Hide fields conditionally",
+      "Field state rules: Enable, Disable, Require, Unrequire, Mask, or Unmask inputs",
+      "Value assignment: Set or copy field values automatically",
+      "Smart navigation: Skip to page/section, scroll to field, or redirect to URL",
+      "17 precision operators for text, numbers, dates, grids, and ranking fields",
+      "Section Next/Submit button triggers (__nav_ triggers)",
+      "Automated issue detection for circular loops & action conflicts"
     ],
     sections: [
       {
-        heading: "Creating Your First Rule",
+        heading: "Logical Actions & Categories",
         paragraphs: [
-          "Open the Logic tab inside any form. Click Add Rule and choose a trigger field. Define the condition—equals, contains, greater than, or is empty—and select the target fields to show or hide.",
-          "Rules are evaluated top-down. If multiple rules affect the same field, the last matching rule wins. You can reorder rules by dragging them in the logic panel."
+          "Logic rules in FormTo.Link are grouped into four operational categories: Visibility, State, Value, and Navigation. Each rule evaluates conditions instantly in the browser as respondents fill out your form.",
+          "Visibility actions allow you to Show or Hide fields. State actions let you Enable/Disable inputs, Require/Unrequire fields dynamically, or Mask/Unmask sensitive fields (such as passcodes or identity numbers). Value actions allow setting static or copied values directly into target fields."
         ]
       },
       {
-        heading: "Formula Support",
+        heading: "Smart Navigation & Triggers",
         paragraphs: [
-          "Use formulas to calculate scores, totals, or derived values automatically. Reference other fields by their label or ID. Supported operators include basic arithmetic, conditionals, and string concatenation.",
-          "Formula fields update in real time as respondents type, giving immediate feedback. This is ideal for order forms, quizzes, or health assessments."
+          "Navigation rules control how respondents advance through multi-page forms. You can configure rules to Skip to a specific Page or Section when respondents click Next, Scroll/Jump directly to a target field, or Redirect to an external web URL upon submission.",
+          "Beyond field input triggers, FormTo.Link supports Navigation Button Triggers. You can attach logic rules directly to a section's Next or Submit button, evaluating conditions only when the respondent attempts to advance."
         ]
       },
       {
-        heading: "Skip Logic and Redirects",
+        heading: "17 Operators & Complex Condition Groups",
         paragraphs: [
-          "Page-break logic lets you skip entire sections based on prior answers. A respondent who selects Not interested can jump directly to the closing page.",
-          "After submission, redirect respondents to a custom URL based on their answers. Route high-scoring quiz takers to a certificate page and everyone else to a study guide."
+          "Condition rules support 17 specialized operators tailored to exact field types. Text fields support 'contains', 'starts with', and 'ends with'. Numeric, rating, scale, and date fields support 'greater than', 'less than', '≥', '≤', and 'between' ranges.",
+          "Specialized fields like Radio Grids, Checkbox Grids, and Ranking fields support matrix row/column matching and 'ranked higher/lower than' operators. Combine multiple conditions using AND/OR logic or nested condition groups."
         ],
-        tips: ["Always test logic with the Preview tool before publishing", "Start simple: one or two rules per form, then expand", "Document complex rules in the form description for your team"]
+        tips: [
+          "Group related visibility rules into section-level skips to keep your rule builder clean.",
+          "Use Navigation Triggers on Next buttons to validate multi-field responses before advancing.",
+          "Check the logic issue detector for warnings about unreachable sections or conflicting rules."
+        ]
       }
     ],
     useCases: [
-      { title: "Qualification Quiz", desc: "Show pricing fields only if a respondent selects I am a business in an earlier question." },
-      { title: "Support Ticket Routing", desc: "Redirect users to the appropriate help article based on the issue category they select." },
-      { title: "Dynamic Pricing", desc: "Use formulas to calculate a quote in real time from quantity and unit price fields." }
+      { title: "Dynamic Lead Qualification", desc: "Show enterprise inquiries only when respondents select company sizes over 100 employees." },
+      { title: "Multi-Path Support Routing", desc: "Skip irrelevant pages and route respondents directly to billing or technical support sections." },
+      { title: "Conditional Security Intake", desc: "Dynamically mask and require tax identification numbers when 'Business Entity' is selected." }
     ],
     faq: [
-      { q: "Is there a limit on how many rules I can create?", a: "Free plans support up to 5 logic rules per form. Pro and Team plans offer unlimited rules." },
-      { q: "Do logic rules work on mobile?", a: "Yes. All conditional logic, skip logic, and redirects work exactly the same on mobile and desktop respondents." }
-    ]
-  },
-  "security": {
-    title: "Secure Data Collection",
-    subtitle: "Enterprise-grade security by default.",
-    icon: Shield,
-    color: "bg-red-500",
-    description: "We take security seriously. Every form and submission is stored securely with modern encryption standards.",
-    features: [
-      "Secure Supabase-backed infrastructure",
-      "JWT-based authentication and authorization",
-      "Row-Level Security (RLS) for data privacy",
-      "Encrypted file storage and transfers",
-      "Protected API access with secure keys"
-    ],
-    sections: [
-      {
-        heading: "Infrastructure and Encryption",
-        paragraphs: [
-          "All data is stored in Supabase with TLS 1.3 encryption in transit and AES-256 at rest. File uploads are scanned and stored in isolated buckets with strict access controls.",
-          "Database connections are pooled and audited. We run automated vulnerability scans against our dependencies weekly and patch critical issues within 24 hours of disclosure."
-        ]
-      },
-      {
-        heading: "Authentication and Authorization",
-        paragraphs: [
-          "Users authenticate via email verification and JWT-based sessions. Role-based access control enforces five distinct permission levels: owner, manager, admin, editor, and viewer.",
-          "Workspace isolation guarantees that a user in one organization cannot read or modify forms, responses, or assets belonging to another organization."
-        ]
-      },
-      {
-        heading: "Compliance and Privacy",
-        paragraphs: [
-          "We store IP addresses as hashed values only, never raw. This supports deduplication and fraud detection while preserving respondent anonymity.",
-          "FormTo.Link is GDPR and CCPA compliant. You can export all personal data for a respondent or delete it permanently within 72 hours of request."
-        ],
-        tips: ["Require authentication for forms collecting sensitive data", "Set submission limits to prevent spam or abuse", "Regularly audit workspace member roles"]
-      }
-    ],
-    useCases: [
-      { title: "Healthcare Intake", desc: "Collect patient information with confidence knowing all data is encrypted and access is strictly role-gated." },
-      { title: "Financial Applications", desc: "Use JWT-protected forms and hashed IP logs for audit trails and compliance reporting." },
-      { title: "Internal HR Surveys", desc: "Restrict forms to authenticated employees only and ensure responses are visible only to HR managers." }
-    ],
-    faq: [
-      { q: "Is FormTo.Link SOC 2 compliant?", a: "We are SOC 2 Type II certified. Our audit reports are available to Team plan customers under NDA." },
-      { q: "Where is my data physically stored?", a: "Primary storage is in US-East (Virginia) with optional EU-West (Ireland) residency for Team plans." }
+      { q: "What happens if two logic rules conflict?", a: "Rules are evaluated in sequential order. The builder includes an automated issue detector that flags mutually exclusive actions (e.g. Show vs Hide on the same field)." },
+      { q: "Can I trigger logic on button clicks?", a: "Yes. Using Navigation Triggers, you can set rules that execute specifically when respondents click a section's Next or Submit button." }
     ]
   },
   "branding": {
-    title: "Customization",
-    subtitle: "Match your forms to your style.",
+    title: "Design & Customization",
+    subtitle: "Make every form match your brand perfectly.",
     icon: Sparkles,
-    color: "bg-amber-500",
-    description: "Make your forms look professional and integrated. Control the visual presentation to match your project's identity.",
+    color: "bg-pink-500",
+    category: "Form Creation",
+    description: "Your forms should represent your company. FormTo.Link provides intuitive design settings to customize primary accent colors, completion messages, progress bars, and submit redirects to align with your brand.",
     features: [
-      "Custom accent color selection",
-      "Personalized success messages",
-      "Branded redirect destinations",
-      "Clean, distraction-free layouts",
-      "Mobile-responsive design themes"
+      "Custom brand accent color picker (#hex matching)",
+      "Personalized completion success messages",
+      "Automatic custom URL redirect on submission",
+      "Visual progress bar toggle across pages",
+      "Rich text formatting for titles and descriptions"
     ],
     sections: [
       {
-        heading: "Accent Colors and Themes",
+        heading: "Accent Color Customization",
         paragraphs: [
-          "Pick a primary accent color from the design panel. It applies to buttons, active states, and the progress indicator. The rest of the form uses a clean, neutral palette that adapts automatically to light and dark modes.",
-          "For Pro and Team plans, you can remove the FormTo.Link branding entirely. The form renders as a standalone experience with your own brand identity."
+          "Access design configurations directly inside the form settings. Enter your hex color code to align form buttons, active radio inputs, checkbox selections, rating stars, and progress indicators with your brand identity.",
+          "The accent color updates instantly across the entire form UI in the live preview editor, ensuring consistent brand recognition for respondents on any device."
         ]
       },
       {
-        heading: "Success Messages and Redirects",
+        heading: "Completion & Redirect Settings",
         paragraphs: [
-          "Replace the default thank-you message with something personal. Celebrate a submission, explain next steps, or embed a video. You can also redirect respondents to any URL after submission.",
-          "Redirects support dynamic parameters. Send respondents to a confirmation page, a payment gateway, or a personalized results dashboard based on their answers."
+          "Tailor the post-submission experience for your respondents. Define custom success message headings and detailed thank-you notes that display upon successful submission.",
+          "Alternatively, configure a redirect URL to seamlessly forward respondents to your website landing page, booking calendar, or download portal as soon as they complete the form."
         ]
       },
       {
-        heading: "Mobile-First Design",
+        heading: "Header & Layout Structure",
         paragraphs: [
-          "Every form template is responsive by default. Touch targets are at least 44 pixels, font sizes scale with accessibility settings, and page breaks are optimized for thumb-scrolling.",
-          "Test your form on any device directly from the builder. Toggle between desktop, tablet, and phone previews without leaving the editor."
+          "Organize long questionnaires with section dividers, custom headings, and rich text descriptions. Toggle progress bar displays on or off to give respondents clear visual feedback on their completion status.",
+          "Set a custom URL slug under form settings to make your form accessible at a clean link like 'formto.link/f/your-custom-slug'."
         ],
-        tips: ["Keep success messages under 50 words for higher retention", "Test on a real phone, not just the emulator", "Use contrasting accent colors for accessibility compliance"]
+        tips: [
+          "Choose high-contrast accent colors so buttons and selection states remain clearly readable.",
+          "Use progress bars on multi-page forms to boost completion rates.",
+          "Set up clear completion messages or redirects so respondents know their submission succeeded."
+        ]
       }
     ],
     useCases: [
-      { title: "Product Launch Survey", desc: "Use brand colors and a celebratory success message to reinforce the launch narrative." },
-      { title: "Agency Client Forms", desc: "Remove all FormTo.Link branding so the form feels like a native part of the client's site." },
-      { title: "Newsletter Signup", desc: "Redirect subscribers to a custom welcome page with a personalized video or lead magnet." }
+      { title: "Brand Surveys", desc: "Customize accent colors to match your website branding seamlessly." },
+      { title: "Lead Generation Forms", desc: "Configure immediate completion redirects to forward qualified leads to your sales page." },
+      { title: "Event RSVPs", desc: "Set friendly success messages confirming event details and ticket confirmation." }
     ],
     faq: [
-      { q: "Can I use custom fonts?", a: "Custom fonts are available on Team plans. You can upload WOFF2 files or reference Google Fonts by URL." },
-      { q: "Does branding affect the builder UI?", a: "No. Branding settings only affect the published form that respondents see. The builder always uses the default theme for consistency." }
+      { q: "How do I change the form accent color?", a: "Go to your form settings panel, click on Accent Color, and choose a color preset or enter your custom hex code." },
+      { q: "Can I redirect respondents to a custom URL?", a: "Yes. Enter your target web address in the Redirect URL field inside form settings to automatically forward users after submission." }
     ]
   },
-  "integrations": {
-    title: "Developer & Team API",
-    subtitle: "Connect your data to your stack.",
-    icon: Rocket,
-    color: "bg-indigo-500",
-    description: "Automate your workflow by accessing your form data programmatically via our API and secure keys.",
+  "scheduling": {
+    title: "Form Scheduling & Limits",
+    subtitle: "Automate form availability and control response capacity.",
+    icon: Clock,
+    color: "bg-emerald-500",
+    category: "Form Creation",
+    description: "Take control of your data collection pipeline. Set precise date and time windows for when your form opens and closes, enforce strict submission capacity limits, generate QR codes for instant link sharing, and configure automatic closure messages when limits are reached.",
     features: [
-      "Full API access with hashed keys",
-      "Real-time collaboration for teams",
-      "Programmatic response retrieval",
-      "Data export to CSV, XLSX, and PDF",
-      "Webhooks and Zapier (Coming Soon)"
+      "Scheduled start and end date/time windows",
+      "Strict submission capacity limits with decremental counters",
+      "One response per authenticated user restriction",
+      "Custom URL slug & random suffix generator",
+      "Built-in QR Code generator for print and digital sharing",
+      "Custom out-of-capacity and closed form messages"
     ],
     sections: [
       {
-        heading: "API Keys and Authentication",
+        heading: "Submission Capacity Limits",
         paragraphs: [
-          "Generate API keys from your team settings. Each key has a unique prefix so you can identify it in logs, and we store only a hash—never the full key. Set expiration dates and revoke keys instantly if needed.",
-          "Include the key in the Authorization header as a Bearer token. All API requests must be made over HTTPS. We reject plain HTTP requests at the network layer."
+          "Set a maximum limit on total accepted responses to manage capacity for events, limited signups, or beta programs. As respondents submit data, FormTo.Link automatically decrements the remaining count.",
+          "When the maximum response threshold is hit, your form status switches to closed automatically, preventing further submissions while displaying your custom out-of-capacity message to visitors."
         ]
       },
       {
-        heading: "Programmatic Response Retrieval",
+        heading: "Date & Time Scheduling",
         paragraphs: [
-          "Fetch responses for any form you own or have editor access to. Results are paginated and support filtering by date range, completion status, and device type.",
-          "Responses include full field data, metadata, and calculated formula values. Export endpoints return CSV, XLSX, or PDF streams directly without intermediate storage."
+          "Schedule forms to open and close automatically at specific dates and times. This is ideal for time-sensitive surveys, grant applications, or promotional registration windows.",
+          "Optionally display a countdown timer or opening schedule badge directly on the form landing page so respondents know exactly when submissions begin or end."
         ]
       },
       {
-        heading: "Team Collaboration",
+        heading: "QR Code Sharing & Access Control",
         paragraphs: [
-          "Real-time multiplayer editing lets multiple team members work on the same form simultaneously. Cursor positions and field selections are synced live via WebSocket.",
-          "Organization workspaces isolate forms, responses, and API keys. Invite members with five granular roles, from viewer (read-only) to owner (full control)."
+          "Generate instant QR codes directly from your form settings panel. Download vector or image QR codes to print on posters, flyers, business cards, or event badges for friction-free mobile scanning.",
+          "Toggle whether responses are open to the general public or restricted to authenticated workspace accounts. Enable one-response-per-user mode to prevent duplicate entries from the same respondent."
         ],
-        tips: ["Rotate API keys every 90 days for security best practice", "Use server-side calls only—never expose keys in frontend code", "Set up separate keys for production and staging environments"]
+        tips: [
+          "Download high-resolution QR codes from form settings for print materials.",
+          "Set submission limits before sharing your form link publicly to prevent over-subscription.",
+          "Configure custom closing messages to direct late respondents to alternative resources or support."
+        ]
       }
     ],
     useCases: [
-      { title: "CRM Sync", desc: "Push new form responses into your CRM automatically using the retrieval endpoint every 5 minutes." },
-      { title: "Internal Dashboard", desc: "Build a private metrics dashboard that fetches response data and renders custom charts not available in the default analytics." },
-      { title: "Slack Notifications", desc: "Set up a lightweight script to poll the API and post new submissions to a Slack channel for real-time alerts." }
+      { title: "Event Registration", desc: "Cap RSVPs at 100 attendees and share QR codes on event banners for instant mobile check-ins." },
+      { title: "Time-Bound Applications", desc: "Schedule grant or contest entry forms to open on Monday at 9 AM and close Friday at 5 PM." },
+      { title: "Exclusive Surveys", desc: "Require user authentication and limit to one submission per account to ensure authentic feedback." }
     ],
     faq: [
-      { q: "How many API keys can I create?", a: "Team plans support up to 25 active keys per organization. Pro plans support 5. Free plans do not include API access." },
-      { q: "Is there a rate limit?", a: "Yes. Team plans allow 1,000 requests per hour. Pro plans allow 200 requests per hour. Rate limit headers are included in every response." }
+      { q: "What happens when a form reaches its submission limit?", a: "The form automatically stops accepting submissions and shows your custom closing message. You can reopen it anytime by increasing the limit or toggling response acceptance." },
+      { q: "Can I generate a QR code for my form?", a: "Yes. Click on Form Settings to view and download your form's custom QR code image for print or digital sharing." }
+    ]
+  },
+  "analytics": {
+    title: "Advanced Analytics",
+    subtitle: "Transform raw submissions into clear insight charts.",
+    icon: BarChart3,
+    color: "bg-emerald-500",
+    category: "Insights",
+    description: "Data collection is only half the battle. FormTo.Link's analytics engine processes submissions instantly, rendering detailed performance indicators, daily volume trend lines, and multi-format data exports in real time.",
+    features: [
+      "Daily submission volume trend line chart (30-day history)",
+      "Average completion time tracking per response",
+      "Choice-distribution bar charts and percentage progress bars",
+      "Rating & scale distribution charts with statistical averages",
+      "Individual response inspector sheet with signed file download links",
+      "Multi-format exports to CSV, Excel (XLSX), and PDF reports"
+    ],
+    sections: [
+      {
+        heading: "Performance Dashboards",
+        paragraphs: [
+          "Our dashboard gives you an instant overview of your form's health. Monitor views, unique visitors, total submissions, and conversion metrics. A 30-day trend line highlights spikes in respondent activity.",
+          "All calculations are processed on-demand using Recharts visualization, updating immediately as submissions land. Timezone localization automatically formats submission timestamps based on your browser locale."
+        ]
+      },
+      {
+        heading: "Question Breakdown & Text Metrics",
+        paragraphs: [
+          "Every choice-based question (dropdown, radio button, checklist, grids) gets its own visualization block, rendering frequency summaries and percentage progress bars automatically.",
+          "Rating stars and linear scales render distribution bar charts with computed statistical averages. Text fields display total response counts and average character length metrics."
+        ]
+      },
+      {
+        heading: "Data Portability & Multi-Format Exports",
+        paragraphs: [
+          "Your data is yours. Inspect individual responses using the side sheet drawer, complete with signed Supabase download links for file attachments.",
+          "Export response tables in one click: generate raw CSV files for data pipelines, formatted Excel spreadsheets (.xlsx) via sheetjs, or formatted PDF tables via jsPDF for executive summary reporting."
+        ],
+        tips: [
+          "Use the response search bar to filter entries by email or specific text answers.",
+          "Export responses to PDF for printable executive reports or offline archival.",
+          "Check average completion times to optimize form length and section pacing."
+        ]
+      }
+    ],
+    useCases: [
+      { title: "Campaign Tracking", desc: "Analyze daily submission trend lines to measure the success of email newsletters or social ads." },
+      { title: "Customer Assessment", desc: "Track customer satisfaction levels via aggregated scale rating distribution charts over time." },
+      { title: "Executive Reporting", desc: "Export structured CSV, Excel (XLSX), or PDF report tables directly into tools for presentation." }
+    ],
+    faq: [
+      { q: "What export formats are supported?", a: "FormTo.Link supports exporting responses directly to CSV, Excel (.xlsx), and PDF document formats from the Results tab." },
+      { q: "How are uploaded file attachments accessed?", a: "File upload answers in the response inspector generate secure, time-limited signed URLs for downloading attachments." }
+    ]
+  },
+  "security": {
+    title: "Security & Compliance",
+    subtitle: "Enterprise-grade data protection by default.",
+    icon: Shield,
+    color: "bg-amber-600",
+    category: "Security & API",
+    description: "We treat security as a core foundation. Every submission, asset, and key is stored with robust security measures to guarantee that data remains private and protected at all times.",
+    features: [
+      "Secure Supabase-managed storage infrastructure",
+      "Row-Level Security (RLS) database isolation",
+      "JWT-based sessions and security verification",
+      "Hashed IP addresses to prevent identity leaks",
+      "GDPR, CCPA, and privacy regulation compliance"
+    ],
+    sections: [
+      {
+        heading: "Data Privacy & Isolation",
+        paragraphs: [
+          "All data is housed in isolated Postgres databases inside Supabase, guarded by strict Row-Level Security (RLS) rules. This guarantees that team members can only access records they have explicit roles to view.",
+          "Submission transfers are encrypted using TLS 1.3, and all databases are encrypted at rest with AES-256 keys. We conduct weekly automated dependency audits and fix vulnerabilities within 24 hours."
+        ]
+      },
+      {
+        heading: "IP Anonymization",
+        paragraphs: [
+          "To align with global privacy mandates like GDPR and CCPA, FormTo.Link does not store plain IP addresses. Instead, we hash the IP addresses on our server using cryptographic algorithms.",
+          "This supports anti-spam mechanisms and helps identify duplicate entries while protecting the respondent's personal identity. You can collect data globally without violating privacy laws."
+        ]
+      },
+      {
+        heading: "Access Control & Audits",
+        paragraphs: [
+          "Workspace collaboration is isolated at the database level. Every action—from form changes to API requests—requires a valid JWT token. You can configure multi-factor auth (MFA) to lock down manager access.",
+          "We maintain audit records containing action prefixes and timestamps. This ensures security administrators can verify access and trace configuration changes across the platform."
+        ],
+        tips: [
+          "Enable two-factor authentication (2FA) for all team members in your account settings.",
+          "Set up short-lived organization invitation links to prevent unauthorized workspace access.",
+          "Review your form settings to ensure you are only collecting personal data that is necessary for your goals."
+        ]
+      }
+    ],
+    useCases: [
+      { title: "HR Feedback Surveys", desc: "Gather employee reviews with peace of mind knowing results are restricted to verified admins." },
+      { title: "Customer Registration", desc: "Collect signups and contact info via forms compliant with strict European privacy rules." },
+      { title: "Financial Client Intake", desc: "Obtain document uploads securely stored in access-restricted cloud storage buckets." }
+    ],
+    faq: [
+      { q: "Is my uploaded file data secure?", a: "Yes. All uploaded documents are stored in secure buckets. Download links are short-lived and expire after a configurable duration to prevent leaks." },
+      { q: "Can I request a data deletion audit?", a: "Yes. Administrators can trigger a complete deletion request for any form or response, purging all matching records from our backups within 72 hours." }
     ]
   },
   "api-reference": {
     title: "API & Developer Tools",
-    subtitle: "Build custom integrations and extend FormTo.Link.",
-    icon: Rocket,
-    color: "bg-violet-500",
-    description: "Secure API keys, programmatic access, and developer-friendly tools to extend FormTo.Link into your own stack.",
+    subtitle: "Extend and integrate FormTo.Link into your application stack.",
+    icon: Cpu,
+    color: "bg-red-500",
+    category: "Security & API",
+    description: "FormTo.Link is built with developers in mind. Our REST API allows you to programmatically manage forms, extract response arrays, and manage keys to automate your workflows.",
     features: [
-      "Hashed API keys with prefix tracking",
-      "Programmatic response retrieval",
-      "Secure key storage with last-used timestamps",
-      "Webhook support planned for v1.1",
-      "Full developer documentation"
+      "RESTful HTTP API endpoints with JSON payloads",
+      "Secure hashed API key authentication",
+      "Usage stats and last-used tracking",
+      "Granular read/write endpoint scopes",
+      "Detailed code examples (cURL, Javascript, Python)"
     ],
     sections: [
       {
         heading: "Authentication",
         paragraphs: [
-          "All API requests require a valid key passed in the Authorization header as Bearer <token>. Keys are generated from the Team Settings page and are visible only once at creation. If you lose a key, revoke it and generate a new one.",
-          "Each request is validated against the key hash in our database. We log the prefix, timestamp, and IP address for every request to help you audit usage. Never commit keys to version control."
+          "To make API requests, you must generate a token under your organization's settings. Include the key as a Bearer token in your HTTP requests: `Authorization: Bearer ftl_live_...`.",
+          "We store only the cryptographic hash of your key, never the plain token. The full key is displayed only once upon generation. Keep your tokens safe and never expose them in client-side code."
         ]
       },
       {
         heading: "Endpoints Overview",
         paragraphs: [
-          "The current API supports three primary resource categories: Forms (list, retrieve, update status), Responses (list, filter, export), and Organizations (list members, manage invites). All endpoints return JSON and follow REST conventions.",
-          "Filtering uses query parameters. For responses, you can filter by form_id, created_at range, and completion_status. Pagination uses limit and offset with Link headers for navigation."
+          "Our API exposes paths to retrieve form lists, fetch detailed schemas, and download response rows. You can filter response records by creation date, completion status, or respondent email.",
+          "All query results are paginated via limit and offset query parameters. Our JSON structure maps directly to our database schema, making it easy to sync records with your internal systems."
         ]
       },
       {
-        heading: "Rate Limits and Error Handling",
+        heading: "Rate Limits & Errors",
         paragraphs: [
-          "Team plans are limited to 1,000 requests per hour; Pro plans to 200. When you exceed the limit, the API returns HTTP 429 with a Retry-After header. Implement exponential backoff in your client.",
-          "Standard error codes apply: 400 for malformed requests, 401 for invalid keys, 403 for insufficient workspace permissions, 404 for missing resources, and 500 for unexpected server errors."
+          "To maintain system stability, we enforce rate limits based on your subscription tier. Team accounts allow up to 1,000 API requests per hour, while Pro accounts allow 200.",
+          "Exceeding limits returns a `429 Too Many Requests` status with a `Retry-After` header. Standard HTTP error codes apply: `400` for malformed JSON, `401` for invalid keys, and `403` for forbidden resources."
         ],
-        tips: ["Always check X-RateLimit-Remaining before batch jobs", "Handle 429s with exponential backoff starting at 1 second", "Use the /health endpoint to verify connectivity before production deploys"]
+        tips: [
+          "Implement exponential backoff logic in your scripts to handle rate-limit limits gracefully.",
+          "Use separate API keys for development, staging, and production environments.",
+          "Never commit API keys to public repositories; load them using environment variables."
+        ]
       }
     ],
     useCases: [
-      { title: "Nightly Backup Script", desc: "Run a cron job that exports all responses from the past 24 hours into your internal data warehouse." },
-      { title: "Dynamic Dashboard", desc: "Build a React dashboard that calls the responses endpoint every 60 seconds to show live submission counts." },
-      { title: "Form Migration", desc: "Use the forms list endpoint to inventory all forms across workspaces before a team reorganization." }
+      { title: "CRM Syncing Pipelines", desc: "Import new form responses into internal databases or customer management pipelines via cron jobs." },
+      { title: "Automated Data Backups", desc: "Download full CSV or JSON outputs of daily forms to an offline storage server every night." },
+      { title: "Custom Admin Panels", desc: "Fetch response arrays programmatically to build internal analytics dashboards for your team." }
     ],
     faq: [
-      { q: "Is there a GraphQL endpoint?", a: "Not yet. The current API is REST-only. GraphQL is on the long-term roadmap and will be announced on our developer blog when available." },
-      { q: "Can I use the API in a client-side browser app?", a: "No. API keys must remain server-side. Exposing them in frontend code is a security violation and will trigger automated key revocation." }
+      { q: "Can I restrict API keys?", a: "Yes. You can generate keys with read-only scopes if you only need to fetch response records, minimizing potential security risks." },
+      { q: "Do you support GraphQL?", a: "Our current API is REST-only. We are evaluating GraphQL support and will announce updates on our developer blog." }
     ]
   },
-  "workflow-automation": {
-    title: "Workflow Automation",
-    subtitle: "Automate your data collection pipeline.",
-    icon: Puzzle,
-    color: "bg-cyan-500",
-    description: "Connect your forms to the rest of your stack and automate repetitive tasks with conditional logic and scheduled actions.",
+  "collaboration": {
+    title: "Teams & Collaboration",
+    subtitle: "Work together in real-time with multiplayer editing and organization controls.",
+    icon: Users,
+    color: "bg-indigo-500",
+    category: "Workspaces",
+    description: "Building forms is a team effort. FormTo.Link features real-time multiplayer co-editing, structured organization workspaces, resource quota monitoring, and 5-tier role permissions to help your team collaborate seamlessly.",
     features: [
-      "Conditional logic and branching rules",
-      "Custom redirect URLs on completion",
-      "Submission limit and schedule windows",
-      "Auto-save and collaboration sync",
-      "Webhook support planned for v1.1"
+      "Real-time multiplayer editing powered by Liveblocks",
+      "Live presence indicators, avatar stacks, and cursor tracking",
+      "Multiplayer Undo/Redo history stack across editors",
+      "Shared organization workspaces for forms, assets, and API keys",
+      "Five granular role permissions (Owner, Manager, Administrator, Editor, Viewer)",
+      "Resource quota monitoring (Member limits, Form limits, Storage limits)",
+      "Secure invite links with email verification tokens (48h expiry)"
     ],
     sections: [
       {
-        heading: "Submission Limits and Scheduling",
+        heading: "Multiplayer Visual Editor & Live Presence",
         paragraphs: [
-          "Set a maximum number of responses to manage capacity for events, limited offers, or beta programs. When the limit is reached, the form automatically closes and displays a custom message.",
-          "Schedule forms to open and close at specific dates and times. This is ideal for time-bound surveys, registration windows, or seasonal campaigns. All times use the workspace's configured timezone."
+          "Our form builder uses Liveblocks to sync visual updates across editors in real time. Multiple team members can work on the same form canvas simultaneously, viewing each other's active field selections and cursor movements.",
+          "Changes to field labels, options, section breaks, or logic rules are broadcast instantly. The engine includes multiplayer Undo and Redo history stacks, resolving concurrent edit conflicts automatically."
         ]
       },
       {
-        heading: "Conditional Logic and Routing",
+        heading: "Organization Workspaces & Resource Quotas",
         paragraphs: [
-          "Combine logic rules with redirects to create powerful workflows. A customer who selects Enterprise on a pricing form can be sent to a calendly booking page, while Starter users see a self-checkout link.",
-          "Use formulas to calculate intermediate scores or totals, then route respondents to different thank-you pages or follow-up forms based on the calculated result."
+          "Organization workspaces centralize form assets, uploaded media, and API keys. Moving forms into shared organization workspaces ensures project ownership remains with your company if a team member leaves.",
+          "The organization panel tracks real-time resource quotas: Member Usage vs Member Limit, Form Usage vs Form Limit, Storage Usage (MB/GB) vs Storage Limit, and Monthly Submission Caps."
         ]
       },
       {
-        heading: "Collaboration and Auto-Save",
+        heading: "Role Permissions & Token Invites",
         paragraphs: [
-          "Forms auto-save every few seconds as you edit. If your connection drops, you will resume exactly where you left off. Conflict resolution is built-in for simultaneous edits.",
-          "Team members see each other's cursors in real time. Field selections, name changes, and drag operations are synced instantly across all connected clients."
+          "Manage team access with five distinct roles: Owner, Manager, Administrator, Editor, and Viewer. Owners hold master billing access and ownership transfer rights. Managers invite team members and adjust role assignments.",
+          "Administrators manage API keys and workspace templates, Editors create and modify forms and logic, while Viewers hold read-only access to response tables and analytics. Invites send secure tokens expiring after 48 hours."
         ],
-        tips: ["Set limits before sharing the form publicly to avoid over-subscription", "Use scheduling to create urgency and improve response quality", "Preview logic-heavy forms with sample data before publishing"]
+        tips: [
+          "Assign Viewer roles to clients or stakeholders who only need to read response charts.",
+          "Monitor organization storage and member limits from the Organization Settings tab.",
+          "Use live presence cursors to coordinate edits during real-time design sessions."
+        ]
       }
     ],
     useCases: [
-      { title: "Course Enrollment", desc: "Cap registrations at 50 students, schedule opening at 9 AM, and redirect accepted students to the payment portal." },
-      { title: "Beta Tester Recruitment", desc: "Collect 200 qualified applicants, then redirect high-scoring candidates to an NDA form automatically." },
-      { title: "Holiday Order Forms", desc: "Schedule the form to open November 1 and close December 15 with a custom out-of-season message." }
+      { title: "Cross-Team Alignment", desc: "Allow marketing copywriters and developers to edit form text and validation rules together." },
+      { title: "Agency Client Reporting", desc: "Invite clients as Viewers so they can monitor submission charts in real time." },
+      { title: "Corporate Operations", desc: "Create isolated workspaces for HR, Sales, and Support teams to manage separate feedback loops." }
     ],
     faq: [
-      { q: "What happens when a form reaches its submission limit?", a: "The form status changes to Closed automatically. Respondents see a custom message you define. You can reopen it by increasing the limit or changing the status manually." },
-      { q: "Can I combine limits with conditional logic?", a: "Yes. A form can have both global submission limits and per-option limits (e.g., only 20 vegetarian meal choices). Logic rules continue to evaluate even when limits are active." }
+      { q: "How do I invite team members?", a: "Go to Organization Settings, enter their email, and select their role (Owner to Viewer). They will receive a secure invite link to join your workspace." },
+      { q: "Are invite links secure?", a: "Yes. Invite links contain unique cryptographic tokens that expire after 48 hours. They can only be claimed by the target email address." },
+      { q: "Can organization ownership be transferred?", a: "Yes. The current Organization Owner can transfer primary ownership to another verified member from the Organization Settings panel." }
     ]
   }
 };
@@ -411,167 +492,298 @@ export default function FeatureDetailPageClient() {
   const slug = params.slug as string;
   const content = CONTENT[slug as keyof typeof CONTENT];
 
+  const currentNavIndex = DOC_NAVIGATION.findIndex((item) => item.slug === slug);
+  const prevDoc = currentNavIndex > 0 ? DOC_NAVIGATION[currentNavIndex - 1] : null;
+  const nextDoc = currentNavIndex < DOC_NAVIGATION.length - 1 ? DOC_NAVIGATION[currentNavIndex + 1] : null;
+
   if (!content) {
     return (
-      <div className="container py-32 text-center">
-        <h1 className="text-4xl font-bold mb-4">Resource Not Found</h1>
-        <p className="text-muted-foreground mb-8">We couldn't find the resource you're looking for.</p>
-        <Button onClick={() => router.push("/resources")}>Back to Resources</Button>
+      <div className="container py-32 text-center max-w-xl mx-auto">
+        <BookOpen className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+        <h1 className="text-3xl font-bold mb-3">Document Not Found</h1>
+        <p className="text-muted-foreground mb-8">We couldn't find the documentation guide you're looking for.</p>
+        <Button onClick={() => router.push("/resources")} className="rounded-xl">
+          Back to Documentation Hub
+        </Button>
       </div>
     );
   }
 
+  const TopicIcon = content.icon;
+
   return (
-    <div className="flex flex-col w-full min-h-screen">
-      <section className="bg-muted/30 border-b border-border py-12 md:py-20">
-        <div className="container px-4 md:px-6">
-          <Link
-            href="/resources"
-            className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-primary mb-8 transition-colors"
-          >
-            <ChevronLeft className="mr-1 h-4 w-4" />
-            Back to Resources
+    <div className="flex flex-col w-full min-h-screen bg-background text-foreground">
+      {/* ─── Top Breadcrumbs Bar ─────────────────────────────────────────── */}
+      <div className="border-b border-border/60 bg-muted/20 py-3">
+        <div className="container px-4 md:px-6 mx-auto max-w-7xl flex items-center justify-between">
+          <nav className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground overflow-x-auto scrollbar-none">
+            <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
+            <Link href="/resources" className="hover:text-foreground transition-colors">Documentation</Link>
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
+            <span className="text-muted-foreground font-medium">{content.category}</span>
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
+            <span className="text-foreground font-semibold truncate">{content.title}</span>
+          </nav>
+
+          <Link href="/resources">
+            <Button variant="ghost" size="sm" className="h-8 text-xs font-semibold gap-1.5 text-muted-foreground hover:text-foreground">
+              <ChevronLeft className="h-3.5 w-3.5" />
+              All Topics
+            </Button>
           </Link>
+        </div>
+      </div>
+
+      {/* ─── 3-Column Documentation Layout ───────────────────────────────── */}
+      <div className="container px-4 md:px-6 mx-auto max-w-7xl py-10 flex-1">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
           
-          <div className="flex flex-col lg:flex-row gap-12 items-start">
-            <div className="flex-1 space-y-6">
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className={cn("p-4 rounded-2xl w-fit text-white", content.color)}
-              >
-                <content.icon className="h-10 w-10" />
-              </motion.div>
-              <motion.h1
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="text-4xl md:text-6xl font-bold tracking-tight"
-              >
-                {content.title}
-              </motion.h1>
-              <motion.p
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="text-xl md:text-2xl text-muted-foreground leading-relaxed"
-              >
-                {content.subtitle}
-              </motion.p>
-            </div>
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.3 }}
-              className="w-full lg:w-[400px] bg-card border border-border rounded-3xl p-8 shadow-xl"
-            >
-              <h3 className="text-xl font-bold mb-6">Key Capabilities</h3>
-              <div className="space-y-4">
-                {content.features.map((feature, i) => (
-                  <div key={i} className="flex items-start gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-                    <span className="text-sm md:text-base leading-snug">{feature}</span>
-                  </div>
-                ))}
+          {/* ─── Left Sidebar Navigation (3 cols) ─────────────────────────── */}
+          <aside className="hidden lg:block lg:col-span-3 sticky top-24 space-y-6">
+            <div className="p-4 rounded-2xl border border-border/80 bg-card/60 backdrop-blur-sm space-y-4 shadow-sm">
+              <div className="flex items-center justify-between pb-3 border-b border-border/60">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <BookOpen className="h-3.5 w-3.5 text-primary" />
+                  Documentation Hub
+                </span>
+                <span className="text-[11px] font-mono bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold">
+                  v1.0
+                </span>
               </div>
-              <Link href="/login" className="w-full">
-                <Button className="w-full mt-8 bg-primary h-12 text-lg font-bold">
-                  Try it yourself
+
+              <div className="space-y-1">
+                {DOC_NAVIGATION.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = item.slug === slug;
+                  return (
+                    <Link
+                      key={item.slug}
+                      href={`/resources/${item.slug}`}
+                      className={cn(
+                        "flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all group",
+                        isActive
+                          ? "bg-primary text-primary-foreground font-semibold shadow-sm"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
+                      )}
+                    >
+                      <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-primary")} />
+                      <span className="truncate">{item.title}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Support Callout Box */}
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-primary/10 via-muted/30 to-background border border-primary/20 space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-primary">Need API Support?</h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Contact our support engineering team for custom integration advice or workspace migrations.
+              </p>
+              <Link href="/contact" className="block">
+                <Button size="sm" variant="outline" className="w-full h-8 text-xs font-semibold border-primary/30 text-primary hover:bg-primary/10 rounded-lg">
+                  Ask Support
                 </Button>
               </Link>
-            </motion.div>
-          </div>
-        </div>
-      </section>
+            </div>
+          </aside>
 
-      <section className="py-24 container px-4 md:px-6">
-        <div className="max-w-3xl mx-auto space-y-12">
-          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-            <h2 className="text-3xl font-bold mb-4">Overview</h2>
-            <p className="text-lg text-muted-foreground leading-loose">{content.description}</p>
-          </motion.div>
+          {/* ─── Center Article Content (9 cols on lg, 6 cols on xl) ─────── */}
+          <main className="lg:col-span-9 xl:col-span-6 space-y-12">
+            
+            {/* Header Header */}
+            <div className="space-y-6 pb-8 border-b border-border/80">
+              <div className="flex items-center gap-3">
+                <div className={cn("p-3 rounded-2xl text-white shadow-md", content.color)}>
+                  <TopicIcon className="h-7 w-7" />
+                </div>
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-primary bg-primary/10 px-2.5 py-1 rounded-full">
+                    {content.category} Guide
+                  </span>
+                  <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mt-1">
+                    {content.title}
+                  </h1>
+                </div>
+              </div>
 
-          {content.sections.map((section, idx) => (
-            <motion.div key={section.heading} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: idx * 0.05 }} className="space-y-6">
-              <h2 className="text-2xl md:text-3xl font-bold">{section.heading}</h2>
-              <div className="space-y-4">
-                {section.paragraphs.map((p, pIdx) => (
-                  <p key={pIdx} className="text-base md:text-lg text-muted-foreground leading-relaxed">{p}</p>
+              <p className="text-lg md:text-xl text-muted-foreground leading-relaxed">
+                {content.subtitle}
+              </p>
+
+              {/* Quick Capabilities Box */}
+              <div className="p-6 rounded-2xl border border-border bg-card/80 space-y-4 shadow-sm">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
+                  <Bookmark className="h-4 w-4 text-primary" />
+                  Key Capabilities in this Guide
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {content.features.map((feature, i) => (
+                    <div key={i} className="flex items-start gap-2 text-xs md:text-sm">
+                      <CheckCircle2 className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                      <span className="text-muted-foreground leading-snug">{feature}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Overview Section */}
+            <section id="overview" className="space-y-4">
+              <h2 className="text-2xl font-bold tracking-tight">Overview</h2>
+              <p className="text-base md:text-lg text-muted-foreground leading-relaxed">
+                {content.description}
+              </p>
+            </section>
+
+            {/* Detailed Sections */}
+            <div className="space-y-12">
+              {content.sections.map((section, idx) => (
+                <section
+                  key={section.heading}
+                  id={`section-${idx}`}
+                  className="space-y-5 pt-4"
+                >
+                  <h2 className="text-xl md:text-2xl font-bold tracking-tight border-b border-border/60 pb-3">
+                    {section.heading}
+                  </h2>
+                  <div className="space-y-4">
+                    {section.paragraphs.map((p, pIdx) => (
+                      <p key={pIdx} className="text-base text-muted-foreground leading-relaxed">
+                        {p}
+                      </p>
+                    ))}
+                  </div>
+
+                  {section.tips && (
+                    <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-3">
+                      <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-bold text-sm">
+                        <Lightbulb className="h-4 w-4" />
+                        <span>Pro Tips & Best Practices</span>
+                      </div>
+                      <ul className="space-y-2">
+                        {section.tips.map((tip, tIdx) => (
+                          <li key={tIdx} className="flex items-start gap-2 text-xs md:text-sm text-amber-950 dark:text-amber-200">
+                            <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                            <span>{tip}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </section>
+              ))}
+            </div>
+
+            {/* Use Cases */}
+            <section id="use-cases" className="space-y-6 pt-6">
+              <h2 className="text-2xl font-bold tracking-tight">Real-World Use Cases</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {content.useCases.map((uc, i) => (
+                  <div key={i} className="p-5 rounded-2xl bg-card border border-border space-y-2 shadow-sm">
+                    <h3 className="font-bold text-sm text-foreground">{uc.title}</h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{uc.desc}</p>
+                  </div>
                 ))}
               </div>
-              {section.tips && (
-                <div className="p-6 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 space-y-3">
-                  <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-semibold">
-                    <Lightbulb className="h-5 w-5" />
-                    <span>Pro Tips</span>
+            </section>
+
+            {/* Frequently Asked Questions */}
+            <section id="faq" className="space-y-6 pt-6">
+              <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+                <HelpCircle className="h-6 w-6 text-primary" />
+                Frequently Asked Questions
+              </h2>
+              <div className="space-y-4">
+                {content.faq.map((item, i) => (
+                  <div key={i} className="p-5 rounded-2xl bg-muted/30 border border-border space-y-2">
+                    <h3 className="font-semibold text-sm md:text-base text-foreground">{item.q}</h3>
+                    <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">{item.a}</p>
                   </div>
-                  <ul className="space-y-2">
-                    {section.tips.map((tip, tIdx) => (
-                      <li key={tIdx} className="flex items-start gap-2 text-sm md:text-base text-amber-800 dark:text-amber-300">
-                        <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
-                        {tip}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Next / Prev Navigation Bar */}
+            <div className="pt-10 border-t border-border flex items-center justify-between gap-4">
+              {prevDoc ? (
+                <Link href={`/resources/${prevDoc.slug}`} className="group flex-1">
+                  <div className="p-4 rounded-xl border border-border bg-card hover:border-primary/40 transition-all text-left">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Previous</span>
+                    <div className="font-bold text-sm text-foreground group-hover:text-primary transition-colors flex items-center gap-1 mt-1">
+                      <ChevronLeft className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{prevDoc.title}</span>
+                    </div>
+                  </div>
+                </Link>
+              ) : <div />}
+
+              {nextDoc && (
+                <Link href={`/resources/${nextDoc.slug}`} className="group flex-1 text-right">
+                  <div className="p-4 rounded-xl border border-border bg-card hover:border-primary/40 transition-all">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Next Topic</span>
+                    <div className="font-bold text-sm text-foreground group-hover:text-primary transition-colors flex items-center justify-end gap-1 mt-1">
+                      <span className="truncate">{nextDoc.title}</span>
+                      <ChevronRight className="h-4 w-4 shrink-0" />
+                    </div>
+                  </div>
+                </Link>
               )}
-            </motion.div>
-          ))}
-
-          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="space-y-6">
-            <h2 className="text-2xl md:text-3xl font-bold">Use Cases</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {content.useCases.map((uc, i) => (
-                <div key={i} className="p-6 rounded-2xl bg-card border border-border hover:border-primary/30 transition-colors">
-                  <h3 className="font-bold text-lg mb-2">{uc.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{uc.desc}</p>
-                </div>
-              ))}
             </div>
-          </motion.div>
+          </main>
 
-          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="space-y-6">
-            <h2 className="text-2xl md:text-3xl font-bold">Frequently Asked Questions</h2>
-            <div className="space-y-4">
-              {content.faq.map((item, i) => (
-                <div key={i} className="p-6 rounded-2xl bg-muted/40 border border-border">
-                  <div className="flex items-start gap-3 mb-3">
-                    <HelpCircle className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-                    <h3 className="font-semibold text-base md:text-lg">{item.q}</h3>
-                  </div>
-                  <p className="text-sm md:text-base text-muted-foreground leading-relaxed pl-8">{item.a}</p>
-                </div>
-              ))}
+          {/* ─── Right Sidebar (On This Page Table of Contents) (3 cols) ─── */}
+          <aside className="hidden xl:block xl:col-span-3 sticky top-24 space-y-6">
+            <div className="p-5 rounded-2xl border border-border/80 bg-card/40 space-y-4">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
+                On This Page
+              </span>
+
+              <nav className="space-y-2 text-xs">
+                <a href="#overview" className="block text-muted-foreground hover:text-primary transition-colors">
+                  • Overview
+                </a>
+                {content.sections.map((sec, i) => (
+                  <a
+                    key={i}
+                    href={`#section-${i}`}
+                    className="block text-muted-foreground hover:text-primary transition-colors truncate"
+                  >
+                    • {sec.heading}
+                  </a>
+                ))}
+                <a href="#use-cases" className="block text-muted-foreground hover:text-primary transition-colors">
+                  • Real-World Use Cases
+                </a>
+                <a href="#faq" className="block text-muted-foreground hover:text-primary transition-colors">
+                  • Frequently Asked Questions
+                </a>
+              </nav>
             </div>
-          </motion.div>
 
-          <div className="p-12 rounded-3xl bg-primary text-primary-foreground text-center space-y-6">
-             <h3 className="text-3xl font-bold">Ready to use {content.title}?</h3>
-             <p className="text-xl opacity-90 max-w-xl mx-auto">
-                Join the modern organizations using FormTo.Link to power their data collection and workflows.
-             </p>
-             <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-                <Link href="/login">
-                  <Button size="lg" variant="secondary" className="px-8 font-bold text-primary">Get Started Now</Button>
+            {/* Quick Actions Card */}
+            <div className="p-5 rounded-2xl border border-border bg-muted/20 space-y-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
+                Quick Actions
+              </span>
+              <div className="space-y-2">
+                <Link href="/login" className="block">
+                  <Button size="sm" className="w-full h-9 text-xs font-bold bg-primary text-primary-foreground rounded-xl">
+                    Try in Form Builder
+                  </Button>
                 </Link>
-                <Link href="/contact">
-                  <Button size="lg" variant="outline" className="px-8 border-white/20 hover:bg-white/10 text-white">Contact Sales</Button>
+                <Link href="/resources" className="block">
+                  <Button size="sm" variant="ghost" className="w-full h-9 text-xs font-semibold text-muted-foreground hover:text-foreground">
+                    View All Docs
+                  </Button>
                 </Link>
-             </div>
-          </div>
+              </div>
+            </div>
+          </aside>
 
-          <div className="pt-12 flex items-center justify-between border-t border-border">
-             <div className="space-y-1">
-                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Explore More</p>
-                <Link href="/resources" className="text-xl font-bold hover:text-primary transition-colors flex items-center gap-2">
-                   Browse all resources
-                   <ArrowRight className="h-5 w-5" />
-                </Link>
-             </div>
-          </div>
         </div>
-      </section>
+      </div>
     </div>
   );
 }
-

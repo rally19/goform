@@ -35,12 +35,12 @@ const FEATURES = [
   {
     title: "Smart Logic & Branching",
     slug: "logic-branching",
-    description: "Create smart forms that react to user input. Use conditional visibility and mathematical formulas to personalize every experience.",
+    description: "Create smart forms that react to user input. Use conditional visibility and field rules to personalize every experience.",
     icon: Zap,
     color: "text-amber-500",
     bullets: [
       "Conditional show/hide based on prior answers",
-      "Mathematical formula support for dynamic values",
+      "Dynamic field requirement and masking rules",
       "Skip logic and section branching"
     ]
   },

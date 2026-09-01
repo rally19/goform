@@ -21,7 +21,7 @@ const SOLUTIONS = [
     description: "Listen to your users and gather actionable insights with NPS, CSAT, and open-ended surveys.",
     icon: MessageSquare,
     color: "bg-emerald-500",
-    features: ["Anonymous Submissions", "Submission Limits", "Export to PDF/XLSX"]
+    features: ["Anonymous Submissions", "Submission Limits", "Export to CSV/JSON"]
   },
   {
     id: "internal-workflows",
@@ -37,7 +37,7 @@ const SOLUTIONS = [
     description: "Manage event sign-ups, ticket types, and attendee data with ease and security.",
     icon: Users,
     color: "bg-purple-500",
-    features: ["Capacity Limits", "QR Code Sharing", "CSV/XLSX Export"]
+    features: ["Capacity Limits", "QR Code Sharing", "CSV/JSON Export"]
   }
 ];
 
@@ -48,8 +48,8 @@ const INNOVATIONS = [
     icon: Users,
   },
   {
-    title: "Formula-based Logic",
-    description: "Move beyond simple 'if/then'. Use complex mathematical formulas to create dynamic form experiences.",
+    title: "Advanced Logic Rules",
+    description: "Move beyond simple visibility rules. Use conditional field states and requirement rules to create dynamic experiences.",
     icon: Puzzle,
   },
   {

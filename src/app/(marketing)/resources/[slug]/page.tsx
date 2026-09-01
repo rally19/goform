@@ -7,13 +7,13 @@ type Props = {
 
 const TITLES: Record<string, string> = {
   "form-builder": "Interactive Form Builder",
-  "analytics": "Advanced Analytics",
   "logic-branching": "Logic & Branching",
-  "security": "Security & Compliance",
   "branding": "Design & Customization",
-  "integrations": "Integrations",
+  "analytics": "Advanced Analytics",
+  "security": "Security & Compliance",
   "api-reference": "API & Developer Tools",
-  "workflow-automation": "Workflow Automation",
+  "collaboration": "Teams & Collaboration",
+  "scheduling": "Form Scheduling & Limits",
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
