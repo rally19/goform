@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
-import { X, Settings2, Plus, GripVertical, Trash2, Video, Globe, FolderOpen } from "lucide-react";
+import { X, Settings2, Plus, GripVertical, Trash2, Video, Globe, FolderOpen, PanelRightClose } from "lucide-react";
 import { BuilderField, BuilderSection, SECTION_TYPE_META, type SectionType } from "@/lib/form-types";
 import { stripHtml } from "@/lib/sanitize";
 import {
@@ -53,6 +53,7 @@ interface FieldSettingsProps {
   sections?: BuilderSection[];
   workspaceId?: string;
   accentColor?: string;
+  onCollapse?: () => void;
 }
 
 export function FieldSettings({ 
@@ -69,6 +70,7 @@ export function FieldSettings({
   sections = [],
   workspaceId,
   accentColor,
+  onCollapse,
 }: FieldSettingsProps) {
   const { selectField, selectSection } = useFormBuilder();
   const [assetPickerOpen, setAssetPickerOpen] = useState(false);
@@ -95,17 +97,31 @@ export function FieldSettings({
             </h3>
             <Badge variant="secondary" className="text-[10px]">Section</Badge>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            onClick={() => {
-              selectSection(null);
-              onMobileClose?.();
-            }}
-          >
-            <X className="h-3.5 w-3.5" />
-          </Button>
+          <div className="flex items-center gap-1">
+            {onCollapse && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-muted-foreground hover:text-foreground hidden lg:flex"
+                onClick={onCollapse}
+                title="Hide Properties"
+              >
+                <PanelRightClose className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={() => {
+                selectSection(null);
+                onMobileClose?.();
+              }}
+              title="Close Section Properties"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
         <ScrollArea className="flex-1 min-h-0">
           <div className="p-4 space-y-5">
@@ -249,10 +265,21 @@ export function FieldSettings({
   if (!field) {
     return (
       <div data-cursor-area-root="true" className="flex flex-col h-full bg-card min-h-0">
-        <div className="p-3 border-b border-border">
+        <div className="p-3 border-b border-border flex items-center justify-between">
           <h3 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
             Properties
           </h3>
+          {onCollapse && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-muted-foreground hover:text-foreground hidden lg:flex"
+              onClick={onCollapse}
+              title="Hide Properties"
+            >
+              <PanelRightClose className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
         <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
           <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center mb-3">
@@ -319,17 +346,31 @@ export function FieldSettings({
             {field.type.replace(/_/g, " ")}
           </Badge>
         </div>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="h-6 w-6" 
-          onClick={() => {
-            selectField(null);
-            onMobileClose?.();
-          }}
-        >
-          <X className="h-3.5 w-3.5" />
-        </Button>
+        <div className="flex items-center gap-1">
+          {onCollapse && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-muted-foreground hover:text-foreground hidden lg:flex"
+              onClick={onCollapse}
+              title="Hide Properties"
+            >
+              <PanelRightClose className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-6 w-6" 
+            onClick={() => {
+              selectField(null);
+              onMobileClose?.();
+            }}
+            title="Deselect Field"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
 
       <ScrollArea className="flex-1 min-h-0">
@@ -960,7 +1001,7 @@ function SortableOption({
       <Button
         variant="ghost"
         size="icon"
-        className="h-7 w-7 text-muted-foreground opacity-100 md:opacity-0 md:group-hover/opt:opacity-100 hover:text-destructive shrink-0 transition-opacity"
+        className="h-7 w-7 text-muted-foreground opacity-100 lg:opacity-0 lg:group-hover/opt:opacity-100 hover:text-destructive shrink-0 transition-opacity"
         onClick={() => onRemove?.(idx)}
         disabled={disabled}
       >
@@ -1030,7 +1071,7 @@ function SortableColumn({
       <Button
         variant="ghost"
         size="icon"
-        className="h-6 w-6 text-muted-foreground opacity-100 md:opacity-0 md:group-hover/col:opacity-100 hover:text-destructive shrink-0 transition-opacity"
+        className="h-6 w-6 text-muted-foreground opacity-100 lg:opacity-0 lg:group-hover/col:opacity-100 hover:text-destructive shrink-0 transition-opacity"
         onClick={() => onRemove(idx)}
         disabled={disabled}
       >

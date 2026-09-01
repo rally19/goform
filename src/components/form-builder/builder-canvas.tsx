@@ -38,7 +38,8 @@ import {
   PlusCircle, Settings2, Palette,
   Plus, Loader2, Send, ChevronRight, CheckCircle2,
   GripVertical, Copy, Trash2, ChevronDown, MoveRight, Layers,
-  X, CheckSquare2, Undo2, Redo2, AlertTriangle, Check
+  X, CheckSquare2, Undo2, Redo2, AlertTriangle, Check,
+  PanelLeft, PanelRight, PanelLeftOpen, PanelRightOpen
 } from "lucide-react";
 import { FieldMoveDialog } from "./field-move-dialog";
 import { SectionReorderDialog } from "./section-reorder-dialog";
@@ -75,6 +76,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { CursorArea } from "./cursor-area";
+import { ResizeHandle } from "./resize-handle";
 
 
 interface BuilderCanvasProps {
@@ -334,6 +336,108 @@ export function BuilderCanvas({
     clearMultiSelect,
     setMultiSelect,
   } = useFormBuilder();
+
+  // ─── Resizable Panel Widths ────────────────────────────────────────────────
+  const [leftWidth, setLeftWidth] = useState<number>(288); // default 288px (w-72)
+  const [rightWidth, setRightWidth] = useState<number>(320); // default 320px (w-80)
+
+  useEffect(() => {
+    try {
+      const savedLeft = localStorage.getItem("goform:builder-left-width");
+      if (savedLeft) {
+        const parsed = parseInt(savedLeft, 10);
+        if (!isNaN(parsed) && parsed >= 200 && parsed <= 480) {
+          setLeftWidth(parsed);
+        }
+      }
+      const savedRight = localStorage.getItem("goform:builder-right-width");
+      if (savedRight) {
+        const parsed = parseInt(savedRight, 10);
+        if (!isNaN(parsed) && parsed >= 260 && parsed <= 540) {
+          setRightWidth(parsed);
+        }
+      }
+    } catch {
+      // Ignore storage access errors
+    }
+  }, []);
+
+  const handleSaveLeftWidth = useCallback((w: number) => {
+    try {
+      localStorage.setItem("goform:builder-left-width", String(w));
+    } catch {}
+  }, []);
+
+  const handleSaveRightWidth = useCallback((w: number) => {
+    try {
+      localStorage.setItem("goform:builder-right-width", String(w));
+    } catch {}
+  }, []);
+
+  // ─── Panel Visibility (Hide/Show) ─────────────────────────────────────────
+  const [isComponentsVisible, setIsComponentsVisible] = useState<boolean>(true);
+  const [isPropertiesVisible, setIsPropertiesVisible] = useState<boolean>(true);
+
+  useEffect(() => {
+    try {
+      const savedCompVis = localStorage.getItem("goform:builder-components-visible");
+      if (savedCompVis !== null) {
+        setIsComponentsVisible(savedCompVis === "true");
+      }
+      const savedPropVis = localStorage.getItem("goform:builder-properties-visible");
+      if (savedPropVis !== null) {
+        setIsPropertiesVisible(savedPropVis === "true");
+      }
+    } catch {
+      // Ignore storage access errors
+    }
+  }, []);
+
+  const handleToggleComponents = useCallback(() => {
+    setIsComponentsVisible((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("goform:builder-components-visible", String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const handleToggleProperties = useCallback(() => {
+    setIsPropertiesVisible((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("goform:builder-properties-visible", String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  // Keyboard shortcut: Ctrl+\ toggles Components, Ctrl+. toggles Properties
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isInput = target && (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable ||
+        target.getAttribute("role") === "textbox"
+      );
+
+      if ((e.ctrlKey || e.metaKey) && e.key === "\\") {
+        e.preventDefault();
+        handleToggleComponents();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === "." || e.key === "/")) {
+        if (!isInput) {
+          e.preventDefault();
+          handleToggleProperties();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleToggleComponents, handleToggleProperties]);
 
   // ─── Collaboration Engine (Liveblocks or Local Fallback) ──────────────────
   const {
@@ -673,15 +777,59 @@ export function BuilderCanvas({
     >
       <div className="flex h-full w-full overflow-hidden bg-muted/30">
         {/* Left Side: Components (Desktop) */}
-        <CursorArea id="components" className="w-72 shrink-0 hidden md:flex flex-col border-r border-border bg-card overflow-hidden">
-          <ComponentPanel />
-        </CursorArea>
+        {isComponentsVisible && (
+          <>
+            <CursorArea
+              id="components"
+              style={{ width: `${leftWidth}px` }}
+              className="shrink-0 hidden lg:flex flex-col bg-card overflow-hidden"
+            >
+              <ComponentPanel onCollapse={handleToggleComponents} />
+            </CursorArea>
+
+            {/* Resize Handle: Components <-> Canvas */}
+            <div className="hidden lg:flex h-full items-stretch">
+              <ResizeHandle
+                side="left"
+                width={leftWidth}
+                minWidth={200}
+                maxWidth={480}
+                defaultWidth={288}
+                onWidthChange={setLeftWidth}
+                onResizeEnd={handleSaveLeftWidth}
+                accentColor={accentColor}
+              />
+            </div>
+          </>
+        )}
 
         {/* Main Canvas Area */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden relative">
           {/* Header */}
           <header className="h-14 border-b border-border bg-card flex items-center justify-between px-4 shrink-0 z-20">
             <div className="flex items-center gap-3 min-w-0">
+              {/* Components Toggle (Desktop) */}
+              <TooltipProvider>
+                <Tooltip delayDuration={300}>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn(
+                        "h-8 w-8 text-muted-foreground hover:text-foreground hidden lg:flex shrink-0 transition-colors",
+                        isComponentsVisible && "bg-muted text-foreground"
+                      )}
+                      onClick={handleToggleComponents}
+                    >
+                      <PanelLeft className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-[10px]">
+                    {isComponentsVisible ? "Hide Components" : "Show Components"} <span className="text-muted-foreground ml-1">Ctrl+\</span>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
               {isCollaborative && (
                 <>
                   <ActiveMembers self={self} others={others} />
@@ -717,7 +865,7 @@ export function BuilderCanvas({
 
             <div className="flex items-center gap-1 sm:gap-2">
               {/* History Controls (Undo/Redo) - Desktop only */}
-              <div className="hidden md:flex items-center gap-0.5 mr-1 border-r border-border pr-2">
+              <div className="hidden lg:flex items-center gap-0.5 mr-1 border-r border-border pr-2">
                 <TooltipProvider>
                   <Tooltip delayDuration={400}>
                     <TooltipTrigger asChild>
@@ -817,6 +965,28 @@ export function BuilderCanvas({
                 </DropdownMenuContent>
               </DropdownMenu>
 
+              {/* Properties Toggle (Desktop) */}
+              <TooltipProvider>
+                <Tooltip delayDuration={300}>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn(
+                        "h-8 w-8 text-muted-foreground hover:text-foreground hidden lg:flex shrink-0 transition-colors",
+                        isPropertiesVisible && "bg-muted text-foreground"
+                      )}
+                      onClick={handleToggleProperties}
+                    >
+                      <PanelRight className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-[10px]">
+                    {isPropertiesVisible ? "Hide Properties" : "Show Properties"} <span className="text-muted-foreground ml-1">Ctrl+.</span>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
               {/* Manual Save Button (when autoSave is disabled) */}
               {!autoSave && <ManualSaveButton isSaving={isSaving} manualSave={manualSave} fields={fields} form={form} sections={sections} />}
             </div>
@@ -824,7 +994,64 @@ export function BuilderCanvas({
 
           {/* Canvas — one unified CursorArea per section, keyed so switching section
                fully remounts the area and resets all live cursors to the new page */}
-          <div className="flex-1 h-full min-h-0 bg-muted/30 overflow-y-auto" onClick={() => { selectField(null); selectSection(null); clearMultiSelect(); }}>
+          <div className="flex-1 h-full min-h-0 bg-muted/30 overflow-y-auto relative" onClick={() => { selectField(null); selectSection(null); clearMultiSelect(); }}>
+            {/* Quick Restore Floating Buttons when panels are hidden */}
+            <AnimatePresence>
+              {!isComponentsVisible && (
+                <motion.div
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -12 }}
+                  transition={{ duration: 0.15 }}
+                  className="hidden lg:block absolute top-4 left-4 z-30 pointer-events-auto"
+                >
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleComponents();
+                    }}
+                    className="h-8 gap-1.5 px-2.5 text-xs shadow-sm bg-card/90 backdrop-blur-md hover:bg-card text-muted-foreground hover:text-foreground transition-all rounded-lg border-border/80"
+                  >
+                    <PanelLeftOpen className="h-3.5 w-3.5 text-primary" />
+                    <span className="font-medium">Components</span>
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+              {!isPropertiesVisible && (
+                <motion.div
+                  initial={{ opacity: 0, x: 12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 12 }}
+                  transition={{ duration: 0.15 }}
+                  className="hidden lg:block absolute top-4 right-4 z-30 pointer-events-auto"
+                >
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleProperties();
+                    }}
+                    className={cn(
+                      "h-8 gap-1.5 px-2.5 text-xs shadow-sm bg-card/90 backdrop-blur-md hover:bg-card text-muted-foreground hover:text-foreground transition-all rounded-lg border-border/80",
+                      (selectedFieldId || selectedSectionId) && "border-primary/50 text-foreground ring-1 ring-primary/30"
+                    )}
+                  >
+                    <PanelRightOpen className="h-3.5 w-3.5 text-primary" />
+                    <span className="font-medium">Properties</span>
+                    {(selectedFieldId || selectedSectionId) && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary ml-0.5" />
+                    )}
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <CursorArea
               key={activeSectionId ?? "no-section"}
               id={`canvas-${activeSectionId ?? "no-section"}`}
@@ -994,10 +1221,10 @@ export function BuilderCanvas({
             </CursorArea>
           </div>
 
-          {/* Mobile Footer Action Bar */}
+          {/* Mobile & Tablet Footer Action Bar */}
           {isMultiSelectMode ? (
-            /* ─── Mobile: Multi-select bar ───────────────────────────────── */
-            <div className="md:hidden h-16 border-t border-border bg-card flex items-center justify-around px-2 shrink-0 z-30 pb-safe">
+            /* ─── Mobile/Tablet: Multi-select bar ───────────────────────── */
+            <div className="lg:hidden h-16 border-t border-border bg-card flex items-center justify-around px-2 shrink-0 z-30 pb-safe">
               <Button variant="ghost" size="sm" className="flex flex-col h-auto pt-1.5 pb-1 gap-1 min-w-[56px]" onClick={clearMultiSelect}>
                 <X className="h-5 w-5" />
                 <span className="text-[10px] font-medium">{multiCount}</span>
@@ -1020,8 +1247,8 @@ export function BuilderCanvas({
               </Button>
             </div>
           ) : (
-            /* ─── Mobile: Normal bar ─────────────────────────────────────── */
-            <div className="md:hidden h-16 border-t border-border bg-card flex items-center justify-around px-2 shrink-0 z-30 pb-safe">
+            /* ─── Mobile/Tablet: Normal bar ─────────────────────────────── */
+            <div className="lg:hidden h-16 border-t border-border bg-card flex items-center justify-around px-2 shrink-0 z-30 pb-safe">
               <Button
                 variant="ghost"
                 size="sm"
@@ -1135,7 +1362,7 @@ export function BuilderCanvas({
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: 80, opacity: 0 }}
                 transition={{ type: "spring", damping: 24, stiffness: 300 }}
-                className="hidden md:flex fixed bottom-6 left-1/2 -translate-x-1/2 z-50 items-center gap-1 rounded-xl border border-border bg-card shadow-xl px-2 py-1.5"
+                className="hidden lg:flex fixed bottom-6 left-1/2 -translate-x-1/2 z-50 items-center gap-1 rounded-xl border border-border bg-card shadow-xl px-2 py-1.5"
               >
                 <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-3 text-xs" onClick={clearMultiSelect}>
                   <X className="h-3.5 w-3.5" />
@@ -1220,14 +1447,14 @@ export function BuilderCanvas({
             onSelect={handleCreateSectionWithType}
           />
 
-          {/* Mobile Floating History Controls - Top Corners */}
+          {/* Mobile/Tablet Floating History Controls - Top Corners */}
           <AnimatePresence>
             {canUndo && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.8, x: -20 }}
                 animate={{ opacity: 1, scale: 1, x: 0 }}
                 exit={{ opacity: 0, scale: 0.8, x: -20 }}
-                className="md:hidden fixed top-[110px] left-4 z-40"
+                className="lg:hidden fixed top-[110px] left-4 z-40"
               >
                 <Button
                   variant="secondary"
@@ -1247,7 +1474,7 @@ export function BuilderCanvas({
                 initial={{ opacity: 0, scale: 0.8, x: 20 }}
                 animate={{ opacity: 1, scale: 1, x: 0 }}
                 exit={{ opacity: 0, scale: 0.8, x: 20 }}
-                className="md:hidden fixed top-[110px] right-4 z-40"
+                className="lg:hidden fixed top-[110px] right-4 z-40"
               >
                 <Button
                   variant="secondary"
@@ -1263,59 +1490,82 @@ export function BuilderCanvas({
         </div>
 
         {/* Right Panel */}
-        <CursorArea id={`settings-${selectedFieldId || selectedSectionId || 'none'}`} className="w-80 shrink-0 hidden lg:flex flex-col border-l border-border h-full bg-card overflow-hidden">
-          <FieldSettings
-            currentUserId={currentUserId}
-            field={fields.find(f => f.id === selectedFieldId)}
-            selectedSection={selectedSectionId ? sections.find(s => s.id === selectedSectionId) : undefined}
-            onUpdateSection={(changes) => selectedSectionId && collabUpdateSection(selectedSectionId, changes)}
-            sections={sortedSections}
-            onUpdate={(changes) => selectedFieldId && collabUpdateField(selectedFieldId, changes)}
-            onAddOption={() => {
-              if (selectedFieldId) {
-                const field = fields.find(f => f.id === selectedFieldId);
-                if (field) {
-                  const options = [...(field.options || [])];
-                  const idx = options.length + 1;
-                  options.push({ label: `Option ${idx}`, value: `option_${idx}` });
-                  collabUpdateField(selectedFieldId, { options });
-                }
-              }
-            }}
-            onRemoveOption={(idx) => {
-              if (selectedFieldId) {
-                const field = fields.find(f => f.id === selectedFieldId);
-                if (field?.options) {
-                  const options = [...field.options];
-                  options.splice(idx, 1);
-                  collabUpdateField(selectedFieldId, { options });
-                }
-              }
-            }}
-            onUpdateOption={(idx, label) => {
-              if (selectedFieldId) {
-                const field = fields.find(f => f.id === selectedFieldId);
-                if (field?.options) {
-                  const options = [...field.options];
-                  options[idx] = { ...options[idx], label };
-                  collabUpdateField(selectedFieldId, { options });
-                }
-              }
-            }}
-            onReorderOptions={(from, to) => {
-              if (selectedFieldId) {
-                const field = fields.find(f => f.id === selectedFieldId);
-                if (field?.options) {
-                  const options = arrayMove(field.options, from, to);
-                  collabUpdateField(selectedFieldId, { options });
-                }
-              }
-            }}
-            onMobileClose={() => { }}
-            workspaceId={workspaceId}
-            accentColor={form.accentColor}
-          />
-        </CursorArea>
+        {isPropertiesVisible && (
+          <>
+            {/* Resize Handle: Canvas <-> Settings */}
+            <div className="hidden lg:flex h-full items-stretch">
+              <ResizeHandle
+                side="right"
+                width={rightWidth}
+                minWidth={260}
+                maxWidth={540}
+                defaultWidth={320}
+                onWidthChange={setRightWidth}
+                onResizeEnd={handleSaveRightWidth}
+                accentColor={accentColor}
+              />
+            </div>
+
+            <CursorArea
+              id={`settings-${selectedFieldId || selectedSectionId || 'none'}`}
+              style={{ width: `${rightWidth}px` }}
+              className="shrink-0 hidden lg:flex flex-col h-full bg-card overflow-hidden"
+            >
+              <FieldSettings
+                currentUserId={currentUserId}
+                field={fields.find(f => f.id === selectedFieldId)}
+                selectedSection={selectedSectionId ? sections.find(s => s.id === selectedSectionId) : undefined}
+                onUpdateSection={(changes) => selectedSectionId && collabUpdateSection(selectedSectionId, changes)}
+                sections={sortedSections}
+                onUpdate={(changes) => selectedFieldId && collabUpdateField(selectedFieldId, changes)}
+                onAddOption={() => {
+                  if (selectedFieldId) {
+                    const field = fields.find(f => f.id === selectedFieldId);
+                    if (field) {
+                      const options = [...(field.options || [])];
+                      const idx = options.length + 1;
+                      options.push({ label: `Option ${idx}`, value: `option_${idx}` });
+                      collabUpdateField(selectedFieldId, { options });
+                    }
+                  }
+                }}
+                onRemoveOption={(idx) => {
+                  if (selectedFieldId) {
+                    const field = fields.find(f => f.id === selectedFieldId);
+                    if (field?.options) {
+                      const options = [...field.options];
+                      options.splice(idx, 1);
+                      collabUpdateField(selectedFieldId, { options });
+                    }
+                  }
+                }}
+                onUpdateOption={(idx, label) => {
+                  if (selectedFieldId) {
+                    const field = fields.find(f => f.id === selectedFieldId);
+                    if (field?.options) {
+                      const options = [...field.options];
+                      options[idx] = { ...options[idx], label };
+                      collabUpdateField(selectedFieldId, { options });
+                    }
+                  }
+                }}
+                onReorderOptions={(from, to) => {
+                  if (selectedFieldId) {
+                    const field = fields.find(f => f.id === selectedFieldId);
+                    if (field?.options) {
+                      const options = arrayMove(field.options, from, to);
+                      collabUpdateField(selectedFieldId, { options });
+                    }
+                  }
+                }}
+                onMobileClose={() => { }}
+                onCollapse={handleToggleProperties}
+                workspaceId={workspaceId}
+                accentColor={form.accentColor}
+              />
+            </CursorArea>
+          </>
+        )}
       </div>
 
       {/* Mobile Component Panel */}

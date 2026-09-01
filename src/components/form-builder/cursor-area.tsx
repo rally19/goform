@@ -8,11 +8,12 @@ interface CursorAreaProps {
   id: string;
   children: ReactNode;
   className?: string;
+  style?: React.CSSProperties;
   onClick?: () => void;
   isDragging?: boolean;
 }
 
-export function CursorArea({ id, children, className, onClick, isDragging = false }: CursorAreaProps) {
+export function CursorArea({ id, children, className, style, onClick, isDragging = false }: CursorAreaProps) {
   const { myPresence, updateMyPresence, others, isCollaborative } = useFormCollaborationContext();
   const containerRef = useRef<HTMLDivElement>(null);
   // Keep isDragging in a ref so the stable useEffect closure can read the latest value
@@ -190,7 +191,8 @@ export function CursorArea({ id, children, className, onClick, isDragging = fals
         onClick={onClick}
         style={{ 
           position: "relative",
-          touchAction: (id.startsWith("canvas-") || id === "canvas") && isDragging ? "none" : "pan-y"
+          touchAction: (id.startsWith("canvas-") || id === "canvas") && isDragging ? "none" : "pan-y",
+          ...style
         }}
       >
         {children}
@@ -207,7 +209,8 @@ export function CursorArea({ id, children, className, onClick, isDragging = fals
         position: "relative",
         // pan-y at rest so mobile can scroll; switches to none during drag so dnd-kit
         // gets uninterrupted pointer capture for accurate drop detection.
-        touchAction: (id.startsWith("canvas-") || id === "canvas") && isDragging ? "none" : "pan-y"
+        touchAction: (id.startsWith("canvas-") || id === "canvas") && isDragging ? "none" : "pan-y",
+        ...style
       }}
       onClick={onClick}
     >
@@ -241,7 +244,7 @@ function CursorFollower({ cursor, info, containerRef }: {
       if (!containerRef.current) return;
 
       const containerRect = containerRef.current.getBoundingClientRect();
-      const rootEl = containerRef.current.querySelector('[data-cursor-area-root="true"]');
+      const rootEl = containerRef.current.querySelector('[data-cursor-area-root="true"]') as HTMLElement | null;
       const rootRect = rootEl ? rootEl.getBoundingClientRect() : containerRect;
       const areaHeight = containerRect.height;
 
@@ -298,8 +301,31 @@ function CursorFollower({ cursor, info, containerRef }: {
     };
 
     updatePosition();
+
+    // Listen to window resize and scroll events
     window.addEventListener("resize", updatePosition);
-    return () => window.removeEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, { capture: true, passive: true });
+
+    // Use ResizeObserver so when any panel is resized via dragging, cursor follows immediately
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined" && containerRef.current) {
+      resizeObserver = new ResizeObserver(() => {
+        updatePosition();
+      });
+      resizeObserver.observe(containerRef.current);
+      const rootEl = containerRef.current.querySelector('[data-cursor-area-root="true"]');
+      if (rootEl) {
+        resizeObserver.observe(rootEl);
+      }
+    }
+
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, { capture: true });
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+    };
   }, [cursor, containerRef]);
 
   return (

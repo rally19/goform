@@ -16,7 +16,7 @@ import {
   CalendarClock, CircleDot, CheckSquare, ChevronDown, ListChecks,
   Star, SlidersHorizontal, Heading, Columns2, Upload, User, List,
   BarChart2, Eye, Paperclip, Search, LayoutGrid, Trash2, X,
-  TextQuote, Minus, Video, Grid2X2, Grid2X2Check, ListOrdered,
+  TextQuote, Minus, Video, Grid2X2, Grid2X2Check, ListOrdered, PanelLeftClose,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -115,9 +115,10 @@ function DraggableSidebarItem({ item }: { item: FieldTypeMeta }) {
 
 interface ComponentPanelProps {
   onMobileClose?: () => void;
+  onCollapse?: () => void;
 }
 
-export function ComponentPanel({ onMobileClose }: ComponentPanelProps) {
+export function ComponentPanel({ onMobileClose, onCollapse }: ComponentPanelProps) {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<FieldCategory | "all">("all");
 
@@ -169,11 +170,11 @@ export function ComponentPanel({ onMobileClose }: ComponentPanelProps) {
 
       {/* Header */}
       <div className="p-3 border-b border-border flex items-center justify-between">
-        <div>
+        <div className="flex-1 min-w-0 mr-2">
           <h3 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider mb-2 px-1">
             Components
           </h3>
-          <div className="relative">
+          <div className="relative" data-cursor-id="components-search" data-cursor-type="header">
             <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               value={search}
@@ -183,16 +184,29 @@ export function ComponentPanel({ onMobileClose }: ComponentPanelProps) {
             />
           </div>
         </div>
-        {onMobileClose && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 shrink-0 -mt-8"
-            onClick={onMobileClose}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        )}
+        <div className="flex items-center gap-1 shrink-0 -mt-8">
+          {onCollapse && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground hidden lg:flex"
+              onClick={onCollapse}
+              title="Hide Components (Ctrl+\)"
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </Button>
+          )}
+          {onMobileClose && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0 lg:hidden"
+              onClick={onMobileClose}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Category tabs */}
