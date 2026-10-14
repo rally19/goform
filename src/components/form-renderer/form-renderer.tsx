@@ -790,7 +790,7 @@ function FieldRenderer({
             onChange(val);
           }}
           placeholder={field.placeholder ?? ""}
-          className={cn("h-11", inputClass)}
+          className={cn("h-11 px-3.5 text-sm sm:text-base", inputClass)}
           min={val.min}
           max={val.max}
           minLength={val.minLength}
@@ -808,7 +808,7 @@ function FieldRenderer({
           onChange={(e) => onChange(e.target.value)}
           placeholder={field.placeholder ?? "Your answer"}
           rows={props.rows ?? 4}
-          className={cn(inputClass, masked && "[-webkit-text-security:disc]")}
+          className={cn("px-3.5 py-3 text-sm sm:text-base leading-relaxed", inputClass, masked && "[-webkit-text-security:disc]")}
           disabled={disabled}
           onBlur={onBlur}
           aria-invalid={!!error}
@@ -828,13 +828,13 @@ function FieldRenderer({
             type={field.type === "date" ? "date" : field.type === "time" ? "time" : "datetime-local"}
             value={dateVal}
             onChange={(e) => onChange(e.target.value)}
-            className={cn("h-11 w-full", inputClass, !dateVal && "text-transparent")}
+            className={cn("h-11 w-full px-3.5 text-sm sm:text-base", inputClass, !dateVal && "text-transparent")}
             disabled={disabled}
             onBlur={onBlur}
             aria-invalid={!!error}
           />
           {!dateVal && (
-            <span className="absolute left-3 right-10 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none truncate group-focus-within/date:hidden">
+            <span className="absolute left-3.5 right-10 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none truncate group-focus-within/date:hidden">
               {datePlaceholder}
             </span>
           )}
@@ -847,15 +847,16 @@ function FieldRenderer({
         <RadioGroup
           value={(value as string) ?? ""}
           onValueChange={onChange}
-          className="space-y-2"
+          className="space-y-2.5"
           disabled={disabled}
         >
           {options.map((opt) => (
-            <div key={opt.value} className="flex items-center gap-3">
+            <div key={opt.value} className="flex items-center gap-3 py-1 px-1 rounded-md hover:bg-muted/30 transition-colors">
               <RadioGroupItem 
                 value={opt.value} 
                 id={`${field.id}-${opt.value}`}
                 disabled={disabled}
+                className="size-4.5 mt-0.5 shrink-0"
                 onClick={() => {
                   // Allow clearing a non-required radio by clicking the selected option again.
                   // Handled here only — the Label forwards click via htmlFor and would
@@ -867,10 +868,10 @@ function FieldRenderer({
               />
               <Label 
                 htmlFor={`${field.id}-${opt.value}`} 
-                className="cursor-pointer font-normal flex-1"
+                className="cursor-pointer font-normal text-sm sm:text-[15px] leading-relaxed flex-1"
               >
                 <div 
-                  className="prose-sm max-w-full [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-md"
+                  className="prose-sm sm:prose-base max-w-full [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-md"
                   dangerouslySetInnerHTML={{ __html: sanitize(opt.label) }}
                 />
               </Label>
@@ -882,21 +883,22 @@ function FieldRenderer({
     case "checkbox": {
       const checked = (value as string[]) ?? [];
       return (
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           {options.map((opt) => (
-            <div key={opt.value} className="flex items-center gap-3">
+            <div key={opt.value} className="flex items-center gap-3 py-1 px-1 rounded-md hover:bg-muted/30 transition-colors">
               <Checkbox
                 id={`${field.id}-${opt.value}`}
                 checked={checked.includes(opt.value)}
                 disabled={disabled}
+                className="size-4.5 mt-0.5 shrink-0 rounded-[4px]"
                 onCheckedChange={(ch) => {
                   if (ch) onChange([...checked, opt.value]);
                   else onChange(checked.filter((v) => v !== opt.value));
                 }}
               />
-              <Label htmlFor={`${field.id}-${opt.value}`} className="cursor-pointer font-normal flex-1">
+              <Label htmlFor={`${field.id}-${opt.value}`} className="cursor-pointer font-normal text-sm sm:text-[15px] leading-relaxed flex-1">
                 <div 
-                  className="prose-sm max-w-full [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-md"
+                  className="prose-sm sm:prose-base max-w-full [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-md"
                   dangerouslySetInnerHTML={{ __html: sanitize(opt.label) }}
                 />
               </Label>
@@ -1028,19 +1030,19 @@ function FieldRenderer({
     case "select":
       return (
         <Select value={(value as string) ?? ""} onValueChange={(v) => onChange(v === "__clear__" ? "" : v)} disabled={disabled}>
-          <SelectTrigger className={cn("h-11", inputClass)}>
+          <SelectTrigger className={cn("w-full min-h-11 h-auto px-3.5 py-2.5 text-sm sm:text-base", inputClass)}>
             <SelectValue placeholder={field.placeholder ?? "Select an option"} />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="w-[var(--radix-select-trigger-width)] min-w-[240px]">
             {!field.required && value && (
-              <SelectItem value="__clear__" className="text-muted-foreground italic">
+              <SelectItem value="__clear__" className="text-muted-foreground italic py-2">
                 Clear selection
               </SelectItem>
             )}
             {options.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
+              <SelectItem key={opt.value} value={opt.value} className="py-2.5">
                 <div 
-                  className="prose-sm max-w-full [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-md"
+                  className="prose-sm sm:prose-base max-w-full [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-md"
                   dangerouslySetInnerHTML={{ __html: sanitize(opt.label) }}
                 />
               </SelectItem>
@@ -1058,7 +1060,7 @@ function FieldRenderer({
           onChange={onChange}
           placeholder={field.placeholder ?? "Select options..."}
           accentColor={accentColor}
-          className={inputClass}
+          className={cn("w-full min-h-11", inputClass)}
         />
       );
     }
@@ -1827,7 +1829,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
       )}
 
       {/* Fields */}
-      <div className="space-y-6">
+      <div className="space-y-7">
         {(currentFields as FormField[]).map((field) => {
           if (field.type === "section") {
             return (
@@ -1861,22 +1863,22 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
           if (!state.visible) return null;
 
           return (
-            <div key={field.id} id={`field-${field.id}`} className="space-y-2">
-              <Label className="text-sm font-medium flex items-center gap-1">
-              <div 
-                className="prose-sm max-w-full"
-                dangerouslySetInnerHTML={{ __html: sanitize(field.label) }}
-              />
-              {state.required && (
-                <span className="text-destructive">*</span>
+            <div key={field.id} id={`field-${field.id}`} className="space-y-2.5">
+              <Label className="text-[15px] sm:text-base font-medium flex items-start gap-1.5 leading-snug">
+                <div 
+                  className="prose-sm sm:prose-base max-w-full font-medium"
+                  dangerouslySetInnerHTML={{ __html: sanitize(field.label) }}
+                />
+                {state.required && (
+                  <span className="text-destructive font-bold text-sm leading-none mt-0.5">*</span>
+                )}
+              </Label>
+              {field.description && (
+                <SafeHtml 
+                  className="text-xs sm:text-sm text-muted-foreground -mt-0.5 prose-xs sm:prose-sm max-w-full preserve-spaces"
+                  html={field.description}
+                />
               )}
-            </Label>
-            {field.description && (
-              <SafeHtml 
-                className="text-xs text-foreground/80 -mt-1 prose-xs max-w-full preserve-spaces"
-                html={field.description}
-              />
-            )}
               <FieldRenderer
                 field={field}
                 value={answers[field.id] ?? null}
@@ -1908,7 +1910,7 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
                 error={errors[field.id]}
               />
               {errors[field.id] && (
-                <p className="text-xs text-destructive">{errors[field.id]}</p>
+                <p className="text-xs sm:text-sm text-destructive font-medium">{errors[field.id]}</p>
               )}
             </div>
           );

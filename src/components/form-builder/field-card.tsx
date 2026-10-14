@@ -220,12 +220,12 @@ export const FieldCard = memo(function FieldCard({
     }
     if (["radio", "checkbox"].includes(field.type)) {
       return (
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {(field.options ?? []).map((opt, i) => (
-            <div key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+            <div key={i} className="flex items-start gap-2.5 text-sm text-muted-foreground">
               <div className={cn(
-                "h-3.5 w-3.5 border border-muted-foreground/40 pointer-events-none shrink-0 mt-0.5",
-                field.type === "radio" ? "rounded-full" : "rounded-[3px]"
+                "h-4 w-4 border border-muted-foreground/40 pointer-events-none shrink-0 mt-0.5",
+                field.type === "radio" ? "rounded-full" : "rounded-[4px]"
               )} />
               <SafeHtml 
                 className="prose-sm max-w-full [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-md"
@@ -239,15 +239,15 @@ export const FieldCard = memo(function FieldCard({
     if (["select", "multi_select"].includes(field.type)) {
       return (
         <div className="space-y-2">
-          <div className="h-9 w-full rounded-md border border-input bg-muted/50 px-3 text-sm text-muted-foreground flex items-center justify-between pointer-events-none">
+          <div className="h-10 w-full rounded-lg border border-input bg-muted/50 px-3.5 text-sm text-muted-foreground flex items-center justify-between pointer-events-none">
             <span>{field.placeholder || (field.type === "select" ? "Select an option..." : "Select options...")}</span>
             <ChevronDown className="h-4 w-4 shrink-0" />
           </div>
           {field.options && field.options.length > 0 && (
-            <div className="space-y-1.5 pl-2 border-l border-border/50 ml-1.5">
+            <div className="space-y-1.5 pl-3 border-l-2 border-border/50 ml-1.5">
               {field.options.map((opt, i) => (
-                <div key={i} className="flex items-start gap-2 text-[11px] text-muted-foreground/80">
-                  <div className="h-1 w-1 rounded-full bg-muted-foreground/30 mt-1.5 shrink-0" />
+                <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground/85">
+                  <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 mt-1.5 shrink-0" />
                   <SafeHtml 
                     className="prose-xs max-w-full opacity-80 [&_img]:max-h-24 [&_img]:w-auto [&_img]:rounded-sm"
                     html={opt.label}
@@ -461,23 +461,23 @@ export const FieldCard = memo(function FieldCard({
         {/* Content */}
         <div className="flex-1 min-w-0 space-y-3">
           <div className="flex flex-row items-center gap-2">
-            <div className="flex items-center gap-1.5 min-w-0 flex-1">
-              <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
               <SafeHtml 
-                className="font-medium text-sm text-foreground prose-sm max-w-full"
+                className="font-medium text-[15px] text-foreground prose-sm max-w-full leading-normal"
                 html={field.label}
               />
               {field.required && (
-                <span className="text-destructive text-sm leading-none shrink-0">*</span>
+                <span className="text-destructive font-bold text-sm leading-none shrink-0">*</span>
               )}
               {field.properties?.defaultHidden && (
-                <EyeClosed className="h-3 w-3 text-muted-foreground shrink-0" />
+                <EyeClosed className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               )}
               {field.properties?.defaultDisabled && (
-                <PencilOff className="h-3 w-3 text-muted-foreground shrink-0" />
+                <PencilOff className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               )}
               {field.properties?.defaultMasked && (
-                <RectangleEllipsis className="h-3 w-3 text-muted-foreground shrink-0" />
+                <RectangleEllipsis className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               )}
             </div>
             <div className="flex items-center justify-end gap-2 shrink-0">
@@ -489,7 +489,7 @@ export const FieldCard = memo(function FieldCard({
 
             {field.description && !["paragraph", "divider"].includes(field.type) && (
               <SafeHtml 
-                className="text-xs text-foreground/80 -mt-1 text-balance prose-xs max-w-full preserve-spaces"
+                className="text-xs sm:text-sm text-muted-foreground -mt-0.5 text-balance prose-xs max-w-full preserve-spaces"
                 html={field.description}
               />
             )}
