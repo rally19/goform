@@ -35,9 +35,27 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  // Marketing routes that don't require auth
+  const marketingRoutes = [
+    '/about',
+    '/careers',
+    '/community',
+    '/contact',
+    '/enterprise',
+    '/features',
+    '/pricing',
+    '/resources',
+    '/solutions',
+    '/support',
+  ]
+
+  const isMarketingRoute =
+    pathname === '/' ||
+    marketingRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`))
+
   // Define public routes that don't require auth or verification
   const isPublicRoute = 
-    pathname === '/' ||
+    isMarketingRoute ||
     pathname.startsWith('/login') ||
     pathname.startsWith('/register') ||
     pathname.startsWith('/forgot-password') ||
@@ -48,7 +66,9 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/f/') ||
     pathname.startsWith('/api/') ||
     pathname.startsWith('/_next') ||
-    pathname.includes('/favicon.ico')
+    pathname.includes('/favicon.ico') ||
+    pathname === '/robots.txt' ||
+    pathname === '/sitemap.xml'
 
   if (!isPublicRoute) {
     // 1. If no user, redirect to login
