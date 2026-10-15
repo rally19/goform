@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Settings, Sun, Moon, RotateCcw, Check, Monitor, ZoomIn, ZoomOut } from "lucide-react";
+import { Settings, Sun, Moon, RotateCcw, Check, Monitor } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,9 +11,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -26,65 +23,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-export const ZOOM_OPTIONS = [
-  { value: 50, label: "50%" },
-  { value: 70, label: "70%" },
-  { value: 80, label: "80%" },
-  { value: 90, label: "90%" },
-  { value: 100, label: "100% (Default)" },
-  { value: 110, label: "110%" },
-  { value: 120, label: "120%" },
-  { value: 130, label: "130%" },
-  { value: 150, label: "150%" },
-];
-
 interface FormMenuProps {
   onReset: () => void;
-  zoom?: number;
-  onZoomChange?: (zoom: number) => void;
 }
 
-export function FormMenu({ onReset, zoom: controlledZoom, onZoomChange }: FormMenuProps) {
+export function FormMenu({ onReset }: FormMenuProps) {
   const { setTheme, theme } = useTheme();
-  const [internalZoom, setInternalZoom] = React.useState<number>(100);
   const [showResetDialog, setShowResetDialog] = React.useState(false);
-
-  const zoom = controlledZoom ?? internalZoom;
-
-  const applyZoom = React.useCallback((level: number) => {
-    const container = document.getElementById("form-zoom-container") || document.querySelector("form");
-    if (container) {
-      (container as HTMLElement).style.zoom = level === 100 ? "" : `${level}%`;
-    }
-  }, []);
-
-  React.useEffect(() => {
-    if (controlledZoom !== undefined) return;
-    try {
-      const saved = localStorage.getItem("form_zoom");
-      if (saved) {
-        const parsed = parseInt(saved, 10);
-        if (!isNaN(parsed) && parsed >= 50 && parsed <= 200) {
-          setInternalZoom(parsed);
-          applyZoom(parsed);
-        }
-      }
-    } catch {
-      // localStorage may be unavailable
-    }
-  }, [controlledZoom, applyZoom]);
-
-  const handleZoomSelect = (newZoom: number) => {
-    if (onZoomChange) {
-      onZoomChange(newZoom);
-    } else {
-      setInternalZoom(newZoom);
-      try {
-        localStorage.setItem("form_zoom", newZoom.toString());
-      } catch {}
-    }
-    applyZoom(newZoom);
-  };
 
   return (
     <>
@@ -96,7 +41,6 @@ export function FormMenu({ onReset, zoom: controlledZoom, onZoomChange }: FormMe
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
-          {/* Appearance Section */}
           <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Appearance</DropdownMenuLabel>
           <DropdownMenuItem onClick={() => setTheme("light")} className="flex items-center justify-between cursor-pointer">
             <div className="flex items-center gap-2">
@@ -122,42 +66,6 @@ export function FormMenu({ onReset, zoom: controlledZoom, onZoomChange }: FormMe
           
           <DropdownMenuSeparator />
           
-          {/* Zoom Submenu — in dropdown between Appearance and Progress */}
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger className="cursor-pointer">
-              <div className="flex items-center gap-2 flex-1">
-                <ZoomIn className="h-4 w-4" />
-                <span>Zoom</span>
-              </div>
-              <span className="text-xs text-muted-foreground mr-1.5">{zoom}%</span>
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="w-44">
-              <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Zoom Level
-              </DropdownMenuLabel>
-              {ZOOM_OPTIONS.map((opt) => (
-                <DropdownMenuItem
-                  key={opt.value}
-                  onClick={() => handleZoomSelect(opt.value)}
-                  className="flex items-center justify-between cursor-pointer"
-                >
-                  <div className="flex items-center gap-2">
-                    {opt.value < 100 ? (
-                      <ZoomOut className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <ZoomIn className="h-4 w-4 text-muted-foreground" />
-                    )}
-                    <span>{opt.label}</span>
-                  </div>
-                  {zoom === opt.value && <Check className="h-4 w-4" />}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-
-          <DropdownMenuSeparator />
-          
-          {/* Progress Section */}
           <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Progress</DropdownMenuLabel>
           <DropdownMenuItem 
             onClick={(e) => {
