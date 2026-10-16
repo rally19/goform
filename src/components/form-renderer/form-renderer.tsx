@@ -858,8 +858,6 @@ function FieldRenderer({
                 className="mt-0.5 shrink-0"
                 onClick={() => {
                   // Allow clearing a non-required radio by clicking the selected option again.
-                  // Handled here only — the Label forwards click via htmlFor and would
-                  // otherwise fire onChange twice.
                   if (!field.required && value === opt.value) {
                     onChange("");
                   }
@@ -868,6 +866,12 @@ function FieldRenderer({
               <Label 
                 htmlFor={`${field.id}-${opt.value}`} 
                 className="cursor-pointer font-normal text-sm leading-normal flex-1"
+                onClick={(e) => {
+                  if (!field.required && value === opt.value) {
+                    e.preventDefault();
+                    onChange("");
+                  }
+                }}
               >
                 <div 
                   className="prose-sm max-w-full [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-md"
@@ -1026,15 +1030,20 @@ function FieldRenderer({
       );
     }
 
-    case "select":
+    case "select": {
+      const selectVal = typeof value === "string" ? value : "";
       return (
-        <Select value={(value as string) || undefined} onValueChange={(v) => onChange(v === "__clear__" ? "" : v)} disabled={disabled}>
+        <Select 
+          value={selectVal} 
+          onValueChange={(v) => onChange(v === "__clear__" ? "" : v)} 
+          disabled={disabled}
+        >
           <SelectTrigger className={cn("w-full h-11 px-3.5", inputClass)}>
             <SelectValue placeholder={field.placeholder ?? "Select an option"} />
           </SelectTrigger>
           <SelectContent>
-            {!field.required && value && (
-              <SelectItem value="__clear__" className="text-muted-foreground italic py-2">
+            {!field.required && (
+              <SelectItem value="__clear__" className="text-muted-foreground italic py-2 cursor-pointer">
                 Clear selection
               </SelectItem>
             )}
@@ -1049,6 +1058,7 @@ function FieldRenderer({
           </SelectContent>
         </Select>
       );
+    }
 
     case "multi_select": {
       const selected = (value as string[]) ?? [];
@@ -1296,10 +1306,9 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
           const newVal = state.overriddenValue as FormAnswer;
           const isEqual =
             prevVal === newVal ||
-            (Array.isArray(prevVal) &&
-              Array.isArray(newVal) &&
-              prevVal.length === newVal.length &&
-              prevVal.every((v, i) => v === newVal[i]));
+            (prevVal != null && newVal != null && typeof prevVal === "object" && typeof newVal === "object"
+              ? JSON.stringify(prevVal) === JSON.stringify(newVal)
+              : false);
 
           if (!isEqual) {
             next[id] = newVal;

@@ -68,7 +68,7 @@ async function PreviewPageData({
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto space-y-4">
+      <div id="form-zoom-container" className="max-w-2xl mx-auto space-y-4">
         {/* Form header card */}
         <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
           <div className="h-2.5" style={{ backgroundColor: accentColor }} />

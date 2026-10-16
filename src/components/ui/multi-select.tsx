@@ -77,8 +77,10 @@ export function MultiSelect({
                     key={value}
                     variant="secondary"
                     className="flex items-center gap-1.5 bg-muted/60 hover:bg-muted py-0.5 px-2 text-xs font-normal"
+                    onPointerDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation();
+                      e.preventDefault();
                       handleUnselect(value);
                     }}
                   >
