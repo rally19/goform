@@ -68,7 +68,20 @@ async function PreviewPageData({
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto space-y-4">
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+            try {
+              var z = localStorage.getItem('form_zoom');
+              if (z && z !== '100') {
+                var el = document.getElementById('form-zoom-container');
+                if (el) el.style.zoom = z + '%';
+              }
+            } catch(e) {}
+          `,
+        }}
+      />
+      <div id="form-zoom-container" className="max-w-2xl mx-auto space-y-4">
         {/* Form header card */}
         <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
           <div className="h-2.5" style={{ backgroundColor: accentColor }} />

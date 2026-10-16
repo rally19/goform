@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { db } from "@/lib/db";
@@ -1161,6 +1162,11 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
   const [visitedPages, setVisitedPages] = useState<Set<number>>(new Set([0]));
   const [pageHistory, setPageHistory] = useState<number[]>([0]);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // ── Autosave logic ────────────────────────────────────────────────────────
   // Load progress on mount
@@ -1779,9 +1785,14 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
 
   return (
     <>
-      <div className="fixed top-4 right-4 z-50">
-        <FormMenu onReset={resetProgress} />
-      </div>
+      {mounted && typeof document !== "undefined"
+        ? createPortal(
+            <div className="fixed top-4 right-4 z-50">
+              <FormMenu onReset={resetProgress} />
+            </div>,
+            document.body
+          )
+        : null}
       <form onSubmit={handlePreSubmit} noValidate>
       {/* Progress bar */}
       {form.showProgress && totalPages > 1 && (
