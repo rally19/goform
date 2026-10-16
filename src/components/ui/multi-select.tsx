@@ -64,11 +64,11 @@ export function MultiSelect({
           role="combobox"
           aria-expanded={open}
           className={cn(
-            "w-full h-auto min-h-11 justify-between bg-background hover:bg-background/80 transition-all",
+            "w-full h-auto min-h-11 justify-between bg-background hover:bg-background/80 transition-all font-normal text-left px-3.5 py-2",
             className
           )}
         >
-          <div className="flex flex-wrap gap-1 items-center py-1">
+          <div className="flex flex-wrap gap-1.5 items-center py-0.5">
             {selected.length > 0 ? (
               selected.map((value) => {
                 const option = options.find((o) => o.value === value);
@@ -76,16 +76,16 @@ export function MultiSelect({
                   <Badge
                     key={value}
                     variant="secondary"
-                    className="flex items-center gap-1 bg-muted/60 hover:bg-muted"
+                    className="flex items-center gap-1.5 bg-muted/60 hover:bg-muted py-0.5 px-2 text-xs font-normal"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleUnselect(value);
                     }}
                   >
-                    <span className="max-w-[150px] truncate text-xs">
+                    <span className="max-w-[180px] truncate">
                       {stripHtml(option?.label ?? value)}
                     </span>
-                    <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                    <X className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground cursor-pointer" />
                   </Badge>
                 );
               })
@@ -96,7 +96,7 @@ export function MultiSelect({
           <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50 ml-2" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0" align="start">
+      <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[200px] p-0" align="start">
         <Command className="w-full">
           <CommandInput placeholder="Search options..." />
           <CommandList className="max-h-60 overflow-y-auto">
@@ -107,11 +107,11 @@ export function MultiSelect({
                   key={option.value}
                   value={option.label}
                   onSelect={() => handleSelect(option.value)}
-                  className="flex items-center gap-2 cursor-pointer"
+                  className="flex items-center gap-2.5 cursor-pointer py-2 px-2.5 text-sm"
                 >
                   <div
                     className={cn(
-                      "flex h-4 w-4 items-center justify-center rounded-sm border border-primary transition-all",
+                      "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-primary transition-all",
                       selected.includes(option.value)
                         ? "bg-primary text-primary-foreground"
                         : "opacity-50 [&_svg]:invisible"
@@ -121,7 +121,7 @@ export function MultiSelect({
                     <Check className="h-3 w-3" />
                   </div>
                   <div 
-                    className="flex-1 prose-sm max-w-full [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-md"
+                    className="flex-1 prose-sm max-w-full [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-md leading-normal"
                     dangerouslySetInnerHTML={{ __html: sanitize(option.label) }}
                   />
                 </CommandItem>

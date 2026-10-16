@@ -199,12 +199,12 @@ export const FieldCard = memo(function FieldCard({
     }
     if (field.type === "ranking") {
       return (
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {(field.options ?? []).map((opt, i) => (
-            <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground rounded-md border border-border/60 bg-muted/40 px-2.5 py-1.5">
+            <div key={i} className="flex items-center gap-2.5 text-sm text-muted-foreground rounded-md border border-border/60 bg-muted/40 px-3 py-2">
               <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
               <span
-                className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold shrink-0"
+                className="flex h-5.5 w-5.5 items-center justify-center rounded-full text-[11px] font-semibold shrink-0"
                 style={{ backgroundColor: `${accentColor}22`, color: accentColor }}
               >
                 {i + 1}
@@ -220,15 +220,15 @@ export const FieldCard = memo(function FieldCard({
     }
     if (["radio", "checkbox"].includes(field.type)) {
       return (
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {(field.options ?? []).map((opt, i) => (
-            <div key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+            <div key={i} className="flex items-start gap-2.5 text-sm text-muted-foreground">
               <div className={cn(
-                "h-3.5 w-3.5 border border-muted-foreground/40 pointer-events-none shrink-0 mt-0.5",
+                "h-4 w-4 border border-muted-foreground/40 pointer-events-none shrink-0 mt-0.5",
                 field.type === "radio" ? "rounded-full" : "rounded-[3px]"
               )} />
               <SafeHtml 
-                className="prose-sm max-w-full [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-md"
+                className="prose-sm max-w-full flex-1 [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-md"
                 html={opt.label}
               />
             </div>
@@ -239,17 +239,17 @@ export const FieldCard = memo(function FieldCard({
     if (["select", "multi_select"].includes(field.type)) {
       return (
         <div className="space-y-2">
-          <div className="h-9 w-full rounded-md border border-input bg-muted/50 px-3 text-sm text-muted-foreground flex items-center justify-between pointer-events-none">
+          <div className="h-10 w-full rounded-md border border-input bg-muted/50 px-3.5 text-sm text-muted-foreground flex items-center justify-between pointer-events-none">
             <span>{field.placeholder || (field.type === "select" ? "Select an option..." : "Select options...")}</span>
-            <ChevronDown className="h-4 w-4 shrink-0" />
+            <ChevronDown className="h-4 w-4 shrink-0 opacity-60" />
           </div>
           {field.options && field.options.length > 0 && (
-            <div className="space-y-1.5 pl-2 border-l border-border/50 ml-1.5">
+            <div className="space-y-1.5 pl-2.5 border-l-2 border-border/50 ml-1.5 mt-1.5">
               {field.options.map((opt, i) => (
-                <div key={i} className="flex items-start gap-2 text-[11px] text-muted-foreground/80">
-                  <div className="h-1 w-1 rounded-full bg-muted-foreground/30 mt-1.5 shrink-0" />
+                <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground/80 py-0.5">
+                  <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 mt-1 shrink-0" />
                   <SafeHtml 
-                    className="prose-xs max-w-full opacity-80 [&_img]:max-h-24 [&_img]:w-auto [&_img]:rounded-sm"
+                    className="prose-xs max-w-full flex-1 opacity-90 [&_img]:max-h-24 [&_img]:w-auto [&_img]:rounded-sm"
                     html={opt.label}
                   />
                 </div>
@@ -262,9 +262,9 @@ export const FieldCard = memo(function FieldCard({
     if (field.type === "rating") {
       const stars = field.properties?.stars ?? 5;
       return (
-        <div className="flex gap-1">
+        <div className="flex gap-1.5">
           {Array.from({ length: stars }).map((_, i) => (
-            <Star key={i} className="h-5 w-5 text-muted-foreground/30" />
+            <Star key={i} className="h-5.5 w-5.5 text-muted-foreground/30" />
           ))}
         </div>
       );
@@ -273,10 +273,10 @@ export const FieldCard = memo(function FieldCard({
       const min = field.properties?.scaleMin ?? 1;
       const max = field.properties?.scaleMax ?? 10;
       return (
-        <div className="space-y-1">
-          <div className="flex gap-1 flex-wrap">
+        <div className="space-y-1.5">
+          <div className="flex gap-1.5 flex-wrap">
             {Array.from({ length: max - min + 1 }, (_, i) => min + i).map((n) => (
-              <div key={n} className="h-8 w-8 rounded border border-muted-foreground/20 bg-muted/50 flex items-center justify-center text-xs text-muted-foreground">
+              <div key={n} className="h-8.5 w-8.5 rounded border border-muted-foreground/20 bg-muted/50 flex items-center justify-center text-xs text-muted-foreground font-medium">
                 {n}
               </div>
             ))}
@@ -292,16 +292,16 @@ export const FieldCard = memo(function FieldCard({
     }
     if (field.type === "long_text") {
       return (
-        <div className="h-20 w-full rounded-md border border-input bg-muted/50 px-3 py-2 text-sm text-muted-foreground pointer-events-none resize-none">
+        <div className="h-20 w-full rounded-md border border-input bg-muted/50 px-3.5 py-2.5 text-sm text-muted-foreground pointer-events-none resize-none">
           {field.placeholder || "Long answer text..."}
         </div>
       );
     }
     if (field.type === "date" || field.type === "time" || field.type === "datetime") {
       return (
-        <div className="h-9 w-full rounded-md border border-input bg-muted/50 px-3 text-sm text-muted-foreground flex items-center justify-between pointer-events-none">
+        <div className="h-10 w-full rounded-md border border-input bg-muted/50 px-3.5 text-sm text-muted-foreground flex items-center justify-between pointer-events-none">
           <span>{field.type === "time" ? "hh:mm" : "mm/dd/yyyy"}</span>
-          <Icon className="h-4 w-4" />
+          <Icon className="h-4 w-4 opacity-60" />
         </div>
       );
     }
@@ -314,7 +314,7 @@ export const FieldCard = memo(function FieldCard({
       );
     }
     return (
-      <div className="h-9 w-full rounded-md border border-input bg-muted/50 px-3 text-sm text-muted-foreground flex items-center pointer-events-none">
+      <div className="h-10 w-full rounded-md border border-input bg-muted/50 px-3.5 text-sm text-muted-foreground flex items-center pointer-events-none">
         {field.placeholder || "Your answer"}
       </div>
     );

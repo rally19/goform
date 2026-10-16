@@ -846,15 +846,16 @@ function FieldRenderer({
         <RadioGroup
           value={(value as string) ?? ""}
           onValueChange={onChange}
-          className="space-y-2"
+          className="space-y-2.5 pt-0.5"
           disabled={disabled}
         >
           {options.map((opt) => (
-            <div key={opt.value} className="flex items-center gap-3">
+            <div key={opt.value} className="flex items-start gap-3 py-1 px-1 rounded-md hover:bg-muted/30 transition-colors">
               <RadioGroupItem 
                 value={opt.value} 
                 id={`${field.id}-${opt.value}`}
                 disabled={disabled}
+                className="mt-0.5 shrink-0"
                 onClick={() => {
                   // Allow clearing a non-required radio by clicking the selected option again.
                   // Handled here only — the Label forwards click via htmlFor and would
@@ -866,7 +867,7 @@ function FieldRenderer({
               />
               <Label 
                 htmlFor={`${field.id}-${opt.value}`} 
-                className="cursor-pointer font-normal flex-1"
+                className="cursor-pointer font-normal text-sm leading-normal flex-1"
               >
                 <div 
                   className="prose-sm max-w-full [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-md"
@@ -881,19 +882,20 @@ function FieldRenderer({
     case "checkbox": {
       const checked = (value as string[]) ?? [];
       return (
-        <div className="space-y-2">
+        <div className="space-y-2.5 pt-0.5">
           {options.map((opt) => (
-            <div key={opt.value} className="flex items-center gap-3">
+            <div key={opt.value} className="flex items-start gap-3 py-1 px-1 rounded-md hover:bg-muted/30 transition-colors">
               <Checkbox
                 id={`${field.id}-${opt.value}`}
                 checked={checked.includes(opt.value)}
                 disabled={disabled}
+                className="mt-0.5 shrink-0"
                 onCheckedChange={(ch) => {
                   if (ch) onChange([...checked, opt.value]);
                   else onChange(checked.filter((v) => v !== opt.value));
                 }}
               />
-              <Label htmlFor={`${field.id}-${opt.value}`} className="cursor-pointer font-normal flex-1">
+              <Label htmlFor={`${field.id}-${opt.value}`} className="cursor-pointer font-normal text-sm leading-normal flex-1">
                 <div 
                   className="prose-sm max-w-full [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-md"
                   dangerouslySetInnerHTML={{ __html: sanitize(opt.label) }}
@@ -1026,18 +1028,18 @@ function FieldRenderer({
 
     case "select":
       return (
-        <Select value={(value as string) ?? ""} onValueChange={(v) => onChange(v === "__clear__" ? "" : v)} disabled={disabled}>
-          <SelectTrigger className={cn("h-11", inputClass)}>
+        <Select value={(value as string) || undefined} onValueChange={(v) => onChange(v === "__clear__" ? "" : v)} disabled={disabled}>
+          <SelectTrigger className={cn("w-full h-11 px-3.5", inputClass)}>
             <SelectValue placeholder={field.placeholder ?? "Select an option"} />
           </SelectTrigger>
           <SelectContent>
             {!field.required && value && (
-              <SelectItem value="__clear__" className="text-muted-foreground italic">
+              <SelectItem value="__clear__" className="text-muted-foreground italic py-2">
                 Clear selection
               </SelectItem>
             )}
             {options.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
+              <SelectItem key={opt.value} value={opt.value} className="py-2">
                 <div 
                   className="prose-sm max-w-full [&_img]:max-h-32 [&_img]:w-auto [&_img]:rounded-md"
                   dangerouslySetInnerHTML={{ __html: sanitize(opt.label) }}
@@ -1057,7 +1059,7 @@ function FieldRenderer({
           onChange={onChange}
           placeholder={field.placeholder ?? "Select options..."}
           accentColor={accentColor}
-          className={inputClass}
+          className={cn("w-full min-h-11", inputClass)}
         />
       );
     }
@@ -1290,8 +1292,17 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
       for (const [id, state] of Object.entries(dynamicStates)) {
         if (state.overriddenValue !== undefined) {
           stillOverridden.add(id);
-          if (next[id] !== state.overriddenValue) {
-            next[id] = state.overriddenValue as FormAnswer;
+          const prevVal = next[id];
+          const newVal = state.overriddenValue as FormAnswer;
+          const isEqual =
+            prevVal === newVal ||
+            (Array.isArray(prevVal) &&
+              Array.isArray(newVal) &&
+              prevVal.length === newVal.length &&
+              prevVal.every((v, i) => v === newVal[i]));
+
+          if (!isEqual) {
+            next[id] = newVal;
             changed = true;
           }
         }
@@ -1851,21 +1862,21 @@ export function FormRenderer({ form, fields, sections, logic = [], mode = "publi
 
           return (
             <div key={field.id} id={`field-${field.id}`} className="space-y-2">
-              <Label className="text-sm font-medium flex items-center gap-1">
-              <div 
-                className="prose-sm max-w-full"
-                dangerouslySetInnerHTML={{ __html: sanitize(field.label) }}
-              />
-              {state.required && (
-                <span className="text-destructive">*</span>
+              <Label className="text-sm font-medium flex items-start gap-1 leading-normal">
+                <div 
+                  className="prose-sm max-w-full font-medium"
+                  dangerouslySetInnerHTML={{ __html: sanitize(field.label) }}
+                />
+                {state.required && (
+                  <span className="text-destructive font-bold text-sm leading-none mt-0.5">*</span>
+                )}
+              </Label>
+              {field.description && (
+                <SafeHtml 
+                  className="text-xs text-muted-foreground -mt-1 prose-xs max-w-full preserve-spaces"
+                  html={field.description}
+                />
               )}
-            </Label>
-            {field.description && (
-              <SafeHtml 
-                className="text-xs text-foreground/80 -mt-1 prose-xs max-w-full preserve-spaces"
-                html={field.description}
-              />
-            )}
               <FieldRenderer
                 field={field}
                 value={answers[field.id] ?? null}
